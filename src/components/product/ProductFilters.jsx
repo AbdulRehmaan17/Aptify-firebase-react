@@ -11,7 +11,28 @@ const ProductFilters = ({
   isOpen,
   onToggle
 }) => {
-  const [localFilters, setLocalFilters] = useState(filters);
+  // Initialize with default structure if filters don't have expected properties
+  const defaultFilters = {
+    category: [],
+    brand: [],
+    priceRange: [0, 10000000],
+    rating: 0,
+    inStock: false,
+    ...filters // Merge with provided filters
+  };
+  
+  // Ensure category and brand are arrays
+  if (!Array.isArray(defaultFilters.category)) {
+    defaultFilters.category = [];
+  }
+  if (!Array.isArray(defaultFilters.brand)) {
+    defaultFilters.brand = [];
+  }
+  if (!Array.isArray(defaultFilters.priceRange)) {
+    defaultFilters.priceRange = [0, 10000000];
+  }
+  
+  const [localFilters, setLocalFilters] = useState(defaultFilters);
 
   const handleFilterChange = (key, value) => {
     setLocalFilters(prev => ({ ...prev, [key]: value }));
@@ -35,7 +56,7 @@ const ProductFilters = ({
     const resetFilters = {
       category: [],
       brand: [],
-      priceRange: [0, 50000],
+      priceRange: [0, 10000000],
       rating: 0,
       inStock: false
     };
@@ -130,8 +151,8 @@ const ProductFilters = ({
                 <input
                   type="range"
                   min="0"
-                  max="50000"
-                  step="100"
+                  max="10000000"
+                  step="10000"
                   value={localFilters.priceRange[1]}
                   onChange={(e) => handleFilterChange('priceRange', [0, parseInt(e.target.value)])}
                   className="w-full"

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, LogOut, Save, Edit2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { getUserProfile, updateUserProfile } from '../firebase/firestore';
+import userService from '../services/userService';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
@@ -31,13 +31,15 @@ const MyAccount = () => {
 
             const fetchProfile = async () => {
                 try {
-                    const userProfile = await getUserProfile(user.uid);
+                    const userProfile = await userService.getProfile(user.uid);
                     console.log('Profile fetched:', userProfile); // Debug log
                     setProfile({
-                        displayName: userProfile.displayName || '',
+                        displayName: userProfile.displayName || userProfile.name || '',
                         email: userProfile.email || user.email,
-                        phone: userProfile.phone || '',
-                        address: userProfile.address || '',
+                        phone: userProfile.phone || userProfile.phoneNumber || '',
+                        address: typeof userProfile.address === 'string' 
+                            ? userProfile.address 
+                            : userProfile.address?.line1 || '',
                     });
                 } catch (error) {
                     console.error('Error fetching profile:', error);
@@ -79,7 +81,7 @@ const MyAccount = () => {
         }
 
         try {
-            await updateUserProfile(user.uid, {
+            await userService.updateProfile(user.uid, {
                 displayName: profile.displayName,
                 phone: profile.phone,
                 address: profile.address,
@@ -88,7 +90,7 @@ const MyAccount = () => {
             setIsEditing(false);
         } catch (error) {
             console.error('Error updating profile:', error);
-            toast.error('Failed to update profile.');
+            toast.error(error.message || 'Failed to update profile.');
         }
     };
 

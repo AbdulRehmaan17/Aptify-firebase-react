@@ -1,22 +1,22 @@
-Luxury Time 🕰️
+Aptify 🏠
 
 
-Luxury Time is a premium e-commerce platform for luxury watches, delivering an elegant and seamless shopping experience. Built with Vite, Next.js, TypeScript, and Firebase, it combines a modern frontend with a scalable serverless backend.
+Aptify is a comprehensive property rental and purchase platform with renovation services, delivering an elegant and seamless real estate experience. Built with Vite, React, and Firebase, it combines a modern frontend with a scalable serverless backend.
 
 🌟 Features
 
-Curated Watch Collection: Explore high-end watches with detailed descriptions and high-quality images.
+Property Listings: Browse and search rental and purchase properties with detailed descriptions and high-quality images.
+Renovation Services: Connect with renovation experts and request services for your properties.
 Secure Authentication: Firebase Authentication for safe user login and registration.
-Real-Time Data: Firebase Firestore for managing products, orders, and user profiles in real-time.
-Fast & Responsive: Vite and Next.js ensure blazing-fast performance across devices.
-Type-Safe Code: TypeScript for a reliable and maintainable codebase.
-Smooth Shopping: Intuitive cart and checkout functionality.
+Real-Time Data: Firebase Firestore for managing properties, bookings, and user profiles in real-time.
+Fast & Responsive: Vite and React ensure blazing-fast performance across devices.
+Messaging System: Direct communication between property owners and potential buyers/renters.
 
 🛠️ Tech Stack
 
-Frontend: Vite, Next.js, TypeScript, Tailwind CSS
+Frontend: Vite, React, Tailwind CSS
 Backend: Firebase (Authentication, Firestore, Storage, Hosting)
-Deployment: Vercel (Next.js), Firebase Hosting
+Deployment: Firebase Hosting, Vercel
 
 🚀 Getting Started
 Prerequisites
@@ -40,12 +40,13 @@ Configure Firebase:
 
 Create a Firebase project in the Firebase Console.
 Enable Authentication, Firestore, and Storage.
-Add Firebase config to .env.local:NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-auth-domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-storage-bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
+Add Firebase config to .env file:
+VITE_FIREBASE_API_KEY=your-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-auth-domain
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-storage-bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+VITE_FIREBASE_APP_ID=your-app-id
 
 
 
@@ -53,7 +54,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 Run Locally:
 pnpm dev
 
-Open http://localhost:3000 in your browser.
+Open http://localhost:5173 in your browser.
 
 Build for Production:
 pnpm build
@@ -80,7 +81,7 @@ Reusable React components
 
 
 src/pages/
-Next.js pages (routes)
+React pages (routes)
 
 
 src/lib/
@@ -99,16 +100,8 @@ Tailwind CSS and global styles
 Firebase environment variables
 
 
-vite.config.ts
+vite.config.js
 Vite configuration
-
-
-next.config.js
-Next.js configuration
-
-
-tsconfig.json
-TypeScript configuration
 
 
 tailwind.config.js
@@ -118,8 +111,8 @@ Tailwind CSS configuration
 🔥 Firebase Integration
 
 Authentication: Supports email/password and Google login.
-Firestore: Stores product catalogs, user profiles, and orders.
-Storage: Hosts watch images and media.
+Firestore: Stores property listings, user profiles, renovation service requests, and conversations.
+Storage: Hosts property images and media.
 Hosting: Deploys static assets for fast load times.
 
 Ensure Firestore security rules and indexes are configured for secure data access.
@@ -136,6 +129,6 @@ Please adhere to our Code of Conduct.
 📜 License
 This project is licensed under the MIT License.
 📧 Contact
-For support or feedback, contact support@luxurytime.com or open a GitHub issue.
+For support or feedback, contact support@aptify.com or open a GitHub issue.
 
-Luxury Time - Elegance in every tick. 🕰️
+Aptify - Your perfect property, simplified. 🏠
