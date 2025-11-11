@@ -73,10 +73,10 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-8">
             <Link
-              to="/properties"
+              to="/buy-sell"
               className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
             >
-              Properties
+              Buy/Sell
             </Link>
             <Link
               to="/services"
@@ -85,10 +85,16 @@ const Navbar = () => {
               Renovation Services
             </Link>
             <Link
-              to="/post-property"
+              to="/construction-services"
               className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
             >
-              List Property
+              Construction Service
+            </Link>
+            <Link
+              to="/rental-services"
+              className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
+            >
+              Rental Services
             </Link>
             <Link
               to="/about"
@@ -133,6 +139,13 @@ const Navbar = () => {
                       onClick={() => setIsUserMenuOpen(false)}
                     >
                       My Account
+                    </Link>
+                    <Link
+                      to="/register-constructor"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Register as Constructor
                     </Link>
                     {userProfile?.role === 'admin' && (
                       <Link
@@ -203,11 +216,11 @@ const Navbar = () => {
               </form>
 
               <Link
-                to="/properties"
+                to="/buy-sell"
                 className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Properties
+                Buy/Sell
               </Link>
               <Link
                 to="/services"
@@ -217,11 +230,18 @@ const Navbar = () => {
                 Renovation Services
               </Link>
               <Link
-                to="/post-property"
+                to="/construction-services"
                 className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
                 onClick={() => setIsMenuOpen(false)}
               >
-                List Property
+                Construction Service
+              </Link>
+              <Link
+                to="/rental-services"
+                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Rental Services
               </Link>
               <Link
                 to="/about"

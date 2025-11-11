@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
+import ReviewsAndRatings from './ReviewsAndRatings';
 
 const PropertyDetailPage = () => {
   const { id } = useParams();
@@ -292,6 +293,13 @@ const PropertyDetailPage = () => {
             </div>
           </motion.div>
         </div>
+
+        {/* Reviews & Ratings Section */}
+        {id && (
+          <div className="mt-12">
+            <ReviewsAndRatings key={id} targetId={id} targetType="property" />
+          </div>
+        )}
       </motion.div>
     </div>
   );

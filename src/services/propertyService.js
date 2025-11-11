@@ -47,12 +47,25 @@ class PropertyService {
       }
 
       // Create property document
+      // Ensure listingType is set correctly - use explicit value or fallback to type
+      const listingTypeValue = propertyData.listingType 
+        ? propertyData.listingType.toLowerCase() 
+        : propertyData.type.toLowerCase();
+      
+      console.log('Creating property in Firestore:', {
+        type: propertyData.type.toLowerCase(),
+        listingType: listingTypeValue,
+        title: propertyData.title,
+        status: propertyData.status || 'pending'
+      });
+      
       const propertyRef = await addDoc(collection(db, PROPERTIES_COLLECTION), {
         title: propertyData.title,
         description: propertyData.description,
         price: Number(propertyData.price),
         currency: propertyData.currency || 'PKR',
         type: propertyData.type.toLowerCase(),
+        listingType: listingTypeValue, // Explicitly set listingType for rental filtering
         status: propertyData.status || 'pending',
         ownerId: propertyData.ownerId,
         ownerName: propertyData.ownerName || null,

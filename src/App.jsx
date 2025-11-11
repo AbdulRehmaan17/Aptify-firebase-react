@@ -14,6 +14,27 @@ import AdminPanel from './pages/AdminPanel';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import MyAccount from './pages/MyAccount';
+import ConstructionServicesPage from './pages/ConstructionServicesPage';
+import ConstructionRequestForm from './pages/ConstructionRequestForm';
+import ConstructionList from './pages/ConstructionList';
+import ConstructionDashboard from './pages/ConstructionDashboard';
+import ProviderConstructionPanel from './pages/ProviderConstructionPanel';
+import RegisterConstructor from './pages/RegisterConstructor';
+import RenovationServicesPage from './pages/RenovationServicesPage';
+import RenovationList from './pages/RenovationList';
+import RenovationRequestForm from './pages/RenovationRequestForm';
+import RenovationDashboard from './pages/RenovationDashboard';
+import ProviderRenovationPanel from './pages/ProviderRenovationPanel';
+import RegisterRenovator from './pages/RegisterRenovator';
+import RentPage from './pages/RentPage';
+import BuyPage from './pages/BuyPage';
+import SellPage from './pages/SellPage';
+import BuySellLanding from './pages/BuySellLanding';
+import RenovationProviderDetail from './pages/RenovationProviderDetail';
+import ConstructionProviderDetail from './pages/ConstructionProviderDetail';
+import RentalServicesPage from './pages/RentalServicesPage';
+import RentalRequestForm from './pages/RentalRequestForm';
+import BrowseRentals from './pages/BrowseRentals';
 
 function App() {
   return (
@@ -30,6 +51,14 @@ function App() {
               <Route path="/auth" element={<Auth />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/services" element={<RenovationServicesPage />} />
+              <Route path="/construction-services" element={<ConstructionServicesPage />} />
+              <Route path="/rental-services" element={<RentalServicesPage />} />
+              <Route path="/browse-rentals" element={<BrowseRentals />} />
+              <Route path="/buy-sell" element={<BuySellLanding />} />
+              <Route path="/rent" element={<RentPage />} />
+              <Route path="/buy" element={<BuyPage />} />
+              <Route path="/sell" element={<SellPage />} />
 
               {/* Protected Routes */}
               <Route
@@ -53,6 +82,116 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AdminPanel />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Construction Module Routes */}
+              <Route
+                path="/construction-request"
+                element={
+                  <ProtectedRoute>
+                    <ConstructionRequestForm />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/construction-list"
+                element={
+                  <ProtectedRoute>
+                    <ConstructionList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/construction-provider/:id"
+                element={
+                  <ProtectedRoute>
+                    <ConstructionProviderDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/construction-dashboard"
+                element={
+                  <ProtectedRoute>
+                    <ConstructionDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider-construction"
+                element={
+                  <ProtectedRoute>
+                    <ProviderConstructionPanel />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/register-constructor"
+                element={
+                  <ProtectedRoute>
+                    <RegisterConstructor />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Renovation Module Routes */}
+              <Route
+                path="/renovation-list"
+                element={
+                  <ProtectedRoute>
+                    <RenovationList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovation-provider/:id"
+                element={
+                  <ProtectedRoute>
+                    <RenovationProviderDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovation-request"
+                element={
+                  <ProtectedRoute>
+                    <RenovationRequestForm />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovation-dashboard"
+                element={
+                  <ProtectedRoute>
+                    <RenovationDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/provider-renovation"
+                element={
+                  <ProtectedRoute>
+                    <ProviderRenovationPanel />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/register-renovator"
+                element={
+                  <ProtectedRoute>
+                    <RegisterRenovator />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Rental Module Routes */}
+              <Route
+                path="/rental-request"
+                element={
+                  <ProtectedRoute>
+                    <RentalRequestForm />
                   </ProtectedRoute>
                 }
               />
