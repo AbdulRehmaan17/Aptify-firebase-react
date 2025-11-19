@@ -1,11 +1,6 @@
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  serverTimestamp,
-} from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../firebase/config';
+import { db, storage } from '../firebase';
 
 const USERS_COLLECTION = 'users';
 
@@ -74,7 +69,7 @@ class UserService {
       ];
 
       // Filter and validate updates
-      Object.keys(updates).forEach(key => {
+      Object.keys(updates).forEach((key) => {
         if (allowedFields.includes(key)) {
           updateData[key] = updates[key];
         } else if (key === 'email' || key === 'role' || key === 'isAdmin') {
@@ -160,7 +155,7 @@ class UserService {
 
       // Extract path from URL
       const urlParts = urlToDelete.split('/');
-      const pathIndex = urlParts.findIndex(part => part === 'users');
+      const pathIndex = urlParts.findIndex((part) => part === 'users');
       if (pathIndex === -1) {
         throw new Error('Invalid image URL format');
       }
@@ -291,7 +286,7 @@ class UserService {
       }
 
       const favorites = userSnap.data().favorites || [];
-      const updatedFavorites = favorites.filter(id => id !== propertyId);
+      const updatedFavorites = favorites.filter((id) => id !== propertyId);
 
       await updateDoc(userRef, {
         favorites: updatedFavorites,
@@ -322,4 +317,3 @@ class UserService {
 // Export singleton instance
 export const userService = new UserService();
 export default userService;
-

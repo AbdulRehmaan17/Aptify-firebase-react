@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 /**
  * SellPage Component
- * 
+ *
  * Landing page for property sellers.
  * Provides information about selling properties and links to post property form.
  */
@@ -69,7 +69,12 @@ const SellPage = () => {
                 <Button size="lg" variant="secondary" asChild>
                   <Link to="/auth">Sign Up to List Property</Link>
                 </Button>
-                <Button size="lg" variant="outline" className="bg-white text-green-600 hover:bg-green-50" asChild>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-white text-green-600 hover:bg-green-50"
+                  asChild
+                >
                   <Link to="/auth">Sign In</Link>
                 </Button>
               </div>
@@ -125,9 +130,7 @@ const SellPage = () => {
                 <div className="w-12 h-12 bg-green-600 text-white rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">
                   {step.number}
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {step.title}
-                </h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{step.title}</h3>
                 <p className="text-gray-600">{step.description}</p>
               </div>
             ))}
@@ -156,7 +159,12 @@ const SellPage = () => {
               <Button size="lg" variant="secondary" asChild>
                 <Link to="/auth">Sign Up Free</Link>
               </Button>
-              <Button size="lg" variant="outline" className="bg-white text-green-600 hover:bg-green-50" asChild>
+              <Button
+                size="lg"
+                variant="outline"
+                className="bg-white text-green-600 hover:bg-green-50"
+                asChild
+              >
                 <Link to="/contact">Contact Us</Link>
               </Button>
             </div>
@@ -168,5 +176,3 @@ const SellPage = () => {
 };
 
 export default SellPage;
-
-

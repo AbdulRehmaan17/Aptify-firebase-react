@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, User, Chrome } from 'lucide-react';
-import { loginWithEmail, registerWithEmail, loginWithGoogle, resetPassword } from '../firebase/auth';
+import { Eye, EyeOff, Mail, Lock, User, Phone } from 'lucide-react';
+import { FcGoogle } from 'react-icons/fc';
+import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import toast from 'react-hot-toast';
@@ -10,17 +11,18 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: '',
-    fullName: ''
+    name: '',
+    phone: '',
   });
   const [errors, setErrors] = useState({});
 
   const navigate = useNavigate();
   const location = useLocation();
+  const { register, login, loginWithGoogle } = useAuth();
   const from = location.state?.from?.pathname || '/';
 
   const validateForm = () => {
@@ -39,8 +41,13 @@ const Auth = () => {
     }
 
     if (!isLogin) {
-      if (!formData.fullName) {
-        newErrors.fullName = 'Full name is required';
+      if (!formData.name) {
+        newErrors.name = 'Name is required';
+      }
+      if (!formData.phone) {
+        newErrors.phone = 'Phone number is required';
+      } else if (!/^[\d\s\-\+\(\)]+$/.test(formData.phone)) {
+        newErrors.phone = 'Phone number is invalid';
       }
       if (!formData.confirmPassword) {
         newErrors.confirmPassword = 'Please confirm your password';
@@ -60,70 +67,85 @@ const Auth = () => {
 
     setIsLoading(true);
     try {
-      let result;
-
       if (isLogin) {
-        result = await loginWithEmail(formData.email, formData.password);
-      } else {
-        result = await registerWithEmail(formData.email, formData.password, formData.fullName);
-      }
-
-      if (result.success) {
-        toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
+        await login(formData.email, formData.password);
+        toast.success('Welcome back!');
         navigate(from, { replace: true });
       } else {
-        toast.error(result.error);
+        await register(formData.email, formData.password, formData.name, formData.phone);
+        toast.success('Account created successfully!');
+        navigate('/', { replace: true });
       }
     } catch (error) {
-      toast.error('An unexpected error occurred');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      console.error('Auth error:', error);
+      let errorMessage = 'An error occurred. Please try again.';
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    try {
-      const result = await loginWithGoogle();
-      if (result.success) {
-        toast.success('Welcome!');
-        navigate(from, { replace: true });
-      } else {
-        toast.error(result.error);
+      // Handle Firebase auth errors
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            errorMessage = 'This email is already registered. Please sign in instead.';
+            break;
+          case 'auth/invalid-email':
+            errorMessage = 'Invalid email address.';
+            break;
+          case 'auth/weak-password':
+            errorMessage = 'Password is too weak. Please use a stronger password.';
+            break;
+          case 'auth/user-not-found':
+            errorMessage = 'No account found with this email address.';
+            break;
+          case 'auth/wrong-password':
+            errorMessage = 'Incorrect password. Please try again.';
+            break;
+          case 'auth/invalid-credential':
+            errorMessage = 'Invalid email or password.';
+            break;
+          default:
+            errorMessage = error.message || 'An error occurred. Please try again.';
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
-    } catch (error) {
-      toast.error('Google login failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handleForgotPassword = async () => {
-    if (!formData.email) {
-      toast.error('Please enter your email address');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const result = await resetPassword(formData.email);
-      if (result.success) {
-        toast.success('Password reset email sent!');
-        setShowForgotPassword(false);
-      } else {
-        toast.error(result.error);
-      }
-    } catch (error) {
-      toast.error('Failed to send reset email');
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+      setErrors((prev) => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      await loginWithGoogle();
+      toast.success('Logged in with Google');
+      navigate(from, { replace: true });
+    } catch (error) {
+      console.error('Google login error:', error);
+      let errorMessage = 'Failed to sign in with Google. Please try again.';
+      
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/popup-closed-by-user':
+            errorMessage = 'Sign-in popup was closed. Please try again.';
+            break;
+          case 'auth/cancelled-popup-request':
+            errorMessage = 'Sign-in was cancelled. Please try again.';
+            break;
+          default:
+            errorMessage = error.message || errorMessage;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
@@ -132,174 +154,160 @@ const Auth = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
           <h2 className="text-3xl font-display font-bold text-gray-900">
-            {showForgotPassword
-              ? 'Reset Password'
-              : isLogin
-                ? 'Welcome Back'
-                : 'Create Account'
-            }
+            {isLogin ? 'Welcome Back' : 'Create Account'}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {showForgotPassword
-              ? 'Enter your email to receive a reset link'
-              : isLogin
-                ? 'Enter your credentials to access your account'
-                : 'Join our exclusive community of watch enthusiasts'
-            }
+            {isLogin
+              ? 'Enter your credentials to access your account'
+              : 'Join Aptify and start your property journey'}
           </p>
         </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-xl rounded-lg sm:px-10">
-          {showForgotPassword ? (
-            <div className="space-y-6">
+          {/* Tabs */}
+          <div className="flex mb-6 border-b border-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLogin(true);
+                setErrors({});
+                setFormData({
+                  email: '',
+                  password: '',
+                  confirmPassword: '',
+                  name: '',
+                  phone: '',
+                });
+              }}
+              className={`flex-1 py-2 text-center font-medium transition-colors ${
+                isLogin
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsLogin(false);
+                setErrors({});
+                setFormData({
+                  email: '',
+                  password: '',
+                  confirmPassword: '',
+                  name: '',
+                  phone: '',
+                });
+              }}
+              className={`flex-1 py-2 text-center font-medium transition-colors ${
+                !isLogin
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Register
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {!isLogin && (
               <Input
-                label="Email Address"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                error={errors.email}
-                leftIcon={<Mail className="w-4 h-4" />}
-                placeholder="Enter your email"
+                label="Full Name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                error={errors.name}
+                leftIcon={<User className="w-4 h-4" />}
+                placeholder="Enter your full name"
+                required
               />
+            )}
 
-              <div className="space-y-3">
-                <Button
-                  onClick={handleForgotPassword}
-                  loading={isLoading}
-                  fullWidth
-                >
-                  Send Reset Email
-                </Button>
+            <Input
+              label="Email Address"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              error={errors.email}
+              leftIcon={<Mail className="w-4 h-4" />}
+              placeholder="Enter your email"
+              required
+            />
 
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowForgotPassword(false)}
-                  fullWidth
-                >
-                  Back to Sign In
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {!isLogin && (
-                <Input
-                  label="Full Name"
-                  type="text"
-                  value={formData.fullName}
-                  onChange={(e) => handleInputChange('fullName', e.target.value)}
-                  error={errors.fullName}
-                  leftIcon={<User className="w-4 h-4" />}
-                  placeholder="Enter your full name"
-                />
-              )}
-
+            {!isLogin && (
               <Input
-                label="Email Address"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                error={errors.email}
-                leftIcon={<Mail className="w-4 h-4" />}
-                placeholder="Enter your email"
+                label="Phone Number"
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                error={errors.phone}
+                leftIcon={<Phone className="w-4 h-4" />}
+                placeholder="Enter your phone number"
+                required
               />
+            )}
 
-              <Input
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                error={errors.password}
-                leftIcon={<Lock className="w-4 h-4" />}
-                rightIcon={
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                }
-                placeholder="Enter your password"
-              />
-
-              {!isLogin && (
-                <Input
-                  label="Confirm Password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                  error={errors.confirmPassword}
-                  leftIcon={<Lock className="w-4 h-4" />}
-                  placeholder="Confirm your password"
-                />
-              )}
-
-              {isLogin && (
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-luxury-gold focus:ring-luxury-gold"
-                    />
-                    <span className="ml-2 text-sm text-gray-600">Remember me</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-sm text-luxury-gold hover:text-yellow-600"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              )}
-
-              <Button
-                type="submit"
-                loading={isLoading}
-                fullWidth
-                size="lg"
-              >
-                {isLogin ? 'Sign In' : 'Create Account'}
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                </div>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleGoogleLogin}
-                loading={isLoading}
-                fullWidth
-                size="lg"
-              >
-                <Chrome className="w-5 h-5 mr-2" />
-                Google
-              </Button>
-
-              <div className="text-center">
-                <span className="text-sm text-gray-600">
-                  {isLogin ? "Don't have an account?" : 'Already have an account?'}
-                </span>
+            <Input
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              value={formData.password}
+              onChange={(e) => handleInputChange('password', e.target.value)}
+              error={errors.password}
+              leftIcon={<Lock className="w-4 h-4" />}
+              rightIcon={
                 <button
                   type="button"
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="ml-1 text-sm text-luxury-gold hover:text-yellow-600 font-medium"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  {isLogin ? 'Sign up' : 'Sign in'}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
+              }
+              placeholder="Enter your password"
+              required
+            />
+
+            {!isLogin && (
+              <Input
+                label="Confirm Password"
+                type={showPassword ? 'text' : 'password'}
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                error={errors.confirmPassword}
+                leftIcon={<Lock className="w-4 h-4" />}
+                placeholder="Confirm your password"
+                required
+              />
+            )}
+
+            <Button type="submit" loading={isLoading} fullWidth size="lg">
+              {isLogin ? 'Sign In' : 'Create Account'}
+            </Button>
+          </form>
+
+          {/* Google Login Button */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300" />
               </div>
-            </form>
-          )}
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              className="mt-4 w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium hover:bg-gray-50 transition-colors shadow-sm"
+            >
+              <FcGoogle className="w-5 h-5" />
+              <span>Continue with Google</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

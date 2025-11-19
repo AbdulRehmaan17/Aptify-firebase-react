@@ -7,11 +7,7 @@ import { addToWishlist, removeFromWishlist } from '../../firebase/firestore';
 import Button from '../common/Button';
 import toast from 'react-hot-toast';
 
-const ProductCard = ({
-  product,
-  isWishlisted = false,
-  onWishlistToggle
-}) => {
+const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
   const { addToCart } = useCart();
   const { user, userProfile } = useAuth();
 
@@ -29,7 +25,7 @@ const ProductCard = ({
       name: product.name,
       price: product.price,
       image: product.image,
-      quantity: 1
+      quantity: 1,
     });
   };
 
@@ -102,8 +98,7 @@ const ProductCard = ({
           className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-all duration-200 opacity-0 group-hover:opacity-100"
         >
           <Heart
-            className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'
-              }`}
+            className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
           />
         </button>
       </Link>
@@ -126,24 +121,21 @@ const ProductCard = ({
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className={`w-4 h-4 ${i < Math.floor(product.rating)
-                    ? 'fill-yellow-400 text-yellow-400'
-                    : 'text-gray-300'
-                    }`}
+                  className={`w-4 h-4 ${
+                    i < Math.floor(product.rating)
+                      ? 'fill-yellow-400 text-yellow-400'
+                      : 'text-gray-300'
+                  }`}
                 />
               ))}
             </div>
-            <span className="text-sm text-gray-500">
-              ({product.reviewCount})
-            </span>
+            <span className="text-sm text-gray-500">({product.reviewCount})</span>
           </div>
         )}
 
         {/* Price */}
         <div className="flex items-center space-x-2 mb-4">
-          <span className="text-xl font-bold text-gray-900">
-            ${product.price.toLocaleString()}
-          </span>
+          <span className="text-xl font-bold text-gray-900">${product.price.toLocaleString()}</span>
           {product.originalPrice && product.originalPrice > product.price && (
             <span className="text-sm text-gray-500 line-through">
               ${product.originalPrice.toLocaleString()}

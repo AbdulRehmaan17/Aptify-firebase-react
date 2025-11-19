@@ -8,10 +8,11 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ReviewsAndRatings from './ReviewsAndRatings';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { formatAddress } from '../utils/safeRender';
 
 /**
  * RenovationProviderDetail Component
- * 
+ *
  * Displays detailed information about a renovation service provider.
  * Shows provider details, contact information, and reviews.
  */
@@ -80,12 +81,7 @@ const RenovationProviderDetail = () => {
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((index) => {
           if (index <= fullStars) {
-            return (
-              <Star
-                key={index}
-                className="w-5 h-5 fill-yellow-400 text-yellow-400"
-              />
-            );
+            return <Star key={index} className="w-5 h-5 fill-yellow-400 text-yellow-400" />;
           } else if (index === fullStars + 1 && hasHalfStar) {
             return (
               <Star
@@ -95,17 +91,10 @@ const RenovationProviderDetail = () => {
               />
             );
           } else {
-            return (
-              <Star
-                key={index}
-                className="w-5 h-5 text-gray-300"
-              />
-            );
+            return <Star key={index} className="w-5 h-5 text-gray-300" />;
           }
         })}
-        <span className="ml-2 text-sm font-medium text-gray-700">
-          {ratingValue.toFixed(1)}
-        </span>
+        <span className="ml-2 text-sm font-medium text-gray-700">{ratingValue.toFixed(1)}</span>
       </div>
     );
   };
@@ -147,9 +136,7 @@ const RenovationProviderDetail = () => {
           className="text-center max-w-md mx-auto px-4"
         >
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 mb-4 font-inter text-lg">
-            {error || 'Provider not found'}
-          </p>
+          <p className="text-red-600 mb-4 font-inter text-lg">{error || 'Provider not found'}</p>
           <Button onClick={() => navigate(-1)} variant="primary">
             Go Back
           </Button>
@@ -163,7 +150,9 @@ const RenovationProviderDetail = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Breadcrumbs */}
         <nav className="text-sm text-gray-600 mb-6">
-          <Link to="/" className="hover:text-yellow-600">Home</Link>
+          <Link to="/" className="hover:text-yellow-600">
+            Home
+          </Link>
           <span className="mx-2">/</span>
           <Link to="/services" className="hover:text-yellow-600">
             Renovation Services
@@ -177,11 +166,7 @@ const RenovationProviderDetail = () => {
         </nav>
 
         {/* Back Button */}
-        <Button
-          variant="outline"
-          onClick={() => navigate(-1)}
-          className="mb-6"
-        >
+        <Button variant="outline" onClick={() => navigate(-1)} className="mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Providers
         </Button>
@@ -204,9 +189,7 @@ const RenovationProviderDetail = () => {
                     {provider.name || 'Unnamed Provider'}
                   </h1>
                   {provider.rating !== undefined && provider.rating !== null && (
-                    <div className="flex items-center gap-2">
-                      {renderRating(provider.rating)}
-                    </div>
+                    <div className="flex items-center gap-2">{renderRating(provider.rating)}</div>
                   )}
                 </div>
               </div>
@@ -228,9 +211,7 @@ const RenovationProviderDetail = () => {
                 {/* Expertise */}
                 {provider.expertise && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      Expertise
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Expertise</h3>
                     <p className="text-gray-700 leading-relaxed">
                       {formatExpertise(provider.expertise)}
                     </p>
@@ -240,24 +221,16 @@ const RenovationProviderDetail = () => {
                 {/* Bio */}
                 {provider.bio && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      About
-                    </h3>
-                    <p className="text-gray-700 leading-relaxed">
-                      {provider.bio}
-                    </p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">About</h3>
+                    <p className="text-gray-700 leading-relaxed">{provider.bio}</p>
                   </div>
                 )}
 
                 {/* Experience */}
                 {provider.experienceYears && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      Experience
-                    </h3>
-                    <p className="text-gray-700">
-                      {provider.experienceYears} years of experience
-                    </p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Experience</h3>
+                    <p className="text-gray-700">{provider.experienceYears} years of experience</p>
                   </div>
                 )}
               </div>
@@ -265,9 +238,7 @@ const RenovationProviderDetail = () => {
               {/* Right Column - Contact Information */}
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Contact Information
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
                   <div className="space-y-4">
                     {provider.phone && (
                       <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -305,7 +276,7 @@ const RenovationProviderDetail = () => {
                         <div>
                           <p className="text-sm text-gray-500">Address</p>
                           <p className="text-gray-900 font-medium">
-                            {provider.address}
+                            {formatAddress(provider.address)}
                           </p>
                         </div>
                       </div>
@@ -320,7 +291,7 @@ const RenovationProviderDetail = () => {
         {/* Reviews & Ratings Section */}
         {id && (
           <div className="mt-8">
-            <ReviewsAndRatings key={id} targetId={id} targetType="service" />
+            <ReviewsAndRatings key={id} targetId={id} targetType="renovation" />
           </div>
         )}
       </div>
@@ -329,4 +300,3 @@ const RenovationProviderDetail = () => {
 };
 
 export default RenovationProviderDetail;
-

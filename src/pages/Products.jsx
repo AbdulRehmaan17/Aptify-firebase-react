@@ -23,7 +23,7 @@ const Products = () => {
     brand: [],
     priceRange: [0, 50000],
     rating: 0,
-    inStock: false
+    inStock: false,
   });
 
   useEffect(() => {
@@ -34,16 +34,16 @@ const Products = () => {
         const categoriesData = await getCategories();
 
         // Validate and normalize products
-        const normalizedProducts = productsData.map(product => ({
+        const normalizedProducts = productsData.map((product) => ({
           ...product,
-          imageUrl: product.imageUrl
+          imageUrl: product.imageUrl,
         }));
 
         setProducts(normalizedProducts);
-        setCategories(categoriesData.map(cat => cat.name));
+        setCategories(categoriesData.map((cat) => cat.name));
 
         // Extract unique brands from products
-        const uniqueBrands = [...new Set(normalizedProducts.map(product => product.brand))];
+        const uniqueBrands = [...new Set(normalizedProducts.map((product) => product.brand))];
         setBrands(uniqueBrands);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -95,17 +95,17 @@ const Products = () => {
 
   const handleSortChange = (newSort) => {
     setSortBy(newSort);
-    setSearchParams(prev => ({
+    setSearchParams((prev) => ({
       ...Object.fromEntries(prev),
-      sort: newSort
+      sort: newSort,
     }));
   };
 
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
-    setSearchParams(prev => ({
+    setSearchParams((prev) => ({
       ...Object.fromEntries(prev),
-      ...newFilters
+      ...newFilters,
     }));
   };
 
@@ -121,9 +121,7 @@ const Products = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-gray-900 mb-4">
-          Luxury Watches
-        </h1>
+        <h1 className="text-3xl font-display font-bold text-gray-900 mb-4">Luxury Watches</h1>
         <p className="text-lg text-gray-600">
           Discover our complete collection of premium timepieces
         </p>
@@ -173,19 +171,21 @@ const Products = () => {
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p - 2 ${viewMode === 'grid'
-                    ? 'bg-luxury-gold text-luxury-black'
-                    : 'text-gray-600 hover:bg-gray-100'
-                    } `}
+                  className={`p - 2 ${
+                    viewMode === 'grid'
+                      ? 'bg-luxury-gold text-luxury-black'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  } `}
                 >
                   <Grid className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p - 2 ${viewMode === 'list'
-                    ? 'bg-luxury-gold text-luxury-black'
-                    : 'text-gray-600 hover:bg-gray-100'
-                    } `}
+                  className={`p - 2 ${
+                    viewMode === 'list'
+                      ? 'bg-luxury-gold text-luxury-black'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  } `}
                 >
                   <List className="w-4 h-4" />
                 </button>
@@ -195,17 +195,17 @@ const Products = () => {
 
           {/* Products Grid */}
           {products.length > 0 ? (
-            <div className={`
-              ${viewMode === 'grid'
-                ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
-                : 'space-y-4'
+            <div
+              className={`
+              ${
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
+                  : 'space-y-4'
               }
-            `}>
+            `}
+            >
               {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                />
+                <ProductCard key={product.id} product={product} />
               ))}
             </div>
           ) : (
@@ -213,20 +213,18 @@ const Products = () => {
               <div className="text-gray-400 mb-4">
                 <Grid className="w-16 h-16 mx-auto" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No products found
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Try adjusting your filters or search criteria
-              </p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
+              <p className="text-gray-600 mb-6">Try adjusting your filters or search criteria</p>
               <Button
-                onClick={() => handleFiltersChange({
-                  category: [],
-                  brand: [],
-                  priceRange: [0, 50000],
-                  rating: 0,
-                  inStock: false
-                })}
+                onClick={() =>
+                  handleFiltersChange({
+                    category: [],
+                    brand: [],
+                    priceRange: [0, 50000],
+                    rating: 0,
+                    inStock: false,
+                  })
+                }
                 variant="outline"
               >
                 Clear Filters

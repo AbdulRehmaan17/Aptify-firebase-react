@@ -1,17 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { collection, addDoc, getDocs, query, where, serverTimestamp, getDoc, doc } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  serverTimestamp,
+  getDoc,
+  doc,
+} from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { Home, Calendar, DollarSign, FileText, Image as ImageIcon, AlertCircle, MapPin } from 'lucide-react';
+import {
+  Home,
+  Calendar,
+  DollarSign,
+  FileText,
+  Image as ImageIcon,
+  AlertCircle,
+  MapPin,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 /**
  * RentalRequestForm Component
- * 
+ *
  * Allows tenants to submit rental inquiries or requests to property owners.
  * Fetches available properties from Firestore and creates a new rental request.
  * Supports landlordId from query params or route state (optional).
@@ -25,7 +42,7 @@ const RentalRequestForm = () => {
   const { user: contextUser, loading: authLoading } = useAuth();
 
   // Get currentUser from Firebase auth
-  const currentUser = auth.currentUser || contextUser;
+  const currentUser = auth?.currentUser || contextUser;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -66,11 +83,15 @@ const RentalRequestForm = () => {
     const landlordId = landlordIdFromQuery || landlordIdFromState || '';
 
     if (landlordId) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         landlordId: landlordId,
       }));
-      console.log('Landlord ID set from:', landlordIdFromQuery ? 'query params' : 'route state', landlordId);
+      console.log(
+        'Landlord ID set from:',
+        landlordIdFromQuery ? 'query params' : 'route state',
+        landlordId
+      );
     }
   }, [searchParams, location.state]);
 
@@ -105,12 +126,12 @@ const RentalRequestForm = () => {
 
         const snapshot = await getDocs(propertiesQuery);
         const propertiesList = snapshot.docs
-          .map(doc => ({
+          .map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }))
           // Filter client-side for rental properties (type includes 'rent' or 'rental')
-          .filter(property => {
+          .filter((property) => {
             const type = property.type?.toLowerCase() || '';
             return type.includes('rent') || type === 'rental';
           });
@@ -148,7 +169,7 @@ const RentalRequestForm = () => {
           const ownerId = propertyData.ownerId;
 
           if (ownerId) {
-            setFormData(prev => ({
+            setFormData((prev) => ({
               ...prev,
               landlordId: ownerId,
             }));
@@ -170,14 +191,14 @@ const RentalRequestForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
 
     // Clear error for this field when user starts typing
     if (errors[name]) {
-      setErrors(prev => {
+      setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[name];
         return newErrors;
@@ -191,14 +212,14 @@ const RentalRequestForm = () => {
    */
   const handlePhotoChange = (e) => {
     const files = Array.from(e.target.files);
-    
+
     if (files.length === 0) return;
 
     // Validate file types and sizes
     const validFiles = [];
     const invalidFiles = [];
 
-    files.forEach(file => {
+    files.forEach((file) => {
       // Check file type (images only)
       if (!file.type.startsWith('image/')) {
         invalidFiles.push(`${file.name} is not an image file`);
@@ -220,10 +241,10 @@ const RentalRequestForm = () => {
 
     if (validFiles.length > 0) {
       // Create preview URLs
-      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
-      
-      setPhotos(prev => [...prev, ...validFiles]);
-      setPhotoPreviews(prev => [...prev, ...newPreviews]);
+      const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
+
+      setPhotos((prev) => [...prev, ...validFiles]);
+      setPhotoPreviews((prev) => [...prev, ...newPreviews]);
     }
   };
 
@@ -233,9 +254,9 @@ const RentalRequestForm = () => {
   const handleRemovePhoto = (index) => {
     // Revoke preview URL to free memory
     URL.revokeObjectURL(photoPreviews[index]);
-    
-    setPhotos(prev => prev.filter((_, i) => i !== index));
-    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   /**
@@ -255,16 +276,16 @@ const RentalRequestForm = () => {
         const timestamp = Date.now();
         const filename = `${timestamp}_${index}_${file.name}`;
         const storagePath = `rental_photos/${currentUser.uid}/${filename}`;
-        
+
         // Create storage reference
         const storageRef = ref(storage, storagePath);
-        
+
         // Upload file
         await uploadBytes(storageRef, file);
-        
+
         // Get download URL
         const downloadURL = await getDownloadURL(storageRef);
-        
+
         console.log(`Photo uploaded: ${filename} -> ${downloadURL}`);
         return downloadURL;
       } catch (error) {
@@ -318,7 +339,7 @@ const RentalRequestForm = () => {
       const moveInDate = new Date(formData.moveInDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       if (moveInDate < today) {
         newErrors.moveInDate = 'Move-in date must be in the future';
       }
@@ -437,7 +458,8 @@ const RentalRequestForm = () => {
               No Properties Available
             </h2>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-              There are currently no properties available for rent. Please check back later or browse our property listings.
+              There are currently no properties available for rent. Please check back later or
+              browse our property listings.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
@@ -475,7 +497,10 @@ const RentalRequestForm = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-6 sm:p-8 space-y-6">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-xl shadow-lg p-6 sm:p-8 space-y-6"
+        >
           {/* Property Selection */}
           <div>
             <label htmlFor="propertyId" className="block text-sm font-medium text-gray-700 mb-2">
@@ -494,7 +519,8 @@ const RentalRequestForm = () => {
               <option value="">-- Select a property --</option>
               {properties.map((property) => (
                 <option key={property.id} value={property.id}>
-                  {property.title || property.name || 'Untitled Property'} - {property.address?.city || 'Location not specified'}
+                  {property.title || property.name || 'Untitled Property'} -{' '}
+                  {property.address?.city || 'Location not specified'}
                 </option>
               ))}
             </select>
@@ -508,7 +534,10 @@ const RentalRequestForm = () => {
 
           {/* Rental Duration */}
           <div>
-            <label htmlFor="rentalDuration" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="rentalDuration"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Rental Duration <span className="text-red-500">*</span>
             </label>
             <select
@@ -685,7 +714,11 @@ const RentalRequestForm = () => {
               className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500 py-3 text-lg font-semibold"
               loading={loading || uploadingPhotos}
             >
-              {uploadingPhotos ? 'Uploading Photos...' : loading ? 'Submitting...' : 'Submit Rental Request'}
+              {uploadingPhotos
+                ? 'Uploading Photos...'
+                : loading
+                  ? 'Submitting...'
+                  : 'Submit Rental Request'}
             </Button>
             <Button
               type="button"
@@ -704,5 +737,3 @@ const RentalRequestForm = () => {
 };
 
 export default RentalRequestForm;
-
-

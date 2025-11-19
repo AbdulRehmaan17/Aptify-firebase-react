@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @media (prefers-reduced-motion: reduce) {
-    .motion-div {
-        transition: none;
-    }
+  .motion-div {
+    transition: none;
+  }
 }

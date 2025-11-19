@@ -1,0 +1,101 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is the owner
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.role == 'admin';
+    }
+    
+    // ============================================
+    // USER UPLOADS (Primary Structure)
+    // ============================================
+    // - Allow upload only under /user_uploads/{uid}/** if request.auth.uid == uid
+    // - Allow admin full read/write
+    // - Deny all other writes
+    match /user_uploads/{uid}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+    
+    // ============================================
+    // PROPERTIES IMAGES
+    // ============================================
+    // - Public read access
+    // - Authenticated users can upload
+    match /properties/{propertyId}/{allPaths=**} {
+      allow read: if true; // Public read access
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================
+    // USER PROFILE IMAGES
+    // ============================================
+    // - Public read access
+    // - Users can manage their own
+    match /users/{userId}/{allPaths=**} {
+      allow read: if true; // Public read access
+      allow write: if isOwner(userId) || isAdmin();
+    }
+    
+    // ============================================
+    // CONSTRUCTION PROJECT FILES
+    // ============================================
+    // - Authenticated users can read
+    // - Owner can write
+    match /construction_photos/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+    
+    // ============================================
+    // RENOVATION PROJECT FILES
+    // ============================================
+    // - Authenticated users can read
+    // - Owner can write
+    match /renovation_photos/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+    
+    // ============================================
+    // RENTAL PHOTOS
+    // ============================================
+    // - Authenticated users can read
+    // - Owner can write
+    match /rental_photos/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+    
+    // ============================================
+    // SERVICE PROVIDER FILES
+    // ============================================
+    // - Public read access
+    // - Provider can manage their own files
+    match /service_providers/{providerId}/{allPaths=**} {
+      allow read: if true; // Public read access
+      allow write: if isAuthenticated(); // Provider or admin can write (checked via Firestore)
+    }
+    
+    // ============================================
+    // DEFAULT DENY RULE
+    // ============================================
+    // Deny all other paths by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 
 /**
  * RentPage Component
- * 
+ *
  * Dedicated page for rental properties.
  * Displays properties filtered by type: 'rent'
  */
@@ -23,7 +23,7 @@ const RentPage = () => {
     const fetchRentalProperties = async () => {
       try {
         setLoading(true);
-        
+
         // Filter properties by type: 'rent'
         const filters = { type: 'rent', status: 'published' };
         const sortOptions = { sortBy: 'createdAt', sortOrder: 'desc' };
@@ -63,9 +63,7 @@ const RentPage = () => {
         <div className="mb-8">
           <div className="flex items-center mb-4">
             <Home className="w-8 h-8 text-blue-600 mr-3" />
-            <h1 className="text-4xl font-display font-bold text-gray-900">
-              Rental Properties
-            </h1>
+            <h1 className="text-4xl font-display font-bold text-gray-900">Rental Properties</h1>
           </div>
           <p className="text-lg text-gray-600">
             Find your perfect rental property from our curated selection
@@ -137,5 +135,3 @@ const RentPage = () => {
 };
 
 export default RentPage;
-
-

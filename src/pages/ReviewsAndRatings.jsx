@@ -1,36 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, addDoc, getDocs, serverTimestamp, orderBy } from 'firebase/firestore';
-import { doc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+  deleteDoc,
+  doc,
+} from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { Star, MessageSquare, User, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
+import reviewsService from '../services/reviewsService';
+import { Star, MessageSquare, User, Calendar, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import Modal from '../components/common/Modal';
 
 /**
  * ReviewsAndRatings Component
- * 
+ *
  * Implements the Reviews & Ratings module for Aptify.
- * Allows users to submit reviews and ratings for properties or services.
- * Displays average rating and all reviews in real-time.
- * 
- * @param {string} targetId - The ID of the property or service being reviewed
- * @param {string} targetType - Either "property" or "service"
+ * Supports: Properties, Construction Providers, Renovation Providers
+ *
+ * @param {string} targetId - The ID of the property or service provider being reviewed
+ * @param {string} targetType - 'property', 'construction', or 'renovation'
  */
 const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
-  const { user: contextUser } = useAuth();
-  const currentUser = auth.currentUser || contextUser;
+  const { user: contextUser, currentUserRole } = useAuth();
+  const currentUser = auth?.currentUser || contextUser;
+  const isAdmin = currentUserRole === 'admin';
 
   // State management
   const [reviews, setReviews] = useState([]);
-  const [userNames, setUserNames] = useState({}); // Cache user names by reviewerId
+  const [userNames, setUserNames] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
   const [checkingReview, setCheckingReview] = useState(true);
+  const [deletingReviewId, setDeletingReviewId] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [reviewToDelete, setReviewToDelete] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -41,36 +53,25 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
 
   /**
    * Fetch user name from users collection
-   * Caches the result to avoid repeated fetches
-   * @param {string} userId - User document ID
-   * @returns {Promise<string>} - User name or "Anonymous User"
    */
   const fetchUserName = async (userId) => {
-    // Return cached name if available
-    if (userNames[userId]) {
-      return userNames[userId];
-    }
+    if (userNames[userId]) return userNames[userId];
 
     try {
-      const userRef = doc(db, 'users', userId);
+      const { getDoc, doc: userDoc } = await import('firebase/firestore');
+      const userRef = userDoc(db, 'users', userId);
       const userSnap = await getDoc(userRef);
-      
+
       if (userSnap.exists()) {
         const userData = userSnap.data();
         const name = userData.displayName || userData.name || userData.email || 'Anonymous User';
-        setUserNames(prev => ({ ...prev, [userId]: name }));
-        return name;
-      } else {
-        // If user document doesn't exist, try to get from auth
-        const name = 'Anonymous User';
-        setUserNames(prev => ({ ...prev, [userId]: name }));
+        setUserNames((prev) => ({ ...prev, [userId]: name }));
         return name;
       }
+      return 'Anonymous User';
     } catch (error) {
       console.error('Error fetching user name:', error);
-      const name = 'Anonymous User';
-      setUserNames(prev => ({ ...prev, [userId]: name }));
-      return name;
+      return 'Anonymous User';
     }
   };
 
@@ -85,16 +86,12 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
       }
 
       try {
-        const reviewsRef = collection(db, 'reviews');
-        const q = query(
-          reviewsRef,
-          where('targetId', '==', targetId),
-          where('targetType', '==', targetType),
-          where('reviewerId', '==', currentUser.uid)
+        const existingReview = await reviewsService.getUserReview(
+          currentUser.uid,
+          targetId,
+          targetType
         );
-        
-        const querySnapshot = await getDocs(q);
-        setHasReviewed(!querySnapshot.empty);
+        setHasReviewed(!!existingReview);
       } catch (error) {
         console.error('Error checking existing review:', error);
         setHasReviewed(false);
@@ -116,7 +113,6 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
       return;
     }
 
-    // Reset state when targetId changes
     setLoading(true);
     setError(null);
     setReviews([]);
@@ -127,8 +123,8 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
     const setupListener = () => {
       try {
         const reviewsRef = collection(db, 'reviews');
-        
-        // Try query with orderBy first (requires composite index)
+
+        // Try query with orderBy first
         const q = query(
           reviewsRef,
           where('targetId', '==', targetId),
@@ -140,13 +136,13 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
           q,
           async (snapshot) => {
             if (!isMounted) return;
-            
+
             try {
               const reviewsData = [];
-              
+
               for (const docSnap of snapshot.docs) {
                 const reviewData = { id: docSnap.id, ...docSnap.data() };
-                
+
                 // Fetch user name if not cached
                 if (!userNames[reviewData.reviewerId]) {
                   const userName = await fetchUserName(reviewData.reviewerId);
@@ -154,11 +150,11 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                 } else {
                   reviewData.reviewerName = userNames[reviewData.reviewerId];
                 }
-                
+
                 reviewsData.push(reviewData);
               }
 
-              // Sort by createdAt if orderBy didn't work (client-side fallback)
+              // Client-side sort by createdAt (fallback)
               reviewsData.sort((a, b) => {
                 const aTime = a.createdAt?.toDate?.() || new Date(0);
                 const bTime = b.createdAt?.toDate?.() || new Date(0);
@@ -179,83 +175,70 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
           },
           (error) => {
             if (!isMounted) return;
-            
+
             console.error('Error fetching reviews with orderBy:', error);
-            
+
             // If index error, try without orderBy
             if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-              console.log('Composite index missing, falling back to query without orderBy');
-              
-              // Unsubscribe from the failed query first
+              const fallbackQuery = query(
+                reviewsRef,
+                where('targetId', '==', targetId),
+                where('targetType', '==', targetType)
+              );
+
               if (unsubscribe) {
                 unsubscribe();
                 unsubscribe = null;
               }
-              
-              try {
-                // Fallback: query without orderBy
-                const fallbackQuery = query(
-                  reviewsRef,
-                  where('targetId', '==', targetId),
-                  where('targetType', '==', targetType)
-                );
 
-                unsubscribe = onSnapshot(
-                  fallbackQuery,
-                  async (snapshot) => {
-                    if (!isMounted) return;
-                    
-                    try {
-                      const reviewsData = [];
-                      
-                      for (const docSnap of snapshot.docs) {
-                        const reviewData = { id: docSnap.id, ...docSnap.data() };
-                        
-                        // Fetch user name if not cached
-                        if (!userNames[reviewData.reviewerId]) {
-                          const userName = await fetchUserName(reviewData.reviewerId);
-                          reviewData.reviewerName = userName;
-                        } else {
-                          reviewData.reviewerName = userNames[reviewData.reviewerId];
-                        }
-                        
-                        reviewsData.push(reviewData);
+              unsubscribe = onSnapshot(
+                fallbackQuery,
+                async (snapshot) => {
+                  if (!isMounted) return;
+
+                  try {
+                    const reviewsData = [];
+
+                    for (const docSnap of snapshot.docs) {
+                      const reviewData = { id: docSnap.id, ...docSnap.data() };
+
+                      if (!userNames[reviewData.reviewerId]) {
+                        const userName = await fetchUserName(reviewData.reviewerId);
+                        reviewData.reviewerName = userName;
+                      } else {
+                        reviewData.reviewerName = userNames[reviewData.reviewerId];
                       }
 
-                      // Client-side sort by createdAt
-                      reviewsData.sort((a, b) => {
-                        const aTime = a.createdAt?.toDate?.() || new Date(0);
-                        const bTime = b.createdAt?.toDate?.() || new Date(0);
-                        return bTime - aTime; // Descending order
-                      });
-
-                      if (isMounted) {
-                        setReviews(reviewsData);
-                        setLoading(false);
-                      }
-                    } catch (processError) {
-                      console.error('Error processing reviews (fallback):', processError);
-                      if (isMounted) {
-                        setError('Failed to process reviews. Please try again.');
-                        setLoading(false);
-                      }
+                      reviewsData.push(reviewData);
                     }
-                  },
-                  (fallbackError) => {
-                    console.error('Error fetching reviews (fallback):', fallbackError);
+
+                    // Client-side sort
+                    reviewsData.sort((a, b) => {
+                      const aTime = a.createdAt?.toDate?.() || new Date(0);
+                      const bTime = b.createdAt?.toDate?.() || new Date(0);
+                      return bTime - aTime;
+                    });
+
                     if (isMounted) {
-                      setError('Failed to load reviews. Please try again.');
+                      setReviews(reviewsData);
+                      setLoading(false);
+                    }
+                  } catch (processError) {
+                    console.error('Error processing reviews (fallback):', processError);
+                    if (isMounted) {
+                      setError('Failed to process reviews. Please try again.');
                       setLoading(false);
                     }
                   }
-                );
-              } catch (fallbackSetupError) {
-                console.error('Error setting up fallback query:', fallbackSetupError);
-                if (isMounted) {
-                  setError('Failed to load reviews. Please try again.');
-                  setLoading(false);
+                },
+                (fallbackError) => {
+                  console.error('Error fetching reviews (fallback):', fallbackError);
+                  if (isMounted) {
+                    setError('Failed to load reviews. Please try again.');
+                    setLoading(false);
+                  }
                 }
-              }
+              );
             } else {
               if (isMounted) {
                 setError('Failed to load reviews. Please try again.');
@@ -287,16 +270,17 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
   /**
    * Calculate average rating
    */
-  const averageRating = reviews.length > 0
-    ? (reviews.reduce((sum, review) => sum + (review.rating || 0), 0) / reviews.length).toFixed(1)
-    : 0;
+  const averageRating =
+    reviews.length > 0
+      ? (reviews.reduce((sum, review) => sum + (review.rating || 0), 0) / reviews.length).toFixed(1)
+      : 0;
 
   /**
    * Handle rating click
    */
   const handleRatingClick = (rating) => {
     if (!currentUser || hasReviewed) return;
-    setFormData(prev => ({ ...prev, rating }));
+    setFormData((prev) => ({ ...prev, rating }));
   };
 
   /**
@@ -304,7 +288,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   /**
@@ -342,16 +326,13 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
     try {
       setSubmitting(true);
 
-      const reviewData = {
-        reviewerId: currentUser.uid,
-        targetId: targetId,
-        targetType: targetType,
-        rating: formData.rating,
-        comment: formData.comment.trim(),
-        createdAt: serverTimestamp(),
-      };
-
-      await addDoc(collection(db, 'reviews'), reviewData);
+      await reviewsService.create(
+        currentUser.uid,
+        targetId,
+        targetType,
+        formData.rating,
+        formData.comment
+      );
 
       // Reset form
       setFormData({
@@ -364,9 +345,34 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
       toast.success('Review submitted successfully!');
     } catch (error) {
       console.error('Error submitting review:', error);
-      toast.error('Failed to submit review. Please try again.');
+      toast.error(error.message || 'Failed to submit review. Please try again.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /**
+   * Handle delete review
+   */
+  const handleDeleteClick = (review) => {
+    setReviewToDelete(review);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!reviewToDelete) return;
+
+    try {
+      setDeletingReviewId(reviewToDelete.id);
+      await reviewsService.delete(reviewToDelete.id);
+      toast.success('Review deleted successfully');
+      setShowDeleteModal(false);
+      setReviewToDelete(null);
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      toast.error(error.message || 'Failed to delete review');
+    } finally {
+      setDeletingReviewId(null);
     }
   };
 
@@ -375,7 +381,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
    */
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Date not available';
-    
+
     try {
       const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       return date.toLocaleDateString('en-US', {
@@ -398,14 +404,12 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
           const isFilled = interactive
             ? star <= (hoveredRating || formData.rating)
             : star <= rating;
-          
+
           return (
             <Star
               key={star}
               className={`${size} ${
-                isFilled
-                  ? 'fill-yellow-400 text-yellow-400'
-                  : 'fill-gray-300 text-gray-300'
+                isFilled ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-300 text-gray-300'
               } ${interactive && !hasReviewed ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
               onClick={() => interactive && handleRatingClick(star)}
               onMouseEnter={() => interactive && setHoveredRating(star)}
@@ -494,9 +498,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
         >
           <div className="flex items-center gap-3 mb-6">
             <MessageSquare className="w-6 h-6 text-yellow-600" />
-            <h3 className="text-xl font-display font-bold text-gray-900">
-              Write a Review
-            </h3>
+            <h3 className="text-xl font-display font-bold text-gray-900">Write a Review</h3>
           </div>
 
           {checkingReview ? (
@@ -509,7 +511,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
               {/* Rating Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Your Rating <span className="text-red-500">*</span>
+                  Your Rating (1-5 stars) <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-2">
                   {renderStars(0, true, 'w-8 h-8')}
@@ -532,7 +534,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                   onChange={handleChange}
                   rows={5}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors resize-none"
-                  placeholder="Share your experience with this property/service..."
+                  placeholder="Share your experience..."
                   disabled={submitting}
                 />
                 <p className="mt-1 text-xs text-gray-500">
@@ -543,7 +545,9 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
               {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={submitting || formData.rating === 0 || formData.comment.trim().length < 10}
+                disabled={
+                  submitting || formData.rating === 0 || formData.comment.trim().length < 10
+                }
                 className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
                 loading={submitting}
               >
@@ -570,11 +574,9 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
       {/* Not Logged In Message */}
       {!currentUser && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8 text-center">
-          <p className="text-gray-600 mb-3">
-            Please log in to write a review
-          </p>
+          <p className="text-gray-600 mb-3">Please log in to write a review</p>
           <Button
-            onClick={() => window.location.href = '/auth'}
+            onClick={() => (window.location.href = '/auth')}
             className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
           >
             Log In
@@ -596,12 +598,8 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
             className="bg-gray-50 border border-gray-200 rounded-xl p-12 text-center"
           >
             <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h4 className="text-xl font-semibold text-gray-900 mb-2">
-              No reviews yet
-            </h4>
-            <p className="text-gray-600 mb-6">
-              Be the first to share your experience!
-            </p>
+            <h4 className="text-xl font-semibold text-gray-900 mb-2">No reviews yet</h4>
+            <p className="text-gray-600 mb-6">Be the first to share your experience!</p>
             {currentUser && !hasReviewed && (
               <Button
                 onClick={scrollToForm}
@@ -622,11 +620,11 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                 className="bg-white rounded-xl shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow"
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1">
                     <div className="bg-yellow-100 rounded-full p-2">
                       <User className="w-5 h-5 text-yellow-600" />
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <p className="font-semibold text-gray-900">
                         {review.reviewerName || 'Anonymous User'}
                       </p>
@@ -638,22 +636,80 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Calendar className="w-4 h-4" />
-                    <span>{formatDate(review.createdAt)}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Calendar className="w-4 h-4" />
+                      <span>{formatDate(review.createdAt)}</span>
+                    </div>
+                    {/* Admin Delete Button */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDeleteClick(review)}
+                        disabled={deletingReviewId === review.id}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Delete review (Admin only)"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
-                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                  {review.comment}
-                </p>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{review.comment}</p>
               </motion.div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setReviewToDelete(null);
+        }}
+        title="Delete Review"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700">
+            Are you sure you want to delete this review? This action cannot be undone.
+          </p>
+          {reviewToDelete && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-600 mb-2">
+                <strong>Rating:</strong> {reviewToDelete.rating} stars
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Review:</strong> {reviewToDelete.comment.substring(0, 100)}
+                {reviewToDelete.comment.length > 100 ? '...' : ''}
+              </p>
+            </div>
+          )}
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteModal(false);
+                setReviewToDelete(null);
+              }}
+              disabled={deletingReviewId !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmDelete}
+              loading={deletingReviewId !== null}
+              disabled={deletingReviewId !== null}
+            >
+              Delete Review
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
 
 export default ReviewsAndRatings;
-

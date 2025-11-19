@@ -11,7 +11,7 @@ import 'react-toastify/dist/ReactToastify.css';
 
 /**
  * BrowseRentals Component
- * 
+ *
  * Displays rental properties filtered by type === "rent".
  * Uses the same layout, filters, search, sorting, and pagination as PropertiesPage.
  * All properties shown are rental listings.
@@ -65,31 +65,36 @@ const BrowseRentals = () => {
         // Filter by both type and listingType to be safe
         // This ensures properties are shown even if only one field matches
         const beforeFilter = propertiesData?.length || 0;
-        propertiesData = (propertiesData || []).filter(p => {
+        propertiesData = (propertiesData || []).filter((p) => {
           const typeMatch = p.type?.toLowerCase() === 'rent';
           const listingTypeMatch = p.listingType?.toLowerCase() === 'rent';
           const isRental = typeMatch || listingTypeMatch;
-          
+
           if (!isRental) {
             console.log('Filtered out non-rental property:', {
               id: p.id,
               type: p.type,
               listingType: p.listingType,
-              title: p.title
+              title: p.title,
             });
           }
-          
+
           return isRental;
         });
 
-        console.log(`Rental properties: ${beforeFilter} total -> ${propertiesData.length} after rental filter`);
-        console.log('Sample rental properties:', propertiesData.slice(0, 3).map(p => ({
-          id: p.id,
-          title: p.title,
-          type: p.type,
-          listingType: p.listingType,
-          status: p.status
-        })));
+        console.log(
+          `Rental properties: ${beforeFilter} total -> ${propertiesData.length} after rental filter`
+        );
+        console.log(
+          'Sample rental properties:',
+          propertiesData.slice(0, 3).map((p) => ({
+            id: p.id,
+            title: p.title,
+            type: p.type,
+            listingType: p.listingType,
+            status: p.status,
+          }))
+        );
 
         setProperties(propertiesData);
       } catch (error) {
@@ -97,7 +102,7 @@ const BrowseRentals = () => {
         console.error('Error details:', {
           message: error.message,
           code: error.code,
-          stack: error.stack
+          stack: error.stack,
         });
         toast.error(`Failed to load rental properties: ${error.message || 'Unknown error'}`);
         setProperties([]);
@@ -169,9 +174,9 @@ const BrowseRentals = () => {
 
   const handleSortChange = (newSort) => {
     setSortBy(newSort);
-    setSearchParams(prev => ({
+    setSearchParams((prev) => ({
       ...Object.fromEntries(prev),
-      sort: newSort
+      sort: newSort,
     }));
   };
 
@@ -182,9 +187,9 @@ const BrowseRentals = () => {
       type: 'rent', // Lock to rent
     };
     setFilters(updatedFilters);
-    setSearchParams(prev => ({
+    setSearchParams((prev) => ({
       ...Object.fromEntries(prev),
-      ...updatedFilters
+      ...updatedFilters,
     }));
   };
 
@@ -208,9 +213,7 @@ const BrowseRentals = () => {
         <h1 className="text-3xl font-display font-bold text-gray-900 mb-4">
           Browse Rental Properties
         </h1>
-        <p className="text-lg text-gray-600">
-          Find your perfect rental property
-        </p>
+        <p className="text-lg text-gray-600">Find your perfect rental property</p>
       </div>
 
       {/* Search Bar */}
@@ -270,19 +273,21 @@ const BrowseRentals = () => {
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 ${viewMode === 'grid'
-                    ? 'bg-blue-500 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                    }`}
+                  className={`p-2 ${
+                    viewMode === 'grid'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
                 >
                   <Grid className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2 ${viewMode === 'list'
-                    ? 'bg-blue-500 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                    }`}
+                  className={`p-2 ${
+                    viewMode === 'list'
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
                 >
                   <List className="w-4 h-4" />
                 </button>
@@ -295,28 +300,33 @@ const BrowseRentals = () => {
             <div className="text-center py-12">
               <p className="text-gray-500 text-lg mb-4">No rental properties found</p>
               <p className="text-gray-400 mb-6">Try adjusting your filters or search terms</p>
-              <Button onClick={() => {
-                setFilters({
-                  type: 'rent', // Keep locked to rent
-                  status: '', // Reset to empty (show all statuses)
-                  city: '',
-                  minPrice: null,
-                  maxPrice: null,
-                  bedrooms: null,
-                  bathrooms: null,
-                  furnished: null,
-                  parking: null,
-                });
-                setSearchTerm('');
-              }}>
+              <Button
+                onClick={() => {
+                  setFilters({
+                    type: 'rent', // Keep locked to rent
+                    status: '', // Reset to empty (show all statuses)
+                    city: '',
+                    minPrice: null,
+                    maxPrice: null,
+                    bedrooms: null,
+                    bathrooms: null,
+                    furnished: null,
+                    parking: null,
+                  });
+                  setSearchTerm('');
+                }}
+              >
                 Clear Filters
               </Button>
             </div>
           ) : (
-            <div className={viewMode === 'grid'
-              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'
-              : 'space-y-4'
-            }>
+            <div
+              className={
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'
+                  : 'space-y-4'
+              }
+            >
               {properties.map((property) => (
                 <PropertyCard key={property.id} property={property} />
               ))}
@@ -329,4 +339,3 @@ const BrowseRentals = () => {
 };
 
 export default BrowseRentals;
-

@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 
 /**
  * RenovationList Component
- * 
+ *
  * Displays a list of renovation service providers from Firestore.
  * Fetches providers from "serviceProviders" collection where serviceType == "Renovation".
  * Seeds default renovators if collection is empty.
@@ -18,7 +18,7 @@ import toast from 'react-hot-toast';
  */
 const RenovationList = () => {
   const navigate = useNavigate();
-  
+
   // State management
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +60,7 @@ const RenovationList = () => {
       ];
 
       // Add each provider to Firestore using addDoc()
-      const addPromises = defaultProviders.map(provider => 
+      const addPromises = defaultProviders.map((provider) =>
         addDoc(collection(db, 'serviceProviders'), provider)
       );
 
@@ -97,7 +97,7 @@ const RenovationList = () => {
         const snapshot = await getDocs(providersQuery);
 
         // Map documents to array with id
-        const providersList = snapshot.docs.map(doc => ({
+        const providersList = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
@@ -109,14 +109,14 @@ const RenovationList = () => {
           console.log('No renovation providers found. Seeding default providers...');
           try {
             await seedDefaultProviders();
-            
+
             // Fetch again after seeding
             const newSnapshot = await getDocs(providersQuery);
-            const newProvidersList = newSnapshot.docs.map(doc => ({
+            const newProvidersList = newSnapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
-            
+
             setProviders(newProvidersList);
             console.log(`Fetched ${newProvidersList.length} providers after seeding`);
           } catch (seedError) {
@@ -129,7 +129,7 @@ const RenovationList = () => {
         }
       } catch (err) {
         console.error('Error fetching renovation providers:', err);
-        
+
         // Handle case where collection doesn't exist gracefully
         if (err.code === 'permission-denied' || err.message?.includes('permission')) {
           setError('Permission denied. Please check Firestore security rules.');
@@ -145,7 +145,7 @@ const RenovationList = () => {
               where('serviceType', '==', 'Renovation')
             );
             const newSnapshot = await getDocs(providersQuery);
-            const newProvidersList = newSnapshot.docs.map(doc => ({
+            const newProvidersList = newSnapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
@@ -202,12 +202,7 @@ const RenovationList = () => {
       <div className="flex items-center gap-1">
         {[...Array(5)].map((_, index) => {
           if (index < fullStars) {
-            return (
-              <Star
-                key={index}
-                className="w-4 h-4 fill-yellow-400 text-yellow-400"
-              />
-            );
+            return <Star key={index} className="w-4 h-4 fill-yellow-400 text-yellow-400" />;
           } else if (index === fullStars && hasHalfStar) {
             return (
               <Star
@@ -217,17 +212,10 @@ const RenovationList = () => {
               />
             );
           } else {
-            return (
-              <Star
-                key={index}
-                className="w-4 h-4 text-gray-300"
-              />
-            );
+            return <Star key={index} className="w-4 h-4 text-gray-300" />;
           }
         })}
-        <span className="ml-1 text-sm font-medium text-gray-700">
-          {ratingValue.toFixed(1)}
-        </span>
+        <span className="ml-1 text-sm font-medium text-gray-700">{ratingValue.toFixed(1)}</span>
       </div>
     );
   };
@@ -238,9 +226,7 @@ const RenovationList = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          {seeding && (
-            <p className="mt-4 text-gray-600">Setting up default renovators...</p>
-          )}
+          {seeding && <p className="mt-4 text-gray-600">Setting up default renovators...</p>}
         </div>
       </div>
     );
@@ -254,21 +240,13 @@ const RenovationList = () => {
           <div className="mb-4">
             <AlertCircle className="w-16 h-16 mx-auto text-red-500" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Error Loading Providers
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Providers</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              onClick={() => window.location.reload()}
-              variant="primary"
-            >
+            <Button onClick={() => window.location.reload()} variant="primary">
               Try Again
             </Button>
-            <Button
-              onClick={() => navigate('/renovation-request')}
-              variant="outline"
-            >
+            <Button onClick={() => navigate('/renovation-request')} variant="outline">
               Request Service Anyway
             </Button>
           </div>
@@ -290,13 +268,10 @@ const RenovationList = () => {
               No Renovators Currently Available
             </h2>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-              No renovators are currently available. You can still submit a renovation request, and a provider will be assigned automatically.
+              No renovators are currently available. You can still submit a renovation request, and
+              a provider will be assigned automatically.
             </p>
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => navigate('/renovation-request')}
-            >
+            <Button variant="primary" size="lg" onClick={() => navigate('/renovation-request')}>
               Request Renovation Service
             </Button>
           </div>
@@ -328,10 +303,7 @@ const RenovationList = () => {
               {/* Card Content */}
               <div className="p-6">
                 {/* Provider Name - Clickable to view details */}
-                <Link
-                  to={`/renovation-provider/${provider.id}`}
-                  className="block mb-3 group"
-                >
+                <Link to={`/renovation-provider/${provider.id}`} className="block mb-3 group">
                   <h3 className="text-xl font-semibold text-gray-900 group-hover:text-teal-600 transition-colors">
                     {provider.name || 'Unnamed Provider'}
                   </h3>
@@ -339,32 +311,22 @@ const RenovationList = () => {
 
                 {/* Rating */}
                 {provider.rating !== undefined && provider.rating !== null && (
-                  <div className="mb-4">
-                    {renderRating(provider.rating)}
-                  </div>
+                  <div className="mb-4">{renderRating(provider.rating)}</div>
                 )}
 
                 {/* Expertise */}
                 {provider.expertise && (
                   <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      Expertise:
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      {formatExpertise(provider.expertise)}
-                    </p>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Expertise:</h4>
+                    <p className="text-sm text-gray-600">{formatExpertise(provider.expertise)}</p>
                   </div>
                 )}
 
                 {/* Bio */}
                 {provider.bio && (
                   <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      About:
-                    </h4>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      {provider.bio}
-                    </p>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">About:</h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">{provider.bio}</p>
                   </div>
                 )}
 
@@ -415,4 +377,3 @@ const RenovationList = () => {
 };
 
 export default RenovationList;
-

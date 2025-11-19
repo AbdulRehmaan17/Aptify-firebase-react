@@ -1,16 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, updateDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { Wrench, Calendar, DollarSign, MapPin, User, FileText, AlertCircle, Image as ImageIcon, CheckCircle, X } from 'lucide-react';
+import {
+  Wrench,
+  Calendar,
+  DollarSign,
+  MapPin,
+  User,
+  FileText,
+  AlertCircle,
+  Image as ImageIcon,
+  CheckCircle,
+  X,
+} from 'lucide-react';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 /**
  * ProviderRenovationPanel Component
- * 
+ *
  * Displays renovation projects assigned to the current provider.
  * Queries "renovationProjects" collection where providerId == currentUser.uid.
  * Also shows projects without providerId (pending requests) that can be accepted.
@@ -21,10 +41,10 @@ import toast from 'react-hot-toast';
 const ProviderRenovationPanel = () => {
   const navigate = useNavigate();
   const { user: contextUser, loading: authLoading } = useAuth();
-  
+
   // Get currentUser from Firebase auth
-  const currentUser = auth.currentUser || contextUser;
-  
+  const currentUser = auth?.currentUser || contextUser;
+
   // State management
   const [projects, setProjects] = useState([]);
   const [clientNames, setClientNames] = useState({}); // Cache client names by userId
@@ -51,23 +71,27 @@ const ProviderRenovationPanel = () => {
     try {
       const userRef = doc(db, 'users', userId);
       const userSnap = await getDoc(userRef);
-      
+
       if (userSnap.exists()) {
         const userData = userSnap.data();
         // Try multiple possible name fields
-        const name = userData.displayName || userData.name || userData.fullName || 
-                     `${userData.firstName || ''} ${userData.lastName || ''}`.trim() ||
-                     userData.email?.split('@')[0] || 'Unknown Client';
-        
+        const name =
+          userData.displayName ||
+          userData.name ||
+          userData.fullName ||
+          `${userData.firstName || ''} ${userData.lastName || ''}`.trim() ||
+          userData.email?.split('@')[0] ||
+          'Unknown Client';
+
         // Cache the client name
-        setClientNames(prev => ({
+        setClientNames((prev) => ({
           ...prev,
-          [userId]: name
+          [userId]: name,
         }));
-        
+
         return name;
       }
-      
+
       return 'Client Not Found';
     } catch (err) {
       console.error(`Error fetching client ${userId}:`, err);
@@ -95,20 +119,20 @@ const ProviderRenovationPanel = () => {
     try {
       const propertyRef = doc(db, 'properties', propertyId);
       const propertySnap = await getDoc(propertyRef);
-      
+
       if (propertySnap.exists()) {
         const propertyData = propertySnap.data();
         const title = propertyData.title || propertyData.name || 'Unknown Property';
-        
+
         // Cache the property title
-        setPropertyNames(prev => ({
+        setPropertyNames((prev) => ({
           ...prev,
-          [propertyId]: title
+          [propertyId]: title,
         }));
-        
+
         return title;
       }
-      
+
       return 'Property Not Found';
     } catch (err) {
       console.error(`Error fetching property ${propertyId}:`, err);
@@ -159,7 +183,7 @@ const ProviderRenovationPanel = () => {
         projectsQuery,
         async (snapshot) => {
           console.log(`Received ${snapshot.docs.length} renovation projects from snapshot`);
-          
+
           // Handle empty collection gracefully
           if (snapshot.empty) {
             console.log('No renovation projects assigned to provider');
@@ -167,37 +191,37 @@ const ProviderRenovationPanel = () => {
             setLoading(false);
             return;
           }
-          
+
           // Map documents to array with id
-          const projectsList = snapshot.docs.map(doc => ({
+          const projectsList = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
 
           // Fetch client names and property titles for all projects
           const fetchPromises = projectsList.map(async (project) => {
-            const clientNamePromise = project.userId 
+            const clientNamePromise = project.userId
               ? fetchClientName(project.userId)
               : Promise.resolve('No Client');
-            
-            const propertyTitlePromise = project.propertyId 
+
+            const propertyTitlePromise = project.propertyId
               ? fetchPropertyTitle(project.propertyId)
               : Promise.resolve('No Property');
-            
+
             const [clientName, propertyTitle] = await Promise.all([
               clientNamePromise,
-              propertyTitlePromise
+              propertyTitlePromise,
             ]);
-            
+
             return { project, clientName, propertyTitle };
           });
 
           const results = await Promise.all(fetchPromises);
-          
+
           // Update caches
           const newClientNames = {};
           const newPropertyNames = {};
-          
+
           results.forEach(({ project, clientName, propertyTitle }) => {
             if (project.userId && clientName) {
               newClientNames[project.userId] = clientName;
@@ -206,16 +230,16 @@ const ProviderRenovationPanel = () => {
               newPropertyNames[project.propertyId] = propertyTitle;
             }
           });
-          
-          setClientNames(prev => ({ ...prev, ...newClientNames }));
-          setPropertyNames(prev => ({ ...prev, ...newPropertyNames }));
+
+          setClientNames((prev) => ({ ...prev, ...newClientNames }));
+          setPropertyNames((prev) => ({ ...prev, ...newPropertyNames }));
           setProjects(projectsList);
           setLoading(false);
         },
         (err) => {
           // Error callback for onSnapshot
           console.error('Error in onSnapshot:', err);
-          
+
           // Handle collection not existing or permission errors gracefully
           if (err.code === 'permission-denied') {
             setError('Permission denied. Please check Firestore security rules.');
@@ -240,7 +264,7 @@ const ProviderRenovationPanel = () => {
       };
     } catch (err) {
       console.error('Error setting up listener:', err);
-      
+
       // Handle collection not existing gracefully
       if (err.code === 'not-found' || err.message?.includes('not found')) {
         console.log('Collection does not exist yet. Showing empty state.');
@@ -262,35 +286,35 @@ const ProviderRenovationPanel = () => {
    */
   const formatDate = (dateValue) => {
     if (!dateValue) return 'Not set';
-    
+
     try {
       // Handle Firestore Timestamp
       if (dateValue.seconds) {
         return new Date(dateValue.seconds * 1000).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       // Handle string dates
       if (typeof dateValue === 'string') {
         return new Date(dateValue).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       // Handle Date objects
       if (dateValue instanceof Date) {
         return dateValue.toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       return 'Invalid date';
     } catch (err) {
       console.error('Error formatting date:', err);
@@ -320,7 +344,7 @@ const ProviderRenovationPanel = () => {
    */
   const getStatusBadgeClasses = (status) => {
     const baseClasses = 'px-3 py-1 rounded-full text-xs font-semibold';
-    
+
     switch (status?.toLowerCase()) {
       case 'pending':
         return `${baseClasses} bg-yellow-100 text-yellow-800`;
@@ -347,7 +371,7 @@ const ProviderRenovationPanel = () => {
    */
   const getAvailableStatuses = (currentStatus) => {
     const status = currentStatus?.toLowerCase();
-    
+
     switch (status) {
       case 'pending':
       case 'assigned':
@@ -375,7 +399,7 @@ const ProviderRenovationPanel = () => {
 
     try {
       setAcceptingId(projectId);
-      
+
       // Update project document in Firestore
       const projectRef = doc(db, 'renovationProjects', projectId);
       await updateDoc(projectRef, {
@@ -383,7 +407,7 @@ const ProviderRenovationPanel = () => {
         status: 'In Progress',
         updatedAt: serverTimestamp(),
       });
-      
+
       toast.success('Renovation request accepted successfully!');
       console.log(`Project ${projectId} accepted by provider ${currentUser.uid}`);
     } catch (err) {
@@ -407,14 +431,14 @@ const ProviderRenovationPanel = () => {
 
     try {
       setRejectingId(projectId);
-      
+
       // Update project document in Firestore
       const projectRef = doc(db, 'renovationProjects', projectId);
       await updateDoc(projectRef, {
         status: 'Rejected',
         updatedAt: serverTimestamp(),
       });
-      
+
       toast.success('Renovation request rejected.');
       console.log(`Project ${projectId} rejected by provider ${currentUser.uid}`);
     } catch (err) {
@@ -434,15 +458,15 @@ const ProviderRenovationPanel = () => {
    */
   const handleStatusUpdate = async (projectId, newStatus) => {
     try {
-      setUpdatingStatus(prev => ({ ...prev, [projectId]: true }));
-      
+      setUpdatingStatus((prev) => ({ ...prev, [projectId]: true }));
+
       // Update project document in Firestore
       const projectRef = doc(db, 'renovationProjects', projectId);
       await updateDoc(projectRef, {
         status: newStatus,
         updatedAt: serverTimestamp(),
       });
-      
+
       // Show success toast confirming update
       toast.success(`Project status updated to ${newStatus} successfully!`);
       console.log(`Project ${projectId} status updated to ${newStatus}`);
@@ -450,7 +474,7 @@ const ProviderRenovationPanel = () => {
       console.error('Error updating project status:', err);
       toast.error(err.message || 'Failed to update project status. Please try again.');
     } finally {
-      setUpdatingStatus(prev => {
+      setUpdatingStatus((prev) => {
         const newState = { ...prev };
         delete newState[projectId];
         return newState;
@@ -484,12 +508,8 @@ const ProviderRenovationPanel = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Authentication Required
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Please log in to view your renovation projects.
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please log in to view your renovation projects.</p>
           <Button onClick={() => navigate('/auth')} variant="primary">
             Log In
           </Button>
@@ -504,9 +524,7 @@ const ProviderRenovationPanel = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Error Loading Projects
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Projects</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <Button onClick={() => window.location.reload()} variant="primary">
             Try Again
@@ -533,12 +551,8 @@ const ProviderRenovationPanel = () => {
         {projects.length === 0 ? (
           <div className="bg-white rounded-xl shadow-lg p-12 text-center">
             <Wrench className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              No Projects Assigned
-            </h2>
-            <p className="text-gray-600">
-              No renovation requests assigned to you yet.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Projects Assigned</h2>
+            <p className="text-gray-600">No renovation requests assigned to you yet.</p>
           </div>
         ) : (
           /* Projects Table - Desktop View */
@@ -579,31 +593,30 @@ const ProviderRenovationPanel = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {projects.map((project) => {
-                    const clientName = project.userId 
-                      ? (clientNames[project.userId] || 'Loading...')
+                    const clientName = project.userId
+                      ? clientNames[project.userId] || 'Loading...'
                       : 'No Client';
-                    
-                    const propertyTitle = project.propertyId 
-                      ? (propertyNames[project.propertyId] || 'Loading...')
+
+                    const propertyTitle = project.propertyId
+                      ? propertyNames[project.propertyId] || 'Loading...'
                       : 'No Property';
-                    
+
                     const availableStatuses = getAvailableStatuses(project.status);
                     const isUpdating = updatingStatus[project.id] || false;
                     const isAccepting = acceptingId === project.id;
                     const isRejecting = rejectingId === project.id;
-                    const hasPhotos = project.photos && Array.isArray(project.photos) && project.photos.length > 0;
+                    const hasPhotos =
+                      project.photos && Array.isArray(project.photos) && project.photos.length > 0;
                     const firstPhoto = hasPhotos ? project.photos[0] : null;
                     const photoCount = hasPhotos ? project.photos.length : 0;
-                    
+
                     return (
                       <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                         {/* Client Name */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-900">
                             <User className="w-4 h-4 mr-1 flex-shrink-0" />
-                            <span className="truncate max-w-xs">
-                              {clientName}
-                            </span>
+                            <span className="truncate max-w-xs">{clientName}</span>
                           </div>
                         </td>
 
@@ -611,9 +624,7 @@ const ProviderRenovationPanel = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-600">
                             <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                            <span className="truncate max-w-xs">
-                              {propertyTitle}
-                            </span>
+                            <span className="truncate max-w-xs">{propertyTitle}</span>
                           </div>
                         </td>
 
@@ -626,7 +637,10 @@ const ProviderRenovationPanel = () => {
 
                         {/* Description Snippet */}
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-600 max-w-xs truncate" title={project.detailedDescription}>
+                          <div
+                            className="text-sm text-gray-600 max-w-xs truncate"
+                            title={project.detailedDescription}
+                          >
                             {getDescriptionSnippet(project.detailedDescription)}
                           </div>
                         </td>
@@ -679,7 +693,8 @@ const ProviderRenovationPanel = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end gap-2">
                             {/* Accept/Reject buttons (only if no providerId or status is Pending) */}
-                            {(!project.providerId || project.status?.toLowerCase() === 'pending') && (
+                            {(!project.providerId ||
+                              project.status?.toLowerCase() === 'pending') && (
                               <>
                                 <Button
                                   variant="primary"
@@ -703,7 +718,7 @@ const ProviderRenovationPanel = () => {
                                 </Button>
                               </>
                             )}
-                            
+
                             {/* Status Update Dropdown (only if providerId is set) */}
                             {project.providerId && (
                               <select
@@ -711,7 +726,9 @@ const ProviderRenovationPanel = () => {
                                 onChange={(e) => handleStatusUpdate(project.id, e.target.value)}
                                 disabled={isUpdating || isAccepting || isRejecting}
                                 className={`px-3 py-1 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm font-medium transition-colors ${
-                                  isUpdating || isAccepting || isRejecting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                                  isUpdating || isAccepting || isRejecting
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'cursor-pointer'
                                 }`}
                               >
                                 {availableStatuses.map((status) => (
@@ -721,10 +738,8 @@ const ProviderRenovationPanel = () => {
                                 ))}
                               </select>
                             )}
-                            
-                            {isUpdating && (
-                              <LoadingSpinner size="sm" />
-                            )}
+
+                            {isUpdating && <LoadingSpinner size="sm" />}
                           </div>
                         </td>
                       </tr>
@@ -737,22 +752,23 @@ const ProviderRenovationPanel = () => {
             {/* Mobile Card View (hidden on desktop) */}
             <div className="md:hidden divide-y divide-gray-200">
               {projects.map((project) => {
-                const clientName = project.userId 
-                  ? (clientNames[project.userId] || 'Loading...')
+                const clientName = project.userId
+                  ? clientNames[project.userId] || 'Loading...'
                   : 'No Client';
-                
-                const propertyTitle = project.propertyId 
-                  ? (propertyNames[project.propertyId] || 'Loading...')
+
+                const propertyTitle = project.propertyId
+                  ? propertyNames[project.propertyId] || 'Loading...'
                   : 'No Property';
-                
+
                 const availableStatuses = getAvailableStatuses(project.status);
                 const isUpdating = updatingStatus[project.id] || false;
                 const isAccepting = acceptingId === project.id;
                 const isRejecting = rejectingId === project.id;
-                const hasPhotos = project.photos && Array.isArray(project.photos) && project.photos.length > 0;
+                const hasPhotos =
+                  project.photos && Array.isArray(project.photos) && project.photos.length > 0;
                 const firstPhoto = hasPhotos ? project.photos[0] : null;
                 const photoCount = hasPhotos ? project.photos.length : 0;
-                
+
                 return (
                   <div key={project.id} className="p-4 space-y-3">
                     <div className="flex justify-between items-start">
@@ -760,20 +776,24 @@ const ProviderRenovationPanel = () => {
                         <h3 className="text-sm font-semibold text-gray-900">
                           {project.serviceCategory || 'Renovation Project'}
                         </h3>
-                        <p className="text-xs text-gray-600 mt-1">{clientName} - {propertyTitle}</p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {clientName} - {propertyTitle}
+                        </p>
                       </div>
                       <span className={getStatusBadgeClasses(project.status)}>
                         {project.status || 'Unknown'}
                       </span>
                     </div>
-                    
+
                     {project.detailedDescription && (
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Description</p>
-                        <p className="text-sm text-gray-700">{getDescriptionSnippet(project.detailedDescription)}</p>
+                        <p className="text-sm text-gray-700">
+                          {getDescriptionSnippet(project.detailedDescription)}
+                        </p>
                       </div>
                     )}
-                    
+
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-gray-500">Budget</p>
@@ -781,7 +801,9 @@ const ProviderRenovationPanel = () => {
                       </div>
                       <div>
                         <p className="text-xs text-gray-500">Preferred Date</p>
-                        <p className="font-medium text-gray-900">{formatDate(project.preferredDate)}</p>
+                        <p className="font-medium text-gray-900">
+                          {formatDate(project.preferredDate)}
+                        </p>
                       </div>
                       {hasPhotos && (
                         <div className="col-span-2">
@@ -831,7 +853,7 @@ const ProviderRenovationPanel = () => {
                           </Button>
                         </div>
                       )}
-                      
+
                       {project.providerId && (
                         <div>
                           <label className="block text-xs text-gray-500 mb-2">Update Status:</label>
@@ -848,9 +870,7 @@ const ProviderRenovationPanel = () => {
                                 </option>
                               ))}
                             </select>
-                            {isUpdating && (
-                              <LoadingSpinner size="sm" />
-                            )}
+                            {isUpdating && <LoadingSpinner size="sm" />}
                           </div>
                         </div>
                       )}
@@ -867,4 +887,3 @@ const ProviderRenovationPanel = () => {
 };
 
 export default ProviderRenovationPanel;
-

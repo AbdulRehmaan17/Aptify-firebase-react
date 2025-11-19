@@ -9,7 +9,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 
 /**
  * ConstructionRequestForm Component
- * 
+ *
  * Allows property owners to submit construction project requests.
  * Fetches user's properties from Firestore and creates a new construction project.
  * Supports providerId from query params or route state (from ConstructionList).
@@ -22,7 +22,7 @@ const ConstructionRequestForm = () => {
   const { user: contextUser, loading: authLoading } = useAuth();
 
   // Get currentUser from Firebase auth
-  const currentUser = auth.currentUser || contextUser;
+  const currentUser = auth?.currentUser || contextUser;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -59,11 +59,15 @@ const ConstructionRequestForm = () => {
     const providerId = providerIdFromQuery || providerIdFromState || '';
 
     if (providerId) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         providerId: providerId,
       }));
-      console.log('Provider ID set from:', providerIdFromQuery ? 'query params' : 'route state', providerId);
+      console.log(
+        'Provider ID set from:',
+        providerIdFromQuery ? 'query params' : 'route state',
+        providerId
+      );
     }
   }, [searchParams, location.state]);
 
@@ -95,7 +99,7 @@ const ConstructionRequestForm = () => {
         );
 
         const snapshot = await getDocs(propertiesQuery);
-        const propertiesList = snapshot.docs.map(doc => ({
+        const propertiesList = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
@@ -121,14 +125,14 @@ const ConstructionRequestForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
 
     // Clear error for this field when user starts typing
     if (errors[name]) {
-      setErrors(prev => {
+      setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[name];
         return newErrors;
@@ -137,7 +141,7 @@ const ConstructionRequestForm = () => {
 
     // Clear endDate error if startDate changes
     if (name === 'startDate' && errors.endDate) {
-      setErrors(prev => {
+      setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors.endDate;
         return newErrors;
@@ -191,7 +195,7 @@ const ConstructionRequestForm = () => {
     } else if (formData.startDate && formData.endDate) {
       const startDate = new Date(formData.startDate);
       const endDate = new Date(formData.endDate);
-      
+
       if (endDate < startDate) {
         newErrors.endDate = 'End date must be on or after start date';
       }
@@ -251,12 +255,12 @@ const ConstructionRequestForm = () => {
       console.log('Project data:', projectData);
 
       toast.success('Construction request submitted successfully!');
-      
+
       // Navigate to construction dashboard
       navigate('/construction-dashboard');
     } catch (error) {
       console.error('Error submitting construction request:', error);
-      
+
       // Handle specific Firestore errors
       if (error.code === 'permission-denied') {
         toast.error('Permission denied. Please check Firestore security rules.');
@@ -300,20 +304,15 @@ const ConstructionRequestForm = () => {
             </h1>
             <div className="mb-6">
               <p className="text-lg text-gray-600 mb-4">
-                You don't have any properties yet. Please add a property before submitting a construction request.
+                You don't have any properties yet. Please add a property before submitting a
+                construction request.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                variant="primary"
-                onClick={() => navigate('/post-property')}
-              >
+              <Button variant="primary" onClick={() => navigate('/post-property')}>
                 Add Property
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate('/properties')}
-              >
+              <Button variant="outline" onClick={() => navigate('/properties')}>
                 Browse Properties
               </Button>
             </div>
@@ -353,7 +352,7 @@ const ConstructionRequestForm = () => {
               }`}
             >
               <option value="">Select project type</option>
-              {projectTypes.map(type => (
+              {projectTypes.map((type) => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
@@ -386,9 +385,10 @@ const ConstructionRequestForm = () => {
                   }`}
                 >
                   <option value="">Select a property</option>
-                  {properties.map(property => (
+                  {properties.map((property) => (
                     <option key={property.id} value={property.id}>
-                      {property.title || 'Untitled Property'} - {property.address?.city || 'No city'}
+                      {property.title || 'Untitled Property'} -{' '}
+                      {property.address?.city || 'No city'}
                     </option>
                   ))}
                 </select>
@@ -441,9 +441,7 @@ const ConstructionRequestForm = () => {
                 errors.budget ? 'border-red-500' : 'border-gray-300'
               }`}
             />
-            {errors.budget && (
-              <p className="mt-1 text-sm text-red-600">{errors.budget}</p>
-            )}
+            {errors.budget && <p className="mt-1 text-sm text-red-600">{errors.budget}</p>}
           </div>
 
           {/* Date Fields Container */}
@@ -464,9 +462,7 @@ const ConstructionRequestForm = () => {
                   errors.startDate ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
-              {errors.startDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.startDate}</p>
-              )}
+              {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate}</p>}
             </div>
 
             {/* End Date Field */}
@@ -485,9 +481,7 @@ const ConstructionRequestForm = () => {
                   errors.endDate ? 'border-red-500' : 'border-gray-300'
                 }`}
               />
-              {errors.endDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>
-              )}
+              {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>}
             </div>
           </div>
 
@@ -495,7 +489,8 @@ const ConstructionRequestForm = () => {
           {formData.providerId && (
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
               <p className="text-sm text-slate-800">
-                <strong>Provider Selected:</strong> A provider has been pre-selected for this request.
+                <strong>Provider Selected:</strong> A provider has been pre-selected for this
+                request.
               </p>
             </div>
           )}

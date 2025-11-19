@@ -7,4 +7,10 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  // Ensure environment variables are loaded
+  envPrefix: 'VITE_',
+  // Clear cache on build issues
+  server: {
+    hmr: true,
+  },
 });

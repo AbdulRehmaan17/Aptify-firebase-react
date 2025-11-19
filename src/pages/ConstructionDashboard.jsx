@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 
 /**
  * ConstructionDashboard Component
- * 
+ *
  * Displays user's construction projects in real-time using Firestore onSnapshot.
  * Queries "constructionProjects" collection where userId == currentUser.uid.
  * Shows project details including property names fetched from properties collection.
@@ -20,10 +20,10 @@ import toast from 'react-hot-toast';
 const ConstructionDashboard = () => {
   const navigate = useNavigate();
   const { user: contextUser, loading: authLoading } = useAuth();
-  
+
   // Get currentUser from Firebase auth
-  const currentUser = auth.currentUser || contextUser;
-  
+  const currentUser = auth?.currentUser || contextUser;
+
   // State management
   const [projects, setProjects] = useState([]);
   const [propertyNames, setPropertyNames] = useState({}); // Cache property names by propertyId
@@ -46,20 +46,20 @@ const ConstructionDashboard = () => {
     try {
       const propertyRef = doc(db, 'properties', propertyId);
       const propertySnap = await getDoc(propertyRef);
-      
+
       if (propertySnap.exists()) {
         const propertyData = propertySnap.data();
         const name = propertyData.title || propertyData.name || 'Unknown Property';
-        
+
         // Cache the property name
-        setPropertyNames(prev => ({
+        setPropertyNames((prev) => ({
           ...prev,
-          [propertyId]: name
+          [propertyId]: name,
         }));
-        
+
         return name;
       }
-      
+
       return 'Property Not Found';
     } catch (err) {
       console.error(`Error fetching property ${propertyId}:`, err);
@@ -105,7 +105,7 @@ const ConstructionDashboard = () => {
         projectsQuery,
         async (snapshot) => {
           console.log(`Received ${snapshot.docs.length} projects from snapshot`);
-          
+
           // Handle empty collection gracefully
           if (snapshot.empty) {
             console.log('No construction projects found for user');
@@ -113,9 +113,9 @@ const ConstructionDashboard = () => {
             setLoading(false);
             return;
           }
-          
+
           // Map documents to array with id
-          const projectsList = snapshot.docs.map(doc => ({
+          const projectsList = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
@@ -130,24 +130,24 @@ const ConstructionDashboard = () => {
           });
 
           const propertyNameResults = await Promise.all(propertyNamePromises);
-          
+
           // Update property names cache
           const newPropertyNames = {};
           propertyNameResults.forEach(({ projectId, propertyName }) => {
-            const project = projectsList.find(p => p.id === projectId);
+            const project = projectsList.find((p) => p.id === projectId);
             if (project && project.propertyId) {
               newPropertyNames[project.propertyId] = propertyName;
             }
           });
-          
-          setPropertyNames(prev => ({ ...prev, ...newPropertyNames }));
+
+          setPropertyNames((prev) => ({ ...prev, ...newPropertyNames }));
           setProjects(projectsList);
           setLoading(false);
         },
         (err) => {
           // Error callback for onSnapshot
           console.error('Error in onSnapshot:', err);
-          
+
           // Handle collection not existing or permission errors gracefully
           if (err.code === 'permission-denied') {
             setError('Permission denied. Please check Firestore security rules.');
@@ -172,7 +172,7 @@ const ConstructionDashboard = () => {
       };
     } catch (err) {
       console.error('Error setting up listener:', err);
-      
+
       // Handle collection not existing gracefully
       if (err.code === 'not-found' || err.message?.includes('not found')) {
         console.log('Collection does not exist yet. Showing empty state.');
@@ -194,35 +194,35 @@ const ConstructionDashboard = () => {
    */
   const formatDate = (dateValue) => {
     if (!dateValue) return 'Not set';
-    
+
     try {
       // Handle Firestore Timestamp
       if (dateValue.seconds) {
         return new Date(dateValue.seconds * 1000).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       // Handle string dates
       if (typeof dateValue === 'string') {
         return new Date(dateValue).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       // Handle Date objects
       if (dateValue instanceof Date) {
         return dateValue.toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       return 'Invalid date';
     } catch (err) {
       console.error('Error formatting date:', err);
@@ -252,7 +252,7 @@ const ConstructionDashboard = () => {
    */
   const getStatusBadgeClasses = (status) => {
     const baseClasses = 'px-3 py-1 rounded-full text-xs font-semibold';
-    
+
     switch (status?.toLowerCase()) {
       case 'pending':
         return `${baseClasses} bg-yellow-100 text-yellow-800`;
@@ -277,17 +277,19 @@ const ConstructionDashboard = () => {
    */
   const handleCancelProject = async (projectId) => {
     // Confirm cancellation using window.confirm()
-    if (!window.confirm('Are you sure you want to cancel this project? This action cannot be undone.')) {
+    if (
+      !window.confirm('Are you sure you want to cancel this project? This action cannot be undone.')
+    ) {
       return;
     }
 
     try {
       setCancellingId(projectId);
-      
+
       // Delete project document from Firestore
       const projectRef = doc(db, 'constructionProjects', projectId);
       await deleteDoc(projectRef);
-      
+
       toast.success('Project cancelled successfully.');
       console.log('Project cancelled:', projectId);
     } catch (err) {
@@ -313,12 +315,8 @@ const ConstructionDashboard = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Authentication Required
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Please log in to view your construction projects.
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please log in to view your construction projects.</p>
           <Button onClick={() => navigate('/auth')} variant="primary">
             Log In
           </Button>
@@ -333,9 +331,7 @@ const ConstructionDashboard = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Error Loading Projects
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Projects</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <Button onClick={() => window.location.reload()} variant="primary">
             Try Again
@@ -362,16 +358,11 @@ const ConstructionDashboard = () => {
         {projects.length === 0 ? (
           <div className="bg-white rounded-xl shadow-lg p-12 text-center">
             <Building2 className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              No Construction Projects
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Construction Projects</h2>
             <p className="text-gray-600 mb-6">
               You have not requested any construction services yet.
             </p>
-            <Button
-              onClick={() => navigate('/construction-request')}
-              variant="primary"
-            >
+            <Button onClick={() => navigate('/construction-request')} variant="primary">
               Request Construction Service
             </Button>
           </div>
@@ -408,10 +399,10 @@ const ConstructionDashboard = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {projects.map((project) => {
-                    const propertyName = project.propertyId 
-                      ? (propertyNames[project.propertyId] || 'Loading...')
+                    const propertyName = project.propertyId
+                      ? propertyNames[project.propertyId] || 'Loading...'
                       : 'No Property';
-                    
+
                     return (
                       <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                         {/* Project Type */}
@@ -425,9 +416,7 @@ const ConstructionDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-600">
                             <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                            <span className="truncate max-w-xs">
-                              {propertyName}
-                            </span>
+                            <span className="truncate max-w-xs">{propertyName}</span>
                           </div>
                         </td>
 
@@ -487,10 +476,10 @@ const ConstructionDashboard = () => {
             {/* Mobile Card View (hidden on desktop) */}
             <div className="md:hidden divide-y divide-gray-200">
               {projects.map((project) => {
-                const propertyName = project.propertyId 
-                  ? (propertyNames[project.propertyId] || 'Loading...')
+                const propertyName = project.propertyId
+                  ? propertyNames[project.propertyId] || 'Loading...'
                   : 'No Property';
-                
+
                 return (
                   <div key={project.id} className="p-4 space-y-3">
                     <div className="flex justify-between items-start">
@@ -504,7 +493,7 @@ const ConstructionDashboard = () => {
                         {project.status || 'Unknown'}
                       </span>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-gray-500">Budget</p>

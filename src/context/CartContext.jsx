@@ -2,17 +2,15 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 
-
 const cartReducer = (state, action) => {
   switch (action.type) {
     case 'ADD_ITEM':
-      const existingItem = state.items.find(item =>
-        item.productId === action.payload.productId &&
-        item.size === action.payload.size
+      const existingItem = state.items.find(
+        (item) => item.productId === action.payload.productId && item.size === action.payload.size
       );
 
       if (existingItem) {
-        const updatedItems = state.items.map(item =>
+        const updatedItems = state.items.map((item) =>
           item.id === existingItem.id
             ? { ...item, quantity: item.quantity + action.payload.quantity }
             : item
@@ -20,54 +18,56 @@ const cartReducer = (state, action) => {
         return {
           ...state,
           items: updatedItems,
-          total: updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-          itemCount: updatedItems.reduce((sum, item) => sum + item.quantity, 0)
+          total: updatedItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+          itemCount: updatedItems.reduce((sum, item) => sum + item.quantity, 0),
         };
       } else {
         const newItems = [...state.items, action.payload];
         return {
           ...state,
           items: newItems,
-          total: newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-          itemCount: newItems.reduce((sum, item) => sum + item.quantity, 0)
+          total: newItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+          itemCount: newItems.reduce((sum, item) => sum + item.quantity, 0),
         };
       }
 
     case 'REMOVE_ITEM':
-      const filteredItems = state.items.filter(item => item.id !== action.payload);
+      const filteredItems = state.items.filter((item) => item.id !== action.payload);
       return {
         ...state,
         items: filteredItems,
-        total: filteredItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        itemCount: filteredItems.reduce((sum, item) => sum + item.quantity, 0)
+        total: filteredItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        itemCount: filteredItems.reduce((sum, item) => sum + item.quantity, 0),
       };
 
     case 'UPDATE_QUANTITY':
-      const updatedItems = state.items.map(item =>
-        item.id === action.payload.id
-          ? { ...item, quantity: Math.max(0, action.payload.quantity) }
-          : item
-      ).filter(item => item.quantity > 0);
+      const updatedItems = state.items
+        .map((item) =>
+          item.id === action.payload.id
+            ? { ...item, quantity: Math.max(0, action.payload.quantity) }
+            : item
+        )
+        .filter((item) => item.quantity > 0);
 
       return {
         ...state,
         items: updatedItems,
-        total: updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        itemCount: updatedItems.reduce((sum, item) => sum + item.quantity, 0)
+        total: updatedItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        itemCount: updatedItems.reduce((sum, item) => sum + item.quantity, 0),
       };
 
     case 'CLEAR_CART':
       return {
         items: [],
         total: 0,
-        itemCount: 0
+        itemCount: 0,
       };
 
     case 'LOAD_CART':
       return {
         items: action.payload,
-        total: action.payload.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-        itemCount: action.payload.reduce((sum, item) => sum + item.quantity, 0)
+        total: action.payload.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        itemCount: action.payload.reduce((sum, item) => sum + item.quantity, 0),
       };
 
     default:
@@ -85,12 +85,11 @@ export const useCart = () => {
   return context;
 };
 
-
 export const CartProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cartReducer, {
     items: [],
     total: 0,
-    itemCount: 0
+    itemCount: 0,
   });
 
   const { user } = useAuth();
@@ -116,7 +115,7 @@ export const CartProvider = ({ children }) => {
   const addToCart = (item) => {
     const cartItem = {
       ...item,
-      id: `${item.productId}_${item.size || 'default'}_${Date.now()}`
+      id: `${item.productId}_${item.size || 'default'}_${Date.now()}`,
     };
     dispatch({ type: 'ADD_ITEM', payload: cartItem });
     toast.success('Added to cart!');
@@ -141,12 +140,8 @@ export const CartProvider = ({ children }) => {
     addToCart,
     removeFromCart,
     updateQuantity,
-    clearCart
+    clearCart,
   };
 
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  );
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 
 /**
  * ConstructionList Component
- * 
+ *
  * Displays a list of construction service providers from Firestore.
  * Fetches providers from "serviceProviders" collection where serviceType == "Construction".
  * Seeds default providers if collection is empty.
@@ -18,7 +18,7 @@ import toast from 'react-hot-toast';
  */
 const ConstructionList = () => {
   const navigate = useNavigate();
-  
+
   // State management
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,7 +57,7 @@ const ConstructionList = () => {
       ];
 
       // Add each provider to Firestore
-      const addPromises = defaultProviders.map(provider => 
+      const addPromises = defaultProviders.map((provider) =>
         addDoc(collection(db, 'serviceProviders'), provider)
       );
 
@@ -93,7 +93,7 @@ const ConstructionList = () => {
         const snapshot = await getDocs(providersQuery);
 
         // Map documents to array with id
-        const providersList = snapshot.docs.map(doc => ({
+        const providersList = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
@@ -105,14 +105,14 @@ const ConstructionList = () => {
           console.log('No providers found. Seeding default providers...');
           try {
             await seedDefaultProviders();
-            
+
             // Fetch again after seeding
             const newSnapshot = await getDocs(providersQuery);
-            const newProvidersList = newSnapshot.docs.map(doc => ({
+            const newProvidersList = newSnapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
-            
+
             setProviders(newProvidersList);
             console.log(`Fetched ${newProvidersList.length} providers after seeding`);
           } catch (seedError) {
@@ -125,7 +125,7 @@ const ConstructionList = () => {
         }
       } catch (err) {
         console.error('Error fetching construction providers:', err);
-        
+
         // Handle case where collection doesn't exist gracefully
         if (err.code === 'permission-denied' || err.message?.includes('permission')) {
           setError('Permission denied. Please check Firestore security rules.');
@@ -141,7 +141,7 @@ const ConstructionList = () => {
               where('serviceType', '==', 'Construction')
             );
             const newSnapshot = await getDocs(providersQuery);
-            const newProvidersList = newSnapshot.docs.map(doc => ({
+            const newProvidersList = newSnapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
             }));
@@ -197,12 +197,7 @@ const ConstructionList = () => {
       <div className="flex items-center gap-1">
         {[...Array(5)].map((_, index) => {
           if (index < fullStars) {
-            return (
-              <Star
-                key={index}
-                className="w-4 h-4 fill-yellow-400 text-yellow-400"
-              />
-            );
+            return <Star key={index} className="w-4 h-4 fill-yellow-400 text-yellow-400" />;
           } else if (index === fullStars && hasHalfStar) {
             return (
               <Star
@@ -212,17 +207,10 @@ const ConstructionList = () => {
               />
             );
           } else {
-            return (
-              <Star
-                key={index}
-                className="w-4 h-4 text-gray-300"
-              />
-            );
+            return <Star key={index} className="w-4 h-4 text-gray-300" />;
           }
         })}
-        <span className="ml-1 text-sm font-medium text-gray-700">
-          {ratingValue.toFixed(1)}
-        </span>
+        <span className="ml-1 text-sm font-medium text-gray-700">{ratingValue.toFixed(1)}</span>
       </div>
     );
   };
@@ -233,9 +221,7 @@ const ConstructionList = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          {seeding && (
-            <p className="mt-4 text-gray-600">Setting up default providers...</p>
-          )}
+          {seeding && <p className="mt-4 text-gray-600">Setting up default providers...</p>}
         </div>
       </div>
     );
@@ -249,21 +235,13 @@ const ConstructionList = () => {
           <div className="mb-4">
             <Building2 className="w-16 h-16 mx-auto text-red-500" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Error Loading Providers
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Providers</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              onClick={() => window.location.reload()}
-              variant="primary"
-            >
+            <Button onClick={() => window.location.reload()} variant="primary">
               Try Again
             </Button>
-            <Button
-              onClick={() => navigate('/construction-request')}
-              variant="outline"
-            >
+            <Button onClick={() => navigate('/construction-request')} variant="outline">
               Request Service Anyway
             </Button>
           </div>
@@ -285,13 +263,10 @@ const ConstructionList = () => {
               No Construction Providers Available
             </h2>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-              No construction providers are currently available. You can still submit a construction request, and a provider will be assigned automatically.
+              No construction providers are currently available. You can still submit a construction
+              request, and a provider will be assigned automatically.
             </p>
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => navigate('/construction-request')}
-            >
+            <Button variant="primary" size="lg" onClick={() => navigate('/construction-request')}>
               Request Construction Service
             </Button>
           </div>
@@ -323,10 +298,7 @@ const ConstructionList = () => {
               {/* Card Content */}
               <div className="p-6">
                 {/* Provider Name - Clickable to view details */}
-                <Link
-                  to={`/construction-provider/${provider.id}`}
-                  className="block mb-3 group"
-                >
+                <Link to={`/construction-provider/${provider.id}`} className="block mb-3 group">
                   <h3 className="text-xl font-semibold text-gray-900 group-hover:text-slate-600 transition-colors">
                     {provider.name || 'Unnamed Provider'}
                   </h3>
@@ -334,20 +306,14 @@ const ConstructionList = () => {
 
                 {/* Rating */}
                 {provider.rating !== undefined && provider.rating !== null && (
-                  <div className="mb-4">
-                    {renderRating(provider.rating)}
-                  </div>
+                  <div className="mb-4">{renderRating(provider.rating)}</div>
                 )}
 
                 {/* Expertise */}
                 {provider.expertise && (
                   <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      Expertise:
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      {formatExpertise(provider.expertise)}
-                    </p>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Expertise:</h4>
+                    <p className="text-sm text-gray-600">{formatExpertise(provider.expertise)}</p>
                   </div>
                 )}
 

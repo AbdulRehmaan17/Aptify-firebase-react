@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 /**
  * RenovationServicesPage Component
- * 
+ *
  * Main landing page for renovation services.
  * Provides information about renovation services and links to construction providers.
  */
@@ -17,12 +17,14 @@ const RenovationServicesPage = () => {
     {
       icon: <Hammer className="w-8 h-8" />,
       title: 'New Construction',
-      description: 'Build your dream property from the ground up with our expert construction team.',
+      description:
+        'Build your dream property from the ground up with our expert construction team.',
     },
     {
       icon: <Wrench className="w-8 h-8" />,
       title: 'Extension & Remodeling',
-      description: 'Expand or transform your existing property with professional renovation services.',
+      description:
+        'Expand or transform your existing property with professional renovation services.',
     },
     {
       icon: <Paintbrush className="w-8 h-8" />,
@@ -50,10 +52,11 @@ const RenovationServicesPage = () => {
       {/* Hero Section */}
       <section className="relative py-20 overflow-hidden">
         {/* Background Image with Overlay */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop)'
+            backgroundImage:
+              'url(https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop)',
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-teal-900/90 via-emerald-800/85 to-teal-900/90"></div>
@@ -67,17 +70,25 @@ const RenovationServicesPage = () => {
               Transform your property with our expert renovation and construction services
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" variant="secondary" className="bg-teal-500 hover:bg-teal-600 text-white border-teal-500" asChild>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="bg-teal-500 hover:bg-teal-600 text-white border-teal-500"
+                asChild
+              >
                 <Link to="/renovation-list">
                   Browse Providers
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>
               {user && (
-                <Button size="lg" variant="outline" className="bg-white text-teal-600 hover:bg-teal-50 border-white" asChild>
-                  <Link to="/renovation-request">
-                    Request Service
-                  </Link>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-white text-teal-600 hover:bg-teal-50 border-white"
+                  asChild
+                >
+                  <Link to="/renovation-request">Request Service</Link>
                 </Button>
               )}
             </div>
@@ -104,9 +115,7 @@ const RenovationServicesPage = () => {
                 className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-teal-100"
               >
                 <div className="text-teal-600 mb-4">{service.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {service.title}
-                </h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.title}</h3>
                 <p className="text-gray-600">{service.description}</p>
               </div>
             ))}
@@ -132,30 +141,38 @@ const RenovationServicesPage = () => {
               </div>
             </div>
             <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-xl p-8 border border-teal-200 shadow-lg">
-              <h3 className="text-2xl font-semibold text-gray-900 mb-4">
-                Get Started Today
-              </h3>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-4">Get Started Today</h3>
               <p className="text-gray-600 mb-6">
-                Connect with our verified renovation providers and get quotes for your renovation project.
+                Connect with our verified renovation providers and get quotes for your renovation
+                project.
               </p>
               <div className="space-y-4">
-                <Button variant="primary" className="bg-teal-600 hover:bg-teal-700 text-white border-teal-600" fullWidth asChild>
-                  <Link to="/renovation-list">
-                    Browse Renovation Providers
-                  </Link>
+                <Button
+                  variant="primary"
+                  className="bg-teal-600 hover:bg-teal-700 text-white border-teal-600"
+                  fullWidth
+                  asChild
+                >
+                  <Link to="/renovation-list">Browse Renovation Providers</Link>
                 </Button>
                 {user && (
-                  <Button variant="outline" className="border-teal-600 text-teal-600 hover:bg-teal-50" fullWidth asChild>
-                    <Link to="/renovation-request">
-                      Submit Renovation Request
-                    </Link>
+                  <Button
+                    variant="outline"
+                    className="border-teal-600 text-teal-600 hover:bg-teal-50"
+                    fullWidth
+                    asChild
+                  >
+                    <Link to="/renovation-request">Submit Renovation Request</Link>
                   </Button>
                 )}
                 {!user && (
-                  <Button variant="outline" className="border-teal-600 text-teal-600 hover:bg-teal-50" fullWidth asChild>
-                    <Link to="/auth">
-                      Sign In to Request Service
-                    </Link>
+                  <Button
+                    variant="outline"
+                    className="border-teal-600 text-teal-600 hover:bg-teal-50"
+                    fullWidth
+                    asChild
+                  >
+                    <Link to="/auth">Sign In to Request Service</Link>
                   </Button>
                 )}
               </div>
@@ -167,10 +184,11 @@ const RenovationServicesPage = () => {
       {/* CTA Section */}
       <section className="relative py-16 overflow-hidden">
         {/* Background Image with Overlay */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop)'
+            backgroundImage:
+              'url(https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop)',
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-teal-800/95 via-emerald-700/90 to-teal-800/95"></div>
@@ -183,15 +201,21 @@ const RenovationServicesPage = () => {
             Get in touch with our expert team and start your renovation journey today
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="bg-teal-500 hover:bg-teal-600 text-white border-teal-500" asChild>
-              <Link to="/renovation-list">
-                Find a Provider
-              </Link>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="bg-teal-500 hover:bg-teal-600 text-white border-teal-500"
+              asChild
+            >
+              <Link to="/renovation-list">Find a Provider</Link>
             </Button>
-            <Button size="lg" variant="outline" className="bg-white text-teal-600 hover:bg-teal-50 border-white" asChild>
-              <Link to="/contact">
-                Contact Us
-              </Link>
+            <Button
+              size="lg"
+              variant="outline"
+              className="bg-white text-teal-600 hover:bg-teal-50 border-white"
+              asChild
+            >
+              <Link to="/contact">Contact Us</Link>
             </Button>
           </div>
         </div>
@@ -201,4 +225,3 @@ const RenovationServicesPage = () => {
 };
 
 export default RenovationServicesPage;
-

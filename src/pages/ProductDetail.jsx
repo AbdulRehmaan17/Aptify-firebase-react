@@ -38,7 +38,7 @@ const ProductDetail = () => {
         ...productData,
         imageUrl: productData.imageUrl
           ? `${productData.imageUrl.replace('/upload/', '/upload/q_auto,f_auto,w_1200,h_1200,c_fill/')}`
-          : 'https://res.cloudinary.com/dba3tysex/image/upload/v1/watch-images/placeholder.jpg'
+          : 'https://res.cloudinary.com/dba3tysex/image/upload/v1/watch-images/placeholder.jpg',
       });
       setReviews(reviewsData);
     } catch (err) {
@@ -76,7 +76,7 @@ const ProductDetail = () => {
       price: product.price,
       imageUrl: product.imageUrl,
       quantity: 1,
-      size: 'default' // No size selection for watches
+      size: 'default', // No size selection for watches
     });
     navigate('/cart');
   };
@@ -194,9 +194,7 @@ const ProductDetail = () => {
             <p className="text-3xl font-bold text-charcoal mb-6 font-inter">
               ${product.price.toFixed(2)}
             </p>
-            <p className="text-gray-600 mb-8 font-inter leading-relaxed">
-              {product.description}
-            </p>
+            <p className="text-gray-600 mb-8 font-inter leading-relaxed">{product.description}</p>
             <div className="flex items-center space-x-4 mb-8">
               <span
                 className={`text-sm font-medium ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}
@@ -229,9 +227,7 @@ const ProductDetail = () => {
         transition={{ duration: 0.8, delay: 0.4 }}
         className="mt-16 bg-white rounded-xl shadow-xl p-8"
       >
-        <h2 className="text-3xl font-display font-bold text-charcoal mb-8">
-          Customer Reviews
-        </h2>
+        <h2 className="text-3xl font-display font-bold text-charcoal mb-8">Customer Reviews</h2>
         <div className="flex items-center mb-8">
           <span className="text-4xl font-bold text-charcoal mr-4">{averageRating}</span>
           <div>
@@ -250,7 +246,7 @@ const ProductDetail = () => {
         </div>
         {reviews.length > 0 ? (
           <div className="space-y-6">
-            {reviews.map(review => (
+            {reviews.map((review) => (
               <motion.div
                 key={review.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -266,9 +262,7 @@ const ProductDetail = () => {
                     />
                   ))}
                 </div>
-                <p className="text-gray-600 mb-3 font-inter leading-relaxed">
-                  {review.comment}
-                </p>
+                <p className="text-gray-600 mb-3 font-inter leading-relaxed">{review.comment}</p>
                 <p className="text-sm text-gray-500 font-inter">
                   By {review.userName || 'Anonymous'} •{' '}
                   {new Date(review.createdAt).toLocaleDateString()}

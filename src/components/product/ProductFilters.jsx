@@ -2,15 +2,7 @@ import React, { useState } from 'react';
 import { Filter, X } from 'lucide-react';
 import Button from '../common/Button';
 
-
-const ProductFilters = ({
-  filters,
-  onFiltersChange,
-  categories,
-  brands,
-  isOpen,
-  onToggle
-}) => {
+const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, onToggle }) => {
   // Initialize with default structure if filters don't have expected properties
   const defaultFilters = {
     category: [],
@@ -18,9 +10,9 @@ const ProductFilters = ({
     priceRange: [0, 10000000],
     rating: 0,
     inStock: false,
-    ...filters // Merge with provided filters
+    ...filters, // Merge with provided filters
   };
-  
+
   // Ensure category and brand are arrays
   if (!Array.isArray(defaultFilters.category)) {
     defaultFilters.category = [];
@@ -31,19 +23,19 @@ const ProductFilters = ({
   if (!Array.isArray(defaultFilters.priceRange)) {
     defaultFilters.priceRange = [0, 10000000];
   }
-  
+
   const [localFilters, setLocalFilters] = useState(defaultFilters);
 
   const handleFilterChange = (key, value) => {
-    setLocalFilters(prev => ({ ...prev, [key]: value }));
+    setLocalFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleArrayFilterToggle = (key, value) => {
-    setLocalFilters(prev => ({
+    setLocalFilters((prev) => ({
       ...prev,
       [key]: prev[key].includes(value)
-        ? prev[key].filter(item => item !== value)
-        : [...prev[key], value]
+        ? prev[key].filter((item) => item !== value)
+        : [...prev[key], value],
     }));
   };
 
@@ -58,7 +50,7 @@ const ProductFilters = ({
       brand: [],
       priceRange: [0, 10000000],
       rating: 0,
-      inStock: false
+      inStock: false,
     };
     setLocalFilters(resetFilters);
     onFiltersChange(resetFilters);
@@ -74,11 +66,7 @@ const ProductFilters = ({
     <>
       {/* Mobile Filter Button */}
       <div className="lg:hidden mb-4">
-        <Button
-          onClick={onToggle}
-          variant="outline"
-          className="flex items-center space-x-2"
-        >
+        <Button onClick={onToggle} variant="outline" className="flex items-center space-x-2">
           <Filter className="w-4 h-4" />
           <span>Filters</span>
           {activeFilterCount > 0 && (
@@ -90,14 +78,16 @@ const ProductFilters = ({
       </div>
 
       {/* Filter Panel */}
-      <div className={`
+      <div
+        className={`
         ${isOpen ? 'block' : 'hidden'} lg:block
         fixed lg:static inset-0 lg:inset-auto z-50 lg:z-auto
         bg-white lg:bg-transparent
         p-4 lg:p-0
         overflow-y-auto lg:overflow-visible
         lg:w-64
-      `}>
+      `}
+      >
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold">Filters</h2>
@@ -111,7 +101,7 @@ const ProductFilters = ({
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Category</h3>
             <div className="space-y-2">
-              {categories.map(category => (
+              {categories.map((category) => (
                 <label key={category} className="flex items-center">
                   <input
                     type="checkbox"
@@ -129,7 +119,7 @@ const ProductFilters = ({
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Brand</h3>
             <div className="space-y-2 max-h-40 overflow-y-auto">
-              {brands.map(brand => (
+              {brands.map((brand) => (
                 <label key={brand} className="flex items-center">
                   <input
                     type="checkbox"
@@ -169,7 +159,7 @@ const ProductFilters = ({
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Minimum Rating</h3>
             <div className="space-y-2">
-              {[4, 3, 2, 1].map(rating => (
+              {[4, 3, 2, 1].map((rating) => (
                 <label key={rating} className="flex items-center">
                   <input
                     type="radio"
@@ -178,9 +168,7 @@ const ProductFilters = ({
                     onChange={() => handleFilterChange('rating', rating)}
                     className="text-luxury-gold focus:ring-luxury-gold"
                   />
-                  <span className="ml-2 text-sm text-gray-700">
-                    {rating}+ Stars
-                  </span>
+                  <span className="ml-2 text-sm text-gray-700">{rating}+ Stars</span>
                 </label>
               ))}
             </div>
@@ -219,10 +207,7 @@ const ProductFilters = ({
 
       {/* Overlay for mobile */}
       {isOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
-          onClick={onToggle}
-        />
+        <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onToggle} />
       )}
     </>
   );

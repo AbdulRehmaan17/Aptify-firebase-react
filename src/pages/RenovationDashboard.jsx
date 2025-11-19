@@ -3,14 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { collection, query, where, onSnapshot, getDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { Wrench, Calendar, DollarSign, MapPin, X, AlertCircle, ChevronDown, ChevronUp, Image as ImageIcon, User } from 'lucide-react';
+import {
+  Wrench,
+  Calendar,
+  DollarSign,
+  MapPin,
+  X,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Image as ImageIcon,
+  User,
+} from 'lucide-react';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 
 /**
  * RenovationDashboard Component
- * 
+ *
  * Displays user's renovation projects in real-time using Firestore onSnapshot.
  * Queries "renovationProjects" collection where userId == currentUser.uid.
  * Shows project details including property names fetched from properties collection.
@@ -21,10 +32,10 @@ import toast from 'react-hot-toast';
 const RenovationDashboard = () => {
   const navigate = useNavigate();
   const { user: contextUser, loading: authLoading } = useAuth();
-  
+
   // Get currentUser from Firebase auth
-  const currentUser = auth.currentUser || contextUser;
-  
+  const currentUser = auth?.currentUser || contextUser;
+
   // State management
   const [projects, setProjects] = useState([]);
   const [propertyNames, setPropertyNames] = useState({}); // Cache property names by propertyId
@@ -49,20 +60,20 @@ const RenovationDashboard = () => {
     try {
       const propertyRef = doc(db, 'properties', propertyId);
       const propertySnap = await getDoc(propertyRef);
-      
+
       if (propertySnap.exists()) {
         const propertyData = propertySnap.data();
         const name = propertyData.title || propertyData.name || 'Unknown Property';
-        
+
         // Cache the property name
-        setPropertyNames(prev => ({
+        setPropertyNames((prev) => ({
           ...prev,
-          [propertyId]: name
+          [propertyId]: name,
         }));
-        
+
         return name;
       }
-      
+
       return 'Property Not Found';
     } catch (err) {
       console.error(`Error fetching property ${propertyId}:`, err);
@@ -85,20 +96,20 @@ const RenovationDashboard = () => {
     try {
       const providerRef = doc(db, 'serviceProviders', providerId);
       const providerSnap = await getDoc(providerRef);
-      
+
       if (providerSnap.exists()) {
         const providerData = providerSnap.data();
         const name = providerData.name || 'Unknown Provider';
-        
+
         // Cache the provider name
-        setProviderNames(prev => ({
+        setProviderNames((prev) => ({
           ...prev,
-          [providerId]: name
+          [providerId]: name,
         }));
-        
+
         return name;
       }
-      
+
       return 'Provider Not Found';
     } catch (err) {
       console.error(`Error fetching provider ${providerId}:`, err);
@@ -144,7 +155,7 @@ const RenovationDashboard = () => {
         projectsQuery,
         async (snapshot) => {
           console.log(`Received ${snapshot.docs.length} renovation projects from snapshot`);
-          
+
           // Handle empty collection gracefully
           if (snapshot.empty) {
             console.log('No renovation projects found for user');
@@ -152,9 +163,9 @@ const RenovationDashboard = () => {
             setLoading(false);
             return;
           }
-          
+
           // Map documents to array with id
-          const projectsList = snapshot.docs.map(doc => ({
+          const projectsList = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
@@ -164,25 +175,25 @@ const RenovationDashboard = () => {
             const propertyNamePromise = project.propertyId
               ? fetchPropertyName(project.propertyId)
               : Promise.resolve('No Property');
-            
+
             const providerNamePromise = project.providerId
               ? fetchProviderName(project.providerId)
               : Promise.resolve('No Provider');
-            
+
             const [propertyName, providerName] = await Promise.all([
               propertyNamePromise,
-              providerNamePromise
+              providerNamePromise,
             ]);
-            
+
             return { project, propertyName, providerName };
           });
 
           const results = await Promise.all(fetchPromises);
-          
+
           // Update caches
           const newPropertyNames = {};
           const newProviderNames = {};
-          
+
           results.forEach(({ project, propertyName, providerName }) => {
             if (project.propertyId && propertyName) {
               newPropertyNames[project.propertyId] = propertyName;
@@ -191,16 +202,16 @@ const RenovationDashboard = () => {
               newProviderNames[project.providerId] = providerName;
             }
           });
-          
-          setPropertyNames(prev => ({ ...prev, ...newPropertyNames }));
-          setProviderNames(prev => ({ ...prev, ...newProviderNames }));
+
+          setPropertyNames((prev) => ({ ...prev, ...newPropertyNames }));
+          setProviderNames((prev) => ({ ...prev, ...newProviderNames }));
           setProjects(projectsList);
           setLoading(false);
         },
         (err) => {
           // Error callback for onSnapshot
           console.error('Error in onSnapshot:', err);
-          
+
           // Handle collection not existing or permission errors gracefully
           if (err.code === 'permission-denied') {
             setError('Permission denied. Please check Firestore security rules.');
@@ -225,7 +236,7 @@ const RenovationDashboard = () => {
       };
     } catch (err) {
       console.error('Error setting up listener:', err);
-      
+
       // Handle collection not existing gracefully
       if (err.code === 'not-found' || err.message?.includes('not found')) {
         console.log('Collection does not exist yet. Showing empty state.');
@@ -247,35 +258,35 @@ const RenovationDashboard = () => {
    */
   const formatDate = (dateValue) => {
     if (!dateValue) return 'Not set';
-    
+
     try {
       // Handle Firestore Timestamp
       if (dateValue.seconds) {
         return new Date(dateValue.seconds * 1000).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       // Handle string dates
       if (typeof dateValue === 'string') {
         return new Date(dateValue).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       // Handle Date objects
       if (dateValue instanceof Date) {
         return dateValue.toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       return 'Invalid date';
     } catch (err) {
       console.error('Error formatting date:', err);
@@ -305,7 +316,7 @@ const RenovationDashboard = () => {
    */
   const getStatusBadgeClasses = (status) => {
     const baseClasses = 'px-3 py-1 rounded-full text-xs font-semibold';
-    
+
     switch (status?.toLowerCase()) {
       case 'pending':
         return `${baseClasses} bg-yellow-100 text-yellow-800`;
@@ -331,17 +342,21 @@ const RenovationDashboard = () => {
    */
   const handleCancelProject = async (projectId) => {
     // Confirm cancellation using window.confirm()
-    if (!window.confirm('Are you sure you want to cancel this renovation request? This action cannot be undone.')) {
+    if (
+      !window.confirm(
+        'Are you sure you want to cancel this renovation request? This action cannot be undone.'
+      )
+    ) {
       return;
     }
 
     try {
       setCancellingId(projectId);
-      
+
       // Delete project document from Firestore
       const projectRef = doc(db, 'renovationProjects', projectId);
       await deleteDoc(projectRef);
-      
+
       toast.success('Renovation request cancelled successfully.');
       console.log('Renovation project cancelled:', projectId);
     } catch (err) {
@@ -375,12 +390,8 @@ const RenovationDashboard = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Authentication Required
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Please log in to view your renovation projects.
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please log in to view your renovation projects.</p>
           <Button onClick={() => navigate('/auth')} variant="primary">
             Log In
           </Button>
@@ -395,9 +406,7 @@ const RenovationDashboard = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Error Loading Projects
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Projects</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <Button onClick={() => window.location.reload()} variant="primary">
             Try Again
@@ -424,16 +433,11 @@ const RenovationDashboard = () => {
         {projects.length === 0 ? (
           <div className="bg-white rounded-xl shadow-lg p-12 text-center">
             <Wrench className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              No Renovation Projects
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Renovation Projects</h2>
             <p className="text-gray-600 mb-6">
               You have not requested any renovation services yet.
             </p>
-            <Button
-              onClick={() => navigate('/renovation-request')}
-              variant="primary"
-            >
+            <Button onClick={() => navigate('/renovation-request')} variant="primary">
               Request Renovation Service
             </Button>
           </div>
@@ -441,19 +445,20 @@ const RenovationDashboard = () => {
           /* Projects Grid */
           <div className="space-y-4">
             {projects.map((project) => {
-              const propertyName = project.propertyId 
-                ? (propertyNames[project.propertyId] || 'Loading...')
+              const propertyName = project.propertyId
+                ? propertyNames[project.propertyId] || 'Loading...'
                 : 'No Property';
-              
+
               const providerName = project.providerId
-                ? (providerNames[project.providerId] || 'Loading...')
+                ? providerNames[project.providerId] || 'Loading...'
                 : null;
-              
+
               const isExpanded = expandedProjectId === project.id;
-              const firstPhoto = project.photos && Array.isArray(project.photos) && project.photos.length > 0
-                ? project.photos[0]
-                : null;
-              
+              const firstPhoto =
+                project.photos && Array.isArray(project.photos) && project.photos.length > 0
+                  ? project.photos[0]
+                  : null;
+
               return (
                 <div
                   key={project.id}
@@ -478,7 +483,7 @@ const RenovationDashboard = () => {
                               />
                             </div>
                           )}
-                          
+
                           {/* Project Details */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-2">
@@ -489,7 +494,7 @@ const RenovationDashboard = () => {
                                 {project.status || 'Unknown'}
                               </span>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                               <div className="flex items-center">
                                 <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
@@ -503,12 +508,17 @@ const RenovationDashboard = () => {
                                 <Calendar className="w-4 h-4 mr-1 flex-shrink-0" />
                                 <span>Preferred: {formatDate(project.preferredDate)}</span>
                               </div>
-                              {project.photos && Array.isArray(project.photos) && project.photos.length > 0 && (
-                                <div className="flex items-center">
-                                  <ImageIcon className="w-4 h-4 mr-1 flex-shrink-0" />
-                                  <span>{project.photos.length} photo{project.photos.length !== 1 ? 's' : ''}</span>
-                                </div>
-                              )}
+                              {project.photos &&
+                                Array.isArray(project.photos) &&
+                                project.photos.length > 0 && (
+                                  <div className="flex items-center">
+                                    <ImageIcon className="w-4 h-4 mr-1 flex-shrink-0" />
+                                    <span>
+                                      {project.photos.length} photo
+                                      {project.photos.length !== 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                )}
                             </div>
                           </div>
                         </div>
@@ -529,7 +539,7 @@ const RenovationDashboard = () => {
                             Cancel Request
                           </Button>
                         )}
-                        
+
                         {/* View Details Toggle */}
                         <Button
                           variant="outline"
@@ -559,7 +569,9 @@ const RenovationDashboard = () => {
                         {/* Detailed Description */}
                         {project.detailedDescription && (
                           <div>
-                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Description</h4>
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                              Description
+                            </h4>
                             <p className="text-sm text-gray-600 leading-relaxed">
                               {project.detailedDescription}
                             </p>
@@ -569,7 +581,9 @@ const RenovationDashboard = () => {
                         {/* Provider Info */}
                         {providerName && (
                           <div>
-                            <h4 className="text-sm font-semibold text-gray-700 mb-2">Assigned Provider</h4>
+                            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                              Assigned Provider
+                            </h4>
                             <div className="flex items-center text-sm text-gray-600">
                               <User className="w-4 h-4 mr-2 flex-shrink-0" />
                               <span>{providerName}</span>
@@ -578,26 +592,29 @@ const RenovationDashboard = () => {
                         )}
 
                         {/* Photos Gallery */}
-                        {project.photos && Array.isArray(project.photos) && project.photos.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-700 mb-3">Photos</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                              {project.photos.map((photoUrl, index) => (
-                                <div key={index} className="relative group">
-                                  <img
-                                    src={photoUrl}
-                                    alt={`Project photo ${index + 1}`}
-                                    className="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                                    onClick={() => window.open(photoUrl, '_blank')}
-                                    onError={(e) => {
-                                      e.target.src = 'https://via.placeholder.com/200x150?text=Image+Error';
-                                    }}
-                                  />
-                                </div>
-                              ))}
+                        {project.photos &&
+                          Array.isArray(project.photos) &&
+                          project.photos.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-700 mb-3">Photos</h4>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                {project.photos.map((photoUrl, index) => (
+                                  <div key={index} className="relative group">
+                                    <img
+                                      src={photoUrl}
+                                      alt={`Project photo ${index + 1}`}
+                                      className="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(photoUrl, '_blank')}
+                                      onError={(e) => {
+                                        e.target.src =
+                                          'https://via.placeholder.com/200x150?text=Image+Error';
+                                      }}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
 
                         {/* Additional Info */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
@@ -640,4 +657,3 @@ const RenovationDashboard = () => {
 };
 
 export default RenovationDashboard;
-

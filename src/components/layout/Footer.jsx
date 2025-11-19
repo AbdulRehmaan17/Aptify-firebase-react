@@ -13,13 +13,11 @@ const Footer = () => {
             <div className="space-y-4">
               <Link to="/" className="flex items-center space-x-2">
                 <Home className="w-8 h-8 text-luxury-gold" />
-                <span className="text-2xl font-display font-bold text-luxury-gold">
-                  Aptify
-                </span>
+                <span className="text-2xl font-display font-bold text-luxury-gold">Aptify</span>
               </Link>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Your trusted platform for property rental, purchase, and renovation services.
-                Find your dream property with verified listings and expert support.
+                Your trusted platform for property rental, purchase, and renovation services. Find
+                your dream property with verified listings and expert support.
               </p>
               <div className="flex space-x-4">
                 <a href="#" className="text-gray-400 hover:text-luxury-gold transition-colors">
@@ -42,7 +40,10 @@ const Footer = () => {
               <h3 className="text-lg font-semibold mb-4 text-luxury-gold">Quick Links</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link to="/properties" className="text-gray-400 hover:text-white transition-colors">
+                  <Link
+                    to="/properties"
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
                     Browse Properties
                   </Link>
                 </li>
@@ -52,7 +53,10 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/post-property" className="text-gray-400 hover:text-white transition-colors">
+                  <Link
+                    to="/post-property"
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
                     List Property
                   </Link>
                 </li>
@@ -84,7 +88,10 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/property-guide" className="text-gray-400 hover:text-white transition-colors">
+                  <Link
+                    to="/property-guide"
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
                     Property Guide
                   </Link>
                 </li>
@@ -132,7 +139,8 @@ const Footer = () => {
               Subscribe to Our Newsletter
             </h3>
             <p className="text-gray-400 text-sm mb-4">
-              Get the latest updates on new property listings, renovation service offers, and real estate insights.
+              Get the latest updates on new property listings, renovation service offers, and real
+              estate insights.
             </p>
             <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0">
               <input
@@ -153,9 +161,7 @@ const Footer = () => {
         {/* Bottom Footer */}
         <div className="py-6 border-t border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="text-gray-400 text-sm">
-              © 2024 Aptify. All rights reserved.
-            </div>
+            <div className="text-gray-400 text-sm">© 2024 Aptify. All rights reserved.</div>
             <div className="flex space-x-6 text-sm">
               <Link to="/privacy" className="text-gray-400 hover:text-white transition-colors">
                 Privacy Policy

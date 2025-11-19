@@ -16,6 +16,9 @@ const PropertiesPage = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState('grid');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const ITEMS_PER_PAGE = 12;
   const [filters, setFilters] = useState({
     type: '',
     status: '', // Empty string means no status filter - show all properties
@@ -51,19 +54,21 @@ const PropertiesPage = () => {
           propertiesData = await propertyService.search(searchTerm, firestoreFilters);
         } else {
           console.log('Using getAll');
-          propertiesData = await propertyService.getAll(firestoreFilters, sortOptions);
+          const allOptions = { ...sortOptions, limit: ITEMS_PER_PAGE };
+          propertiesData = await propertyService.getAll(firestoreFilters, allOptions);
         }
 
         console.log('Properties fetched:', propertiesData);
         console.log('Properties count:', propertiesData?.length || 0);
 
         setProperties(propertiesData || []);
+        setHasMore(propertiesData?.length >= ITEMS_PER_PAGE);
       } catch (error) {
         console.error('Error fetching properties:', error);
         console.error('Error details:', {
           message: error.message,
           code: error.code,
-          stack: error.stack
+          stack: error.stack,
         });
         toast.error(`Failed to load properties: ${error.message || 'Unknown error'}`);
         setProperties([]);
@@ -135,23 +140,59 @@ const PropertiesPage = () => {
 
   const handleSortChange = (newSort) => {
     setSortBy(newSort);
-    setSearchParams(prev => ({
+    setSearchParams((prev) => ({
       ...Object.fromEntries(prev),
-      sort: newSort
+      sort: newSort,
     }));
   };
 
   const handleFiltersChange = (newFilters) => {
     setFilters(newFilters);
-    setSearchParams(prev => ({
+    setSearchParams((prev) => ({
       ...Object.fromEntries(prev),
-      ...newFilters
+      ...newFilters,
     }));
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
     // Search is handled in useEffect
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const firestoreFilters = buildFirestoreFilters();
+      const sortOptions = getSortOptions();
+      const allOptions = {
+        ...sortOptions,
+        limit: ITEMS_PER_PAGE,
+        startAfter: properties.length,
+      };
+
+      let moreProperties;
+      if (searchTerm.trim()) {
+        moreProperties = await propertyService.search(searchTerm, firestoreFilters);
+        // Client-side pagination for search results
+        moreProperties = moreProperties.slice(properties.length, properties.length + ITEMS_PER_PAGE);
+      } else {
+        moreProperties = await propertyService.getAll(firestoreFilters, allOptions);
+      }
+
+      if (moreProperties.length > 0) {
+        setProperties((prev) => [...prev, ...moreProperties]);
+        setHasMore(moreProperties.length >= ITEMS_PER_PAGE);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('Error loading more properties:', error);
+      toast.error('Failed to load more properties');
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   if (loading) {
@@ -166,12 +207,8 @@ const PropertiesPage = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-gray-900 mb-4">
-          Browse Properties
-        </h1>
-        <p className="text-lg text-gray-600">
-          Find your perfect rental or purchase property
-        </p>
+        <h1 className="text-3xl font-display font-bold text-gray-900 mb-4">Browse Properties</h1>
+        <p className="text-lg text-gray-600">Find your perfect rental or purchase property</p>
       </div>
 
       {/* Search Bar */}
@@ -231,19 +268,21 @@ const PropertiesPage = () => {
               <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 ${viewMode === 'grid'
-                    ? 'bg-luxury-gold text-luxury-black'
-                    : 'text-gray-600 hover:bg-gray-100'
-                    }`}
+                  className={`p-2 ${
+                    viewMode === 'grid'
+                      ? 'bg-luxury-gold text-luxury-black'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
                 >
                   <Grid className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2 ${viewMode === 'list'
-                    ? 'bg-luxury-gold text-luxury-black'
-                    : 'text-gray-600 hover:bg-gray-100'
-                    }`}
+                  className={`p-2 ${
+                    viewMode === 'list'
+                      ? 'bg-luxury-gold text-luxury-black'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
                 >
                   <List className="w-4 h-4" />
                 </button>
@@ -253,28 +292,39 @@ const PropertiesPage = () => {
 
           {/* Properties Grid */}
           {properties.length > 0 ? (
-            <div className={`${viewMode === 'grid'
-              ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
-              : 'space-y-4'
-              }`}>
-              {properties.map((property) => (
-                <PropertyCard
-                  key={property.id}
-                  property={property}
-                />
-              ))}
-            </div>
+            <>
+              <div
+                className={`${
+                  viewMode === 'grid'
+                    ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
+                    : 'space-y-4'
+                }`}
+              >
+                {properties.map((property) => (
+                  <PropertyCard key={property.id} property={property} />
+                ))}
+              </div>
+              {/* Load More Button */}
+              {hasMore && (
+                <div className="mt-8 text-center">
+                  <Button
+                    onClick={handleLoadMore}
+                    loading={loadingMore}
+                    variant="outline"
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? 'Loading...' : 'Load More Properties'}
+                  </Button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
                 <Grid className="w-16 h-16 mx-auto" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No properties found
-              </h3>
-              <p className="text-gray-600 mb-6">
-                Try adjusting your filters or search criteria
-              </p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No properties found</h3>
+              <p className="text-gray-600 mb-6">Try adjusting your filters or search criteria</p>
               <Button
                 onClick={() => {
                   setFilters({
@@ -303,4 +353,3 @@ const PropertiesPage = () => {
 };
 
 export default PropertiesPage;
-

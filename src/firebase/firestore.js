@@ -14,7 +14,7 @@ import {
   writeBatch,
   serverTimestamp,
   increment,
-  arrayUnion
+  arrayUnion,
 } from 'firebase/firestore';
 import { db } from './config';
 
@@ -41,7 +41,7 @@ export const getProducts = async (filters = {}, sortBy = 'createdAt', limitCount
     q = query(q, orderBy(sortBy, 'desc'), limit(limitCount));
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     console.error('Error fetching products:', error);
     throw error;
@@ -75,7 +75,7 @@ export const addProduct = async (product) => {
       stock: product.stock || 0,
       sold: 0,
       rating: 0,
-      reviewCount: 0
+      reviewCount: 0,
     });
     return docRef.id;
   } catch (error) {
@@ -90,8 +90,9 @@ export const updateProduct = async (id, updates) => {
     await updateDoc(docRef, {
       ...updates,
       brandId: updates.brandId || updates.brandId === '' ? updates.brandId : undefined,
-      collectionId: updates.collectionId || updates.collectionId === '' ? updates.collectionId : undefined,
-      updatedAt: serverTimestamp()
+      collectionId:
+        updates.collectionId || updates.collectionId === '' ? updates.collectionId : undefined,
+      updatedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error('Error updating product:', error);
@@ -112,7 +113,7 @@ export const deleteProduct = async (id) => {
 export const getBrands = async () => {
   try {
     const snapshot = await getDocs(collection(db, 'brands'));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     console.error('Error fetching brands:', error);
     throw error;
@@ -140,7 +141,7 @@ export const addBrand = async (brand) => {
     const docRef = await addDoc(collection(db, 'brands'), {
       ...brand,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
     return docRef.id;
   } catch (error) {
@@ -154,7 +155,7 @@ export const updateBrand = async (id, updates) => {
     const docRef = doc(db, 'brands', id);
     await updateDoc(docRef, {
       ...updates,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error('Error updating brand:', error);
@@ -179,7 +180,7 @@ export const getCollections = async (brandId = null) => {
       q = query(q, where('brandId', '==', brandId));
     }
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     console.error('Error fetching collections:', error);
     throw error;
@@ -208,7 +209,7 @@ export const addCollection = async (collectionData) => {
       ...collectionData,
       brandId: collectionData.brandId || '',
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
     return docRef.id;
   } catch (error) {
@@ -223,7 +224,7 @@ export const updateCollection = async (id, updates) => {
     await updateDoc(docRef, {
       ...updates,
       brandId: updates.brandId || updates.brandId === '' ? updates.brandId : undefined,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error('Error updating collection:', error);
@@ -263,9 +264,7 @@ export const createOrder = async (orderData) => {
 
     // Validate required fields
     const requiredFields = ['userId', 'items', 'total'];
-    const missingFields = requiredFields.filter(
-      (field) => sanitizedOrderData[field] === undefined
-    );
+    const missingFields = requiredFields.filter((field) => sanitizedOrderData[field] === undefined);
     if (missingFields.length > 0) {
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
@@ -325,9 +324,9 @@ export const getOrders = async (userId) => {
   try {
     let q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-    const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const orders = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     if (userId) {
-      return orders.filter(order => order.userId === userId);
+      return orders.filter((order) => order.userId === userId);
     }
     return orders;
   } catch (error) {
@@ -341,7 +340,7 @@ export const updateOrderStatus = async (orderId, status) => {
     const docRef = doc(db, 'orders', orderId);
     await updateDoc(docRef, {
       status,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error('Error updating order status:', error);
@@ -371,7 +370,7 @@ export const updateUserProfile = async (userId, updates) => {
     const docRef = doc(db, 'users', userId);
     await updateDoc(docRef, {
       ...updates,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -389,7 +388,7 @@ export const addToWishlist = async (userId, productId) => {
       const wishlist = userSnap.data().wishlist || [];
       if (!wishlist.includes(productId)) {
         await updateDoc(userRef, {
-          wishlist: [...wishlist, productId]
+          wishlist: [...wishlist, productId],
         });
       }
     }
@@ -407,7 +406,7 @@ export const removeFromWishlist = async (userId, productId) => {
     if (userSnap.exists()) {
       const wishlist = userSnap.data().wishlist || [];
       await updateDoc(userRef, {
-        wishlist: wishlist.filter((id) => id !== productId)
+        wishlist: wishlist.filter((id) => id !== productId),
       });
     }
   } catch (error) {
@@ -421,7 +420,7 @@ export const addReview = async (reviewData) => {
   try {
     const docRef = await addDoc(collection(db, 'reviews'), {
       ...reviewData,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
     });
 
     // Update product rating
@@ -431,12 +430,12 @@ export const addReview = async (reviewData) => {
     );
     const reviewsSnapshot = await getDocs(reviewsQuery);
 
-    const reviews = reviewsSnapshot.docs.map(doc => doc.data());
+    const reviews = reviewsSnapshot.docs.map((doc) => doc.data());
     const avgRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
 
     await updateDoc(doc(db, 'products', reviewData.productId), {
       rating: avgRating,
-      reviewCount: reviews.length
+      reviewCount: reviews.length,
     });
 
     return docRef.id;
@@ -454,7 +453,7 @@ export const getReviews = async (productId) => {
       orderBy('createdAt', 'desc')
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
   } catch (error) {
     console.error('Error fetching reviews:', error);
     throw error;

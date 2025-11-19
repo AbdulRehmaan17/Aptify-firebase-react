@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 /**
  * ConstructionServicesPage Component
- * 
+ *
  * Main landing page for construction services.
  * Provides information about construction services and links to construction providers.
  */
@@ -17,17 +17,20 @@ const ConstructionServicesPage = () => {
     {
       icon: <Building2 className="w-8 h-8" />,
       title: 'New Construction',
-      description: 'Build your dream property from the ground up with our expert construction team.',
+      description:
+        'Build your dream property from the ground up with our expert construction team.',
     },
     {
       icon: <Hammer className="w-8 h-8" />,
       title: 'Extension & Addition',
-      description: 'Expand your existing property with professional construction and extension services.',
+      description:
+        'Expand your existing property with professional construction and extension services.',
     },
     {
       icon: <HardHat className="w-8 h-8" />,
       title: 'Grey Structure',
-      description: 'Complete grey structure construction with quality materials and expert workmanship.',
+      description:
+        'Complete grey structure construction with quality materials and expert workmanship.',
     },
     {
       icon: <Wrench className="w-8 h-8" />,
@@ -50,10 +53,11 @@ const ConstructionServicesPage = () => {
       {/* Hero Section */}
       <section className="relative py-20 overflow-hidden">
         {/* Background Image with Overlay */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(https://images.pexels.com/photos/159306/construction-site-build-construction-work-159306.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop)'
+            backgroundImage:
+              'url(https://images.pexels.com/photos/159306/construction-site-build-construction-work-159306.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop)',
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-slate-800/90 via-slate-700/85 to-slate-800/90"></div>
@@ -67,17 +71,25 @@ const ConstructionServicesPage = () => {
               Build your dream property with our expert construction and building services
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" variant="secondary" className="bg-slate-600 hover:bg-slate-700 text-white border-slate-600" asChild>
+              <Button
+                size="lg"
+                variant="secondary"
+                className="bg-slate-600 hover:bg-slate-700 text-white border-slate-600"
+                asChild
+              >
                 <Link to="/construction-list">
                   Browse Providers
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>
               {user && (
-                <Button size="lg" variant="outline" className="bg-white text-slate-700 hover:bg-slate-50 border-white" asChild>
-                  <Link to="/construction-request">
-                    Request Service
-                  </Link>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-white text-slate-700 hover:bg-slate-50 border-white"
+                  asChild
+                >
+                  <Link to="/construction-request">Request Service</Link>
                 </Button>
               )}
             </div>
@@ -104,9 +116,7 @@ const ConstructionServicesPage = () => {
                 className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-slate-100"
               >
                 <div className="text-slate-600 mb-4">{service.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  {service.title}
-                </h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{service.title}</h3>
                 <p className="text-gray-600">{service.description}</p>
               </div>
             ))}
@@ -132,30 +142,38 @@ const ConstructionServicesPage = () => {
               </div>
             </div>
             <div className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl p-8 border border-slate-200 shadow-lg">
-              <h3 className="text-2xl font-semibold text-gray-900 mb-4">
-                Get Started Today
-              </h3>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-4">Get Started Today</h3>
               <p className="text-gray-600 mb-6">
-                Connect with our verified construction providers and get quotes for your construction project.
+                Connect with our verified construction providers and get quotes for your
+                construction project.
               </p>
               <div className="space-y-4">
-                <Button variant="primary" className="bg-slate-600 hover:bg-slate-700 text-white border-slate-600" fullWidth asChild>
-                  <Link to="/construction-list">
-                    Browse Construction Providers
-                  </Link>
+                <Button
+                  variant="primary"
+                  className="bg-slate-600 hover:bg-slate-700 text-white border-slate-600"
+                  fullWidth
+                  asChild
+                >
+                  <Link to="/construction-list">Browse Construction Providers</Link>
                 </Button>
                 {user && (
-                  <Button variant="outline" className="border-slate-600 text-slate-700 hover:bg-slate-50" fullWidth asChild>
-                    <Link to="/construction-request">
-                      Submit Construction Request
-                    </Link>
+                  <Button
+                    variant="outline"
+                    className="border-slate-600 text-slate-700 hover:bg-slate-50"
+                    fullWidth
+                    asChild
+                  >
+                    <Link to="/construction-request">Submit Construction Request</Link>
                   </Button>
                 )}
                 {!user && (
-                  <Button variant="outline" className="border-slate-600 text-slate-700 hover:bg-slate-50" fullWidth asChild>
-                    <Link to="/auth">
-                      Sign In to Request Service
-                    </Link>
+                  <Button
+                    variant="outline"
+                    className="border-slate-600 text-slate-700 hover:bg-slate-50"
+                    fullWidth
+                    asChild
+                  >
+                    <Link to="/auth">Sign In to Request Service</Link>
                   </Button>
                 )}
               </div>
@@ -167,10 +185,11 @@ const ConstructionServicesPage = () => {
       {/* CTA Section */}
       <section className="relative py-16 overflow-hidden">
         {/* Background Image with Overlay */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(https://images.pexels.com/photos/159306/construction-site-build-construction-work-159306.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop)'
+            backgroundImage:
+              'url(https://images.pexels.com/photos/159306/construction-site-build-construction-work-159306.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1080&fit=crop)',
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-slate-800/95 via-slate-700/90 to-slate-800/95"></div>
@@ -183,15 +202,21 @@ const ConstructionServicesPage = () => {
             Get in touch with our expert team and start your construction journey today
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="bg-slate-600 hover:bg-slate-700 text-white border-slate-600" asChild>
-              <Link to="/construction-list">
-                Find a Provider
-              </Link>
+            <Button
+              size="lg"
+              variant="secondary"
+              className="bg-slate-600 hover:bg-slate-700 text-white border-slate-600"
+              asChild
+            >
+              <Link to="/construction-list">Find a Provider</Link>
             </Button>
-            <Button size="lg" variant="outline" className="bg-white text-slate-700 hover:bg-slate-50 border-white" asChild>
-              <Link to="/contact">
-                Contact Us
-              </Link>
+            <Button
+              size="lg"
+              variant="outline"
+              className="bg-white text-slate-700 hover:bg-slate-50 border-white"
+              asChild
+            >
+              <Link to="/contact">Contact Us</Link>
             </Button>
           </div>
         </div>
@@ -201,4 +226,3 @@ const ConstructionServicesPage = () => {
 };
 
 export default ConstructionServicesPage;
-

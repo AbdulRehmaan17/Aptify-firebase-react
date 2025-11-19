@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, updateDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Building2, Calendar, DollarSign, MapPin, User, FileText, AlertCircle } from 'lucide-react';
@@ -10,7 +19,7 @@ import toast from 'react-hot-toast';
 
 /**
  * ProviderConstructionPanel Component
- * 
+ *
  * Displays construction projects assigned to the current provider.
  * Queries "constructionProjects" collection where providerId == currentUser.uid.
  * Fetches client names from "users" collection and property titles from "properties" collection.
@@ -20,10 +29,10 @@ import toast from 'react-hot-toast';
 const ProviderConstructionPanel = () => {
   const navigate = useNavigate();
   const { user: contextUser, loading: authLoading } = useAuth();
-  
+
   // Get currentUser from Firebase auth
-  const currentUser = auth.currentUser || contextUser;
-  
+  const currentUser = auth?.currentUser || contextUser;
+
   // State management
   const [projects, setProjects] = useState([]);
   const [clientNames, setClientNames] = useState({}); // Cache client names by userId
@@ -48,23 +57,27 @@ const ProviderConstructionPanel = () => {
     try {
       const userRef = doc(db, 'users', userId);
       const userSnap = await getDoc(userRef);
-      
+
       if (userSnap.exists()) {
         const userData = userSnap.data();
         // Try multiple possible name fields
-        const name = userData.displayName || userData.name || userData.fullName || 
-                     `${userData.firstName || ''} ${userData.lastName || ''}`.trim() ||
-                     userData.email?.split('@')[0] || 'Unknown Client';
-        
+        const name =
+          userData.displayName ||
+          userData.name ||
+          userData.fullName ||
+          `${userData.firstName || ''} ${userData.lastName || ''}`.trim() ||
+          userData.email?.split('@')[0] ||
+          'Unknown Client';
+
         // Cache the client name
-        setClientNames(prev => ({
+        setClientNames((prev) => ({
           ...prev,
-          [userId]: name
+          [userId]: name,
         }));
-        
+
         return name;
       }
-      
+
       return 'Client Not Found';
     } catch (err) {
       console.error(`Error fetching client ${userId}:`, err);
@@ -92,20 +105,20 @@ const ProviderConstructionPanel = () => {
     try {
       const propertyRef = doc(db, 'properties', propertyId);
       const propertySnap = await getDoc(propertyRef);
-      
+
       if (propertySnap.exists()) {
         const propertyData = propertySnap.data();
         const title = propertyData.title || propertyData.name || 'Unknown Property';
-        
+
         // Cache the property title
-        setPropertyNames(prev => ({
+        setPropertyNames((prev) => ({
           ...prev,
-          [propertyId]: title
+          [propertyId]: title,
         }));
-        
+
         return title;
       }
-      
+
       return 'Property Not Found';
     } catch (err) {
       console.error(`Error fetching property ${propertyId}:`, err);
@@ -155,7 +168,7 @@ const ProviderConstructionPanel = () => {
         projectsQuery,
         async (snapshot) => {
           console.log(`Received ${snapshot.docs.length} projects from snapshot`);
-          
+
           // Handle empty collection gracefully
           if (snapshot.empty) {
             console.log('No construction projects assigned to provider');
@@ -163,37 +176,37 @@ const ProviderConstructionPanel = () => {
             setLoading(false);
             return;
           }
-          
+
           // Map documents to array with id
-          const projectsList = snapshot.docs.map(doc => ({
+          const projectsList = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
 
           // Fetch client names and property titles for all projects
           const fetchPromises = projectsList.map(async (project) => {
-            const clientNamePromise = project.userId 
+            const clientNamePromise = project.userId
               ? fetchClientName(project.userId)
               : Promise.resolve('No Client');
-            
-            const propertyTitlePromise = project.propertyId 
+
+            const propertyTitlePromise = project.propertyId
               ? fetchPropertyTitle(project.propertyId)
               : Promise.resolve('No Property');
-            
+
             const [clientName, propertyTitle] = await Promise.all([
               clientNamePromise,
-              propertyTitlePromise
+              propertyTitlePromise,
             ]);
-            
+
             return { project, clientName, propertyTitle };
           });
 
           const results = await Promise.all(fetchPromises);
-          
+
           // Update caches
           const newClientNames = {};
           const newPropertyNames = {};
-          
+
           results.forEach(({ project, clientName, propertyTitle }) => {
             if (project.userId && clientName) {
               newClientNames[project.userId] = clientName;
@@ -202,16 +215,16 @@ const ProviderConstructionPanel = () => {
               newPropertyNames[project.propertyId] = propertyTitle;
             }
           });
-          
-          setClientNames(prev => ({ ...prev, ...newClientNames }));
-          setPropertyNames(prev => ({ ...prev, ...newPropertyNames }));
+
+          setClientNames((prev) => ({ ...prev, ...newClientNames }));
+          setPropertyNames((prev) => ({ ...prev, ...newPropertyNames }));
           setProjects(projectsList);
           setLoading(false);
         },
         (err) => {
           // Error callback for onSnapshot
           console.error('Error in onSnapshot:', err);
-          
+
           // Handle collection not existing or permission errors gracefully
           if (err.code === 'permission-denied') {
             setError('Permission denied. Please check Firestore security rules.');
@@ -236,7 +249,7 @@ const ProviderConstructionPanel = () => {
       };
     } catch (err) {
       console.error('Error setting up listener:', err);
-      
+
       // Handle collection not existing gracefully
       if (err.code === 'not-found' || err.message?.includes('not found')) {
         console.log('Collection does not exist yet. Showing empty state.');
@@ -258,35 +271,35 @@ const ProviderConstructionPanel = () => {
    */
   const formatDate = (dateValue) => {
     if (!dateValue) return 'Not set';
-    
+
     try {
       // Handle Firestore Timestamp
       if (dateValue.seconds) {
         return new Date(dateValue.seconds * 1000).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       // Handle string dates
       if (typeof dateValue === 'string') {
         return new Date(dateValue).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       // Handle Date objects
       if (dateValue instanceof Date) {
         return dateValue.toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'short',
-          day: 'numeric'
+          day: 'numeric',
         });
       }
-      
+
       return 'Invalid date';
     } catch (err) {
       console.error('Error formatting date:', err);
@@ -316,7 +329,7 @@ const ProviderConstructionPanel = () => {
    */
   const getStatusBadgeClasses = (status) => {
     const baseClasses = 'px-3 py-1 rounded-full text-xs font-semibold';
-    
+
     switch (status?.toLowerCase()) {
       case 'pending':
         return `${baseClasses} bg-yellow-100 text-yellow-800`;
@@ -341,7 +354,7 @@ const ProviderConstructionPanel = () => {
    */
   const getAvailableStatuses = (currentStatus) => {
     const status = currentStatus?.toLowerCase();
-    
+
     switch (status) {
       case 'pending':
         return ['Pending', 'In Progress'];
@@ -364,15 +377,15 @@ const ProviderConstructionPanel = () => {
    */
   const handleStatusUpdate = async (projectId, newStatus) => {
     try {
-      setUpdatingStatus(prev => ({ ...prev, [projectId]: true }));
-      
+      setUpdatingStatus((prev) => ({ ...prev, [projectId]: true }));
+
       // Update project document in Firestore
       const projectRef = doc(db, 'constructionProjects', projectId);
       await updateDoc(projectRef, {
         status: newStatus,
         updatedAt: serverTimestamp(),
       });
-      
+
       // Show success toast confirming update
       toast.success(`Project status updated to ${newStatus} successfully!`);
       console.log(`Project ${projectId} status updated to ${newStatus}`);
@@ -380,7 +393,7 @@ const ProviderConstructionPanel = () => {
       console.error('Error updating project status:', err);
       toast.error(err.message || 'Failed to update project status. Please try again.');
     } finally {
-      setUpdatingStatus(prev => {
+      setUpdatingStatus((prev) => {
         const newState = { ...prev };
         delete newState[projectId];
         return newState;
@@ -403,12 +416,8 @@ const ProviderConstructionPanel = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Authentication Required
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Please log in to view your construction projects.
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please log in to view your construction projects.</p>
           <Button onClick={() => navigate('/auth')} variant="primary">
             Log In
           </Button>
@@ -423,9 +432,7 @@ const ProviderConstructionPanel = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
           <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Error Loading Projects
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Projects</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <Button onClick={() => window.location.reload()} variant="primary">
             Try Again
@@ -452,12 +459,8 @@ const ProviderConstructionPanel = () => {
         {projects.length === 0 ? (
           <div className="bg-white rounded-xl shadow-lg p-12 text-center">
             <Building2 className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              No Projects Assigned
-            </h2>
-            <p className="text-gray-600">
-              No construction requests assigned to you yet.
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Projects Assigned</h2>
+            <p className="text-gray-600">No construction requests assigned to you yet.</p>
           </div>
         ) : (
           /* Projects Table - Desktop View */
@@ -498,26 +501,24 @@ const ProviderConstructionPanel = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {projects.map((project) => {
-                    const clientName = project.userId 
-                      ? (clientNames[project.userId] || 'Loading...')
+                    const clientName = project.userId
+                      ? clientNames[project.userId] || 'Loading...'
                       : 'No Client';
-                    
-                    const propertyTitle = project.propertyId 
-                      ? (propertyNames[project.propertyId] || 'Loading...')
+
+                    const propertyTitle = project.propertyId
+                      ? propertyNames[project.propertyId] || 'Loading...'
                       : 'No Property';
-                    
+
                     const availableStatuses = getAvailableStatuses(project.status);
                     const isUpdating = updatingStatus[project.id] || false;
-                    
+
                     return (
                       <tr key={project.id} className="hover:bg-gray-50 transition-colors">
                         {/* Client Name */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-900">
                             <User className="w-4 h-4 mr-1 flex-shrink-0" />
-                            <span className="truncate max-w-xs">
-                              {clientName}
-                            </span>
+                            <span className="truncate max-w-xs">{clientName}</span>
                           </div>
                         </td>
 
@@ -525,9 +526,7 @@ const ProviderConstructionPanel = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-600">
                             <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                            <span className="truncate max-w-xs">
-                              {propertyTitle}
-                            </span>
+                            <span className="truncate max-w-xs">{propertyTitle}</span>
                           </div>
                         </td>
 
@@ -540,7 +539,10 @@ const ProviderConstructionPanel = () => {
 
                         {/* Description */}
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-600 max-w-xs truncate" title={project.description}>
+                          <div
+                            className="text-sm text-gray-600 max-w-xs truncate"
+                            title={project.description}
+                          >
                             {project.description || 'No description'}
                           </div>
                         </td>
@@ -593,9 +595,7 @@ const ProviderConstructionPanel = () => {
                                 </option>
                               ))}
                             </select>
-                            {isUpdating && (
-                              <LoadingSpinner size="sm" />
-                            )}
+                            {isUpdating && <LoadingSpinner size="sm" />}
                           </div>
                         </td>
                       </tr>
@@ -608,17 +608,17 @@ const ProviderConstructionPanel = () => {
             {/* Mobile Card View (hidden on desktop) */}
             <div className="md:hidden divide-y divide-gray-200">
               {projects.map((project) => {
-                const clientName = project.userId 
-                  ? (clientNames[project.userId] || 'Loading...')
+                const clientName = project.userId
+                  ? clientNames[project.userId] || 'Loading...'
                   : 'No Client';
-                
-                const propertyTitle = project.propertyId 
-                  ? (propertyNames[project.propertyId] || 'Loading...')
+
+                const propertyTitle = project.propertyId
+                  ? propertyNames[project.propertyId] || 'Loading...'
                   : 'No Property';
-                
+
                 const availableStatuses = getAvailableStatuses(project.status);
                 const isUpdating = updatingStatus[project.id] || false;
-                
+
                 return (
                   <div key={project.id} className="p-4 space-y-3">
                     <div className="flex justify-between items-start">
@@ -626,20 +626,22 @@ const ProviderConstructionPanel = () => {
                         <h3 className="text-sm font-semibold text-gray-900">
                           {project.projectType || 'Construction Project'}
                         </h3>
-                        <p className="text-xs text-gray-600 mt-1">{clientName} - {propertyTitle}</p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {clientName} - {propertyTitle}
+                        </p>
                       </div>
                       <span className={getStatusBadgeClasses(project.status)}>
                         {project.status || 'Unknown'}
                       </span>
                     </div>
-                    
+
                     {project.description && (
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Description</p>
                         <p className="text-sm text-gray-700">{project.description}</p>
                       </div>
                     )}
-                    
+
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-gray-500">Budget</p>
@@ -671,9 +673,7 @@ const ProviderConstructionPanel = () => {
                             </option>
                           ))}
                         </select>
-                        {isUpdating && (
-                          <LoadingSpinner size="sm" />
-                        )}
+                        {isUpdating && <LoadingSpinner size="sm" />}
                       </div>
                     </div>
                   </div>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, User, Menu, X, Home } from 'lucide-react';
+import { Search, User, Menu, X, Home, Bell, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import userService from '../../services/userService';
 import toast from 'react-hot-toast';
 import Button from '../common/Button';
+import NotificationBell from '../notification/NotificationBell';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,7 +13,7 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userProfile, setUserProfile] = useState(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, currentUserRole, loading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -65,9 +66,7 @@ const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
             <Home className="w-8 h-8 text-luxury-gold" />
-            <span className="text-2xl font-display font-bold text-luxury-black">
-              Aptify
-            </span>
+            <span className="text-2xl font-display font-bold text-luxury-black">Aptify</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -117,6 +116,8 @@ const Navbar = () => {
               <Search className="w-5 h-5" />
             </button>
 
+            {/* Notification Bell */}
+            {user && <NotificationBell />}
 
             {/* User Menu */}
             {user ? (
@@ -135,24 +136,35 @@ const Navbar = () => {
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
                     <Link
                       to="/account"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
+                      <User className="w-4 h-4 mr-2" />
                       My Account
                     </Link>
                     <Link
-                      to="/register-constructor"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      to="/notifications"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
-                      Register as Constructor
+                      <Bell className="w-4 h-4 mr-2" />
+                      All Notifications
                     </Link>
-                    {userProfile?.role === 'admin' && (
+                    <Link
+                      to="/chat"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Chat
+                    </Link>
+                    {currentUserRole === 'admin' && (
                       <Link
                         to="/admin"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
+                        <Home className="w-4 h-4 mr-2" />
                         Admin Panel
                       </Link>
                     )}
@@ -164,25 +176,17 @@ const Navbar = () => {
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      Sign Out
+                      Logout
                     </button>
                   </div>
                 )}
               </div>
             ) : (
               <div className="flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/auth')}
-                >
+                <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
                   Sign In
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => navigate('/auth')}
-                >
+                <Button variant="primary" size="sm" onClick={() => navigate('/auth')}>
                   Sign Up
                 </Button>
               </div>

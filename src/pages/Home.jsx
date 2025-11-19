@@ -2,27 +2,149 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Shield, Truck, HeadphonesIcon, Star, Clock } from 'lucide-react';
 import propertyService from '../services/propertyService';
-import ProductCard from '../components/product/ProductCard';
+import PropertyCard from '../components/property/PropertyCard';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import toast from 'react-hot-toast';
 
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Demo properties to display when no real properties are available
+  const getDemoProperties = () => [
+    {
+      id: 'demo-1',
+      title: 'Luxury 3-Bedroom Apartment',
+      price: 85000,
+      type: 'rent',
+      status: 'published',
+      address: 'DHA Phase 5, Karachi',
+      city: 'Karachi',
+      bedrooms: 3,
+      bathrooms: 2,
+      areaSqFt: 1800,
+      photos: ['https://images.pexels.com/photos/1396132/pexels-photo-1396132.jpeg?auto=compress&cs=tinysrgb&w=800'],
+      featured: true,
+    },
+    {
+      id: 'demo-2',
+      title: 'Modern 4-Bedroom Villa',
+      price: 25000000,
+      type: 'sale',
+      status: 'published',
+      address: 'Gulberg, Lahore',
+      city: 'Lahore',
+      bedrooms: 4,
+      bathrooms: 3,
+      areaSqFt: 3200,
+      photos: ['https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=800'],
+      featured: true,
+    },
+    {
+      id: 'demo-3',
+      title: 'Cozy 2-Bedroom Flat',
+      price: 45000,
+      type: 'rent',
+      status: 'published',
+      address: 'Clifton, Karachi',
+      city: 'Karachi',
+      bedrooms: 2,
+      bathrooms: 1,
+      areaSqFt: 1200,
+      photos: ['https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?auto=compress&cs=tinysrgb&w=800'],
+      featured: true,
+    },
+    {
+      id: 'demo-4',
+      title: 'Spacious 5-Bedroom House',
+      price: 35000000,
+      type: 'sale',
+      status: 'published',
+      address: 'Islamabad',
+      city: 'Islamabad',
+      bedrooms: 5,
+      bathrooms: 4,
+      areaSqFt: 4500,
+      photos: ['https://images.pexels.com/photos/280222/pexels-photo-280222.jpeg?auto=compress&cs=tinysrgb&w=800'],
+      featured: true,
+    },
+    {
+      id: 'demo-5',
+      title: 'Elegant 3-Bedroom Penthouse',
+      price: 120000,
+      type: 'rent',
+      status: 'published',
+      address: 'Bahria Town, Karachi',
+      city: 'Karachi',
+      bedrooms: 3,
+      bathrooms: 2,
+      areaSqFt: 2200,
+      photos: ['https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=800'],
+      featured: true,
+    },
+    {
+      id: 'demo-6',
+      title: 'Family-Friendly 4-Bedroom Home',
+      price: 18000000,
+      type: 'sale',
+      status: 'published',
+      address: 'Model Town, Lahore',
+      city: 'Lahore',
+      bedrooms: 4,
+      bathrooms: 3,
+      areaSqFt: 2800,
+      photos: ['https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=800'],
+      featured: true,
+    },
+  ];
+
   useEffect(() => {
     const fetchProperties = async () => {
       try {
-        const [featured, newProperties] = await Promise.all([
-          propertyService.getAll({ featured: true, status: 'published' }, { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }),
-          propertyService.getAll({ status: 'published' }, { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 })
-        ]);
+        setLoading(true);
+        // Fetch featured properties (properties with featured: true)
+        const featured = await propertyService.getAll(
+          { featured: true, status: 'published' },
+          { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }
+        );
 
-        setFeaturedProducts(featured);
-        setNewArrivals(newProperties);
+        // If no featured properties, fallback to latest published properties
+        let featuredProperties = featured;
+        if (featured.length === 0) {
+          console.log('No featured properties found, trying latest properties...');
+          featuredProperties = await propertyService.getAll(
+            { status: 'published' },
+            { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }
+          );
+        }
+
+        // If still no properties, use demo properties
+        if (featuredProperties.length === 0) {
+          console.log('No properties found, displaying demo properties');
+          featuredProperties = getDemoProperties();
+        }
+
+        // Fetch latest properties for "Latest Listings" section
+        const newProperties = await propertyService.getAll(
+          { status: 'published' },
+          { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }
+        );
+
+        // If no new properties, use demo properties (different set)
+        const displayNewProperties = newProperties.length > 0 
+          ? newProperties 
+          : getDemoProperties().slice(0, 6);
+
+        setFeaturedProducts(featuredProperties);
+        setNewArrivals(displayNewProperties);
       } catch (error) {
         console.error('Error fetching properties:', error);
+        // On error, show demo properties
+        const demoProperties = getDemoProperties();
+        setFeaturedProducts(demoProperties);
+        setNewArrivals(demoProperties.slice(0, 6));
       } finally {
         setLoading(false);
       }
@@ -81,15 +203,25 @@ const Home = () => {
             Featured Properties
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Hand-selected properties that represent the best in real estate, available for rent or purchase
+            Hand-selected properties that represent the best in real estate, available for rent or
+            purchase
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {featuredProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 mb-4">No featured properties available at the moment.</p>
+            <Button variant="outline" asChild>
+              <Link to="/properties">Browse All Properties</Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {featuredProducts.map((property) => (
+              <PropertyCard key={property.id} property={property} />
+            ))}
+          </div>
+        )}
 
         <div className="text-center">
           <Button variant="outline" size="lg" asChild>
@@ -110,13 +242,13 @@ const Home = () => {
                 Your Trusted Real Estate Partner
               </h2>
               <p className="text-lg text-gray-600 mb-6 leading-relaxed">
-                Aptify has been connecting property seekers with their perfect homes and rental properties.
-                Our platform features verified listings from trusted owners, with detailed information and
-                high-quality images to help you make informed decisions.
+                Aptify has been connecting property seekers with their perfect homes and rental
+                properties. Our platform features verified listings from trusted owners, with
+                detailed information and high-quality images to help you make informed decisions.
               </p>
               <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                Every property on our platform is verified by our team, and we also offer professional
-                renovation services to transform your property into your dream space.
+                Every property on our platform is verified by our team, and we also offer
+                professional renovation services to transform your property into your dream space.
               </p>
               <Button variant="primary" size="lg" asChild>
                 <Link to="/about">Learn More</Link>
@@ -153,11 +285,17 @@ const Home = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {newArrivals.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {newArrivals.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600">No properties available at the moment.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {newArrivals.map((property) => (
+              <PropertyCard key={property.id} property={property} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Features */}
@@ -186,7 +324,9 @@ const Home = () => {
                 <Truck className="w-8 h-8 text-luxury-gold" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Renovation Services</h3>
-              <p className="text-gray-600">Professional renovation services for all property types</p>
+              <p className="text-gray-600">
+                Professional renovation services for all property types
+              </p>
             </div>
 
             <div className="text-center group">
@@ -194,7 +334,9 @@ const Home = () => {
                 <HeadphonesIcon className="w-8 h-8 text-luxury-gold" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Expert Support</h3>
-              <p className="text-gray-600">Dedicated support team to help with your property needs</p>
+              <p className="text-gray-600">
+                Dedicated support team to help with your property needs
+              </p>
             </div>
 
             <div className="text-center group">
@@ -215,7 +357,8 @@ const Home = () => {
             Stay Updated
           </h2>
           <p className="text-lg text-gray-300 mb-8">
-            Subscribe to receive updates on new property listings, renovation service offers, and real estate insights
+            Subscribe to receive updates on new property listings, renovation service offers, and
+            real estate insights
           </p>
 
           <form className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">

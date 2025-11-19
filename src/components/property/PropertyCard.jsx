@@ -1,16 +1,13 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MapPin, Bed, Bath, Square } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../common/Button';
 import toast from 'react-hot-toast';
 
-const PropertyCard = ({
-  property,
-  isFavorite = false,
-  onFavoriteToggle
-}) => {
+const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const formatPrice = (price) => {
     if (!price) return 'Price not available';
@@ -45,7 +42,7 @@ const PropertyCard = ({
       photos: property.photos,
       coverImage: property.coverImage,
       imageUrl: property.imageUrl,
-      image: property.image
+      image: property.image,
     });
     // Placeholder image
     return 'https://via.placeholder.com/400x300?text=No+Image';
@@ -65,8 +62,22 @@ const PropertyCard = ({
     }
   };
 
+  // Check if this is a demo property
+  const isDemo = property.id?.startsWith('demo-');
+
+  const handleCardClick = (e) => {
+    if (isDemo) {
+      e.preventDefault();
+      navigate('/properties');
+    }
+  };
+
   return (
-    <Link to={`/properties/${property.id}`} className="block">
+    <Link 
+      to={isDemo ? '/properties' : `/properties/${property.id}`} 
+      className="block"
+      onClick={handleCardClick}
+    >
       <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden group">
         {/* Image */}
         <div className="relative h-48 sm:h-56 overflow-hidden bg-gray-200">
@@ -85,13 +96,15 @@ const PropertyCard = ({
           />
           {/* Status Badge */}
           <div className="absolute top-2 left-2">
-            <span className={`px-2 py-1 rounded text-xs font-semibold ${
-              property.status === 'published' 
-                ? 'bg-green-500 text-white'
-                : property.status === 'pending'
-                ? 'bg-yellow-500 text-white'
-                : 'bg-gray-500 text-white'
-            }`}>
+            <span
+              className={`px-2 py-1 rounded text-xs font-semibold ${
+                property.status === 'published'
+                  ? 'bg-green-500 text-white'
+                  : property.status === 'pending'
+                    ? 'bg-yellow-500 text-white'
+                    : 'bg-gray-500 text-white'
+              }`}
+            >
               {property.status === 'published' ? 'Available' : property.status || 'Unknown'}
             </span>
           </div>
@@ -137,20 +150,25 @@ const PropertyCard = ({
             <div className="flex items-center text-gray-600 text-sm mb-3">
               <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
               <span className="truncate">
-                {property.address.line1 || property.address.city || 'Location not specified'}
-                {property.address.city && property.address.line1 && `, ${property.address.city}`}
+                {(() => {
+                  if (typeof property.address === 'string') {
+                    return property.address;
+                  }
+                  const parts = [];
+                  if (property.address?.line1) parts.push(property.address.line1);
+                  if (property.address?.city && !parts.includes(property.address.city)) {
+                    parts.push(property.address.city);
+                  }
+                  return parts.length > 0 ? parts.join(', ') : 'Location not specified';
+                })()}
               </span>
             </div>
           )}
 
           {/* Price */}
           <div className="mb-3">
-            <p className="text-2xl font-bold text-blue-600">
-              {formatPrice(property.price)}
-            </p>
-            {property.type === 'rent' && (
-              <p className="text-xs text-gray-500">per month</p>
-            )}
+            <p className="text-2xl font-bold text-blue-600">{formatPrice(property.price)}</p>
+            {property.type === 'rent' && <p className="text-xs text-gray-500">per month</p>}
           </div>
 
           {/* Features */}
@@ -179,10 +197,7 @@ const PropertyCard = ({
           {property.amenities && property.amenities.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-3">
               {property.amenities.slice(0, 3).map((amenity, index) => (
-                <span
-                  key={index}
-                  className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded"
-                >
+                <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
                   {amenity}
                 </span>
               ))}
@@ -212,4 +227,3 @@ const PropertyCard = ({
 };
 
 export default PropertyCard;
-

@@ -4,14 +4,22 @@ import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'fire
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { Wrench, Home, Calendar, DollarSign, FileText, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import {
+  Wrench,
+  Home,
+  Calendar,
+  DollarSign,
+  FileText,
+  Image as ImageIcon,
+  AlertCircle,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 /**
  * RenovationRequestForm Component
- * 
+ *
  * Allows property owners to submit renovation project requests.
  * Fetches user's properties from Firestore and creates a new renovation project.
  * Supports providerId from query params or route state (from RenovationList).
@@ -25,7 +33,7 @@ const RenovationRequestForm = () => {
   const { user: contextUser, loading: authLoading } = useAuth();
 
   // Get currentUser from Firebase auth
-  const currentUser = auth.currentUser || contextUser;
+  const currentUser = auth?.currentUser || contextUser;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -67,11 +75,15 @@ const RenovationRequestForm = () => {
     const providerId = providerIdFromQuery || providerIdFromState || '';
 
     if (providerId) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         providerId: providerId,
       }));
-      console.log('Provider ID set from:', providerIdFromQuery ? 'query params' : 'route state', providerId);
+      console.log(
+        'Provider ID set from:',
+        providerIdFromQuery ? 'query params' : 'route state',
+        providerId
+      );
     }
   }, [searchParams, location.state]);
 
@@ -103,7 +115,7 @@ const RenovationRequestForm = () => {
         );
 
         const snapshot = await getDocs(propertiesQuery);
-        const propertiesList = snapshot.docs.map(doc => ({
+        const propertiesList = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
@@ -129,14 +141,14 @@ const RenovationRequestForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
 
     // Clear error for this field when user starts typing
     if (errors[name]) {
-      setErrors(prev => {
+      setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[name];
         return newErrors;
@@ -150,14 +162,14 @@ const RenovationRequestForm = () => {
    */
   const handlePhotoChange = (e) => {
     const files = Array.from(e.target.files);
-    
+
     if (files.length === 0) return;
 
     // Validate file types and sizes
     const validFiles = [];
     const invalidFiles = [];
 
-    files.forEach(file => {
+    files.forEach((file) => {
       // Check file type (images only)
       if (!file.type.startsWith('image/')) {
         invalidFiles.push(`${file.name} is not an image file`);
@@ -179,10 +191,10 @@ const RenovationRequestForm = () => {
 
     if (validFiles.length > 0) {
       // Create preview URLs
-      const newPreviews = validFiles.map(file => URL.createObjectURL(file));
-      
-      setPhotos(prev => [...prev, ...validFiles]);
-      setPhotoPreviews(prev => [...prev, ...newPreviews]);
+      const newPreviews = validFiles.map((file) => URL.createObjectURL(file));
+
+      setPhotos((prev) => [...prev, ...validFiles]);
+      setPhotoPreviews((prev) => [...prev, ...newPreviews]);
     }
   };
 
@@ -192,9 +204,9 @@ const RenovationRequestForm = () => {
   const handleRemovePhoto = (index) => {
     // Revoke preview URL to free memory
     URL.revokeObjectURL(photoPreviews[index]);
-    
-    setPhotos(prev => prev.filter((_, i) => i !== index));
-    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   /**
@@ -214,16 +226,16 @@ const RenovationRequestForm = () => {
         const timestamp = Date.now();
         const filename = `${timestamp}_${index}_${file.name}`;
         const storagePath = `renovation_photos/${currentUser.uid}/${filename}`;
-        
+
         // Create storage reference
         const storageRef = ref(storage, storagePath);
-        
+
         // Upload file
         await uploadBytes(storageRef, file);
-        
+
         // Get download URL
         const downloadURL = await getDownloadURL(storageRef);
-        
+
         console.log(`Photo uploaded: ${filename} -> ${downloadURL}`);
         return downloadURL;
       } catch (error) {
@@ -284,7 +296,7 @@ const RenovationRequestForm = () => {
       const preferredDate = new Date(formData.preferredDate);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       if (preferredDate < today) {
         newErrors.preferredDate = 'Preferred date cannot be in the past';
       }
@@ -364,12 +376,12 @@ const RenovationRequestForm = () => {
       console.log('Project data:', projectData);
 
       toast.success('Renovation request submitted successfully!');
-      
+
       // Navigate to renovation dashboard
       navigate('/renovation-dashboard');
     } catch (error) {
       console.error('Error submitting renovation request:', error);
-      
+
       // Handle specific Firestore errors
       if (error.code === 'permission-denied') {
         toast.error('Permission denied. Please check Firestore security rules.');
@@ -417,16 +429,10 @@ const RenovationRequestForm = () => {
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                variant="primary"
-                onClick={() => navigate('/post-property')}
-              >
+              <Button variant="primary" onClick={() => navigate('/post-property')}>
                 Add Property
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate('/properties')}
-              >
+              <Button variant="outline" onClick={() => navigate('/properties')}>
                 Browse Properties
               </Button>
             </div>
@@ -453,7 +459,10 @@ const RenovationRequestForm = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Service Category Field */}
           <div>
-            <label htmlFor="serviceCategory" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="serviceCategory"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               <Wrench className="w-4 h-4 inline mr-1" />
               Service Category <span className="text-red-500">*</span>
             </label>
@@ -467,7 +476,7 @@ const RenovationRequestForm = () => {
               }`}
             >
               <option value="">Select service category</option>
-              {serviceCategories.map(category => (
+              {serviceCategories.map((category) => (
                 <option key={category.value} value={category.value}>
                   {category.label}
                 </option>
@@ -501,9 +510,10 @@ const RenovationRequestForm = () => {
                   }`}
                 >
                   <option value="">Select a property</option>
-                  {properties.map(property => (
+                  {properties.map((property) => (
                     <option key={property.id} value={property.id}>
-                      {property.title || 'Untitled Property'} - {property.address?.city || 'No city'}
+                      {property.title || 'Untitled Property'} -{' '}
+                      {property.address?.city || 'No city'}
                     </option>
                   ))}
                 </select>
@@ -516,7 +526,10 @@ const RenovationRequestForm = () => {
 
           {/* Detailed Description Field */}
           <div>
-            <label htmlFor="detailedDescription" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="detailedDescription"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               <FileText className="w-4 h-4 inline mr-1" />
               Detailed Description <span className="text-red-500">*</span>
             </label>
@@ -558,9 +571,7 @@ const RenovationRequestForm = () => {
                 errors.budget ? 'border-red-500' : 'border-gray-300'
               }`}
             />
-            {errors.budget && (
-              <p className="mt-1 text-sm text-red-600">{errors.budget}</p>
-            )}
+            {errors.budget && <p className="mt-1 text-sm text-red-600">{errors.budget}</p>}
           </div>
 
           {/* Preferred Date Field */}
@@ -600,9 +611,7 @@ const RenovationRequestForm = () => {
               onChange={handlePhotoChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Upload multiple images (max 5MB per file)
-            </p>
+            <p className="mt-1 text-xs text-gray-500">Upload multiple images (max 5MB per file)</p>
 
             {/* Photo Previews */}
             {photoPreviews.length > 0 && (
@@ -620,8 +629,18 @@ const RenovationRequestForm = () => {
                       className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       aria-label="Remove photo"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -634,7 +653,8 @@ const RenovationRequestForm = () => {
           {formData.providerId && (
             <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
               <p className="text-sm text-teal-800">
-                <strong>Provider Selected:</strong> A provider has been pre-selected for this request.
+                <strong>Provider Selected:</strong> A provider has been pre-selected for this
+                request.
               </p>
             </div>
           )}
@@ -657,7 +677,11 @@ const RenovationRequestForm = () => {
               disabled={loading || uploadingPhotos || fetchingProperties}
               className="flex-1"
             >
-              {uploadingPhotos ? 'Uploading Photos...' : loading ? 'Submitting...' : 'Submit Request'}
+              {uploadingPhotos
+                ? 'Uploading Photos...'
+                : loading
+                  ? 'Submitting...'
+                  : 'Submit Request'}
             </Button>
           </div>
         </form>
@@ -667,4 +691,3 @@ const RenovationRequestForm = () => {
 };
 
 export default RenovationRequestForm;
-

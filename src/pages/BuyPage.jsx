@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 
 /**
  * BuyPage Component
- * 
+ *
  * Dedicated page for properties for sale.
  * Displays properties filtered by type: 'sale'
  */
@@ -23,7 +23,7 @@ const BuyPage = () => {
     const fetchSaleProperties = async () => {
       try {
         setLoading(true);
-        
+
         // Filter properties by type: 'sale'
         const filters = { type: 'sale', status: 'published' };
         const sortOptions = { sortBy: 'createdAt', sortOrder: 'desc' };
@@ -63,9 +63,7 @@ const BuyPage = () => {
         <div className="mb-8">
           <div className="flex items-center mb-4">
             <Home className="w-8 h-8 text-green-600 mr-3" />
-            <h1 className="text-4xl font-display font-bold text-gray-900">
-              Properties for Sale
-            </h1>
+            <h1 className="text-4xl font-display font-bold text-gray-900">Properties for Sale</h1>
           </div>
           <p className="text-lg text-gray-600">
             Discover your dream property from our exclusive listings
@@ -102,7 +100,8 @@ const BuyPage = () => {
         {properties.length > 0 ? (
           <>
             <div className="mb-4 text-gray-600">
-              Found {properties.length} {properties.length === 1 ? 'property' : 'properties'} for sale
+              Found {properties.length} {properties.length === 1 ? 'property' : 'properties'} for
+              sale
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {properties.map((property) => (
@@ -137,5 +136,3 @@ const BuyPage = () => {
 };
 
 export default BuyPage;
-
-
