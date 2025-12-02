@@ -4,6 +4,7 @@ import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'fire
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import notificationService from '../services/notificationService';
 import {
   Wrench,
   Home,
@@ -375,6 +376,55 @@ const RenovationRequestForm = () => {
       console.log('Renovation project created with ID:', docRef.id);
       console.log('Project data:', projectData);
 
+      // Send notifications
+      try {
+        // Notify user (confirmation)
+        await notificationService.sendNotification(
+          currentUser.uid,
+          'Renovation Request Submitted',
+          `Your ${formData.serviceCategory} request has been submitted successfully. We'll notify you when a provider responds.`,
+          'service-request',
+          '/renovation-dashboard'
+        );
+
+        // Notify provider if one was selected
+        if (formData.providerId && formData.providerId.trim()) {
+          await notificationService.sendNotification(
+            formData.providerId,
+            'New Renovation Request',
+            `You have received a new ${formData.serviceCategory} request. Check your dashboard for details.`,
+            'service-request',
+            '/renovator-dashboard'
+          );
+        } else {
+          // Notify all approved renovation providers
+          const providersQuery = query(
+            collection(db, 'renovationProviders'),
+            where('isApproved', '==', true)
+          );
+          const providersSnapshot = await getDocs(providersQuery);
+          
+          const notificationPromises = providersSnapshot.docs.map((providerDoc) => {
+            const providerData = providerDoc.data();
+            if (providerData.userId) {
+              return notificationService.sendNotification(
+                providerData.userId,
+                'New Renovation Request Available',
+                `A new ${formData.serviceCategory} request is available. Check available projects.`,
+                'service-request',
+                '/renovator-dashboard'
+              );
+            }
+            return Promise.resolve();
+          });
+          
+          await Promise.allSettled(notificationPromises);
+        }
+      } catch (notifError) {
+        console.error('Error sending notifications:', notifError);
+        // Don't fail the request if notifications fail
+      }
+
       toast.success('Renovation request submitted successfully!');
 
       // Navigate to renovation dashboard
@@ -396,7 +446,7 @@ const RenovationRequestForm = () => {
   // Show loading spinner while checking auth or fetching properties
   if (authLoading || fetchingProperties) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -405,9 +455,9 @@ const RenovationRequestForm = () => {
   // Redirect to login if not authenticated
   if (!currentUser || !currentUser.uid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Please log in to submit a renovation request.</p>
+          <p className="text-textSecondary mb-4">Please log in to submit a renovation request.</p>
           <Button onClick={() => navigate('/auth')}>Log In</Button>
         </div>
       </div>
@@ -417,14 +467,14 @@ const RenovationRequestForm = () => {
   // Empty state - no properties available
   if (properties.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen bg-background py-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <h1 className="text-4xl font-display font-bold text-gray-900 mb-4">
+          <div className="bg-surface rounded-base shadow-lg p-8 text-center">
+            <h1 className="text-4xl font-display font-bold text-textMain mb-4">
               Submit Renovation Request
             </h1>
             <div className="mb-6">
-              <p className="text-lg text-gray-600 mb-4">
+              <p className="text-lg text-textSecondary mb-4">
                 Add a property before requesting renovation services.
               </p>
             </div>
@@ -443,36 +493,36 @@ const RenovationRequestForm = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-gray-50 min-h-screen">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-background min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
+        <h1 className="text-4xl font-display font-bold text-textMain mb-2">
           Submit Renovation Request
         </h1>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg text-textSecondary">
           Fill out the form below to request renovation services for your property.
         </p>
       </div>
 
       {/* Form Container */}
-      <div className="bg-white rounded-xl shadow-xl p-6 sm:p-8">
+      <div className="bg-surface rounded-base shadow-xl p-6 sm:p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Service Category Field */}
           <div>
             <label
               htmlFor="serviceCategory"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-textMain mb-2"
             >
               <Wrench className="w-4 h-4 inline mr-1" />
-              Service Category <span className="text-red-500">*</span>
+              Service Category <span className="text-error">*</span>
             </label>
             <select
               id="serviceCategory"
               name="serviceCategory"
               value={formData.serviceCategory}
               onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors ${
-                errors.serviceCategory ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-accent transition-colors ${
+                errors.serviceCategory ? 'border-error' : 'border-muted'
               }`}
             >
               <option value="">Select service category</option>
@@ -483,20 +533,20 @@ const RenovationRequestForm = () => {
               ))}
             </select>
             {errors.serviceCategory && (
-              <p className="mt-1 text-sm text-red-600">{errors.serviceCategory}</p>
+              <p className="mt-1 text-sm text-error">{errors.serviceCategory}</p>
             )}
           </div>
 
           {/* Property Field */}
           <div>
-            <label htmlFor="propertyId" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="propertyId" className="block text-sm font-medium text-textMain mb-2">
               <Home className="w-4 h-4 inline mr-1" />
-              Property <span className="text-red-500">*</span>
+              Property <span className="text-error">*</span>
             </label>
             {fetchingProperties ? (
               <div className="flex items-center space-x-2">
                 <LoadingSpinner size="sm" />
-                <span className="text-sm text-gray-600">Loading properties...</span>
+                <span className="text-sm text-textSecondary">Loading properties...</span>
               </div>
             ) : (
               <>
@@ -505,8 +555,8 @@ const RenovationRequestForm = () => {
                   name="propertyId"
                   value={formData.propertyId}
                   onChange={handleChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors ${
-                    errors.propertyId ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-accent transition-colors ${
+                    errors.propertyId ? 'border-error' : 'border-muted'
                   }`}
                 >
                   <option value="">Select a property</option>
@@ -518,7 +568,7 @@ const RenovationRequestForm = () => {
                   ))}
                 </select>
                 {errors.propertyId && (
-                  <p className="mt-1 text-sm text-red-600">{errors.propertyId}</p>
+                  <p className="mt-1 text-sm text-error">{errors.propertyId}</p>
                 )}
               </>
             )}
@@ -528,10 +578,10 @@ const RenovationRequestForm = () => {
           <div>
             <label
               htmlFor="detailedDescription"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-textMain mb-2"
             >
               <FileText className="w-4 h-4 inline mr-1" />
-              Detailed Description <span className="text-red-500">*</span>
+              Detailed Description <span className="text-error">*</span>
             </label>
             <textarea
               id="detailedDescription"
@@ -540,23 +590,23 @@ const RenovationRequestForm = () => {
               onChange={handleChange}
               rows={5}
               placeholder="Describe your renovation project in detail (minimum 20 characters)..."
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors resize-none ${
-                errors.detailedDescription ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-accent transition-colors resize-none ${
+                errors.detailedDescription ? 'border-error' : 'border-muted'
               }`}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-textSecondary">
               {formData.detailedDescription.length} / 20 characters minimum
             </p>
             {errors.detailedDescription && (
-              <p className="mt-1 text-sm text-red-600">{errors.detailedDescription}</p>
+              <p className="mt-1 text-sm text-error">{errors.detailedDescription}</p>
             )}
           </div>
 
           {/* Budget Field */}
           <div>
-            <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="budget" className="block text-sm font-medium text-textMain mb-2">
               <DollarSign className="w-4 h-4 inline mr-1" />
-              Budget (PKR) <span className="text-red-500">*</span>
+              Budget (PKR) <span className="text-error">*</span>
             </label>
             <input
               type="number"
@@ -567,18 +617,18 @@ const RenovationRequestForm = () => {
               min="0"
               step="0.01"
               placeholder="Enter your budget"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors ${
-                errors.budget ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-accent transition-colors ${
+                errors.budget ? 'border-error' : 'border-muted'
               }`}
             />
-            {errors.budget && <p className="mt-1 text-sm text-red-600">{errors.budget}</p>}
+            {errors.budget && <p className="mt-1 text-sm text-error">{errors.budget}</p>}
           </div>
 
           {/* Preferred Date Field */}
           <div>
-            <label htmlFor="preferredDate" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="preferredDate" className="block text-sm font-medium text-textMain mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
-              Preferred Date <span className="text-red-500">*</span>
+              Preferred Date <span className="text-error">*</span>
             </label>
             <input
               type="date"
@@ -587,20 +637,20 @@ const RenovationRequestForm = () => {
               value={formData.preferredDate}
               onChange={handleChange}
               min={new Date().toISOString().split('T')[0]} // Prevent past dates
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors ${
-                errors.preferredDate ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-accent transition-colors ${
+                errors.preferredDate ? 'border-error' : 'border-muted'
               }`}
             />
             {errors.preferredDate && (
-              <p className="mt-1 text-sm text-red-600">{errors.preferredDate}</p>
+              <p className="mt-1 text-sm text-error">{errors.preferredDate}</p>
             )}
           </div>
 
           {/* Photos Field (Optional) */}
           <div>
-            <label htmlFor="photos" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="photos" className="block text-sm font-medium text-textMain mb-2">
               <ImageIcon className="w-4 h-4 inline mr-1" />
-              Photos <span className="text-gray-500 text-xs">(Optional)</span>
+              Photos <span className="text-textSecondary text-xs">(Optional)</span>
             </label>
             <input
               type="file"
@@ -609,9 +659,9 @@ const RenovationRequestForm = () => {
               accept="image/*"
               multiple
               onChange={handlePhotoChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-accent transition-colors"
             />
-            <p className="mt-1 text-xs text-gray-500">Upload multiple images (max 5MB per file)</p>
+            <p className="mt-1 text-xs text-textSecondary">Upload multiple images (max 5MB per file)</p>
 
             {/* Photo Previews */}
             {photoPreviews.length > 0 && (
@@ -621,12 +671,12 @@ const RenovationRequestForm = () => {
                     <img
                       src={preview}
                       alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                      className="w-full h-32 object-cover rounded-lg border border-muted"
                     />
                     <button
                       type="button"
                       onClick={() => handleRemovePhoto(index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 bg-error text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       aria-label="Remove photo"
                     >
                       <svg
@@ -651,8 +701,8 @@ const RenovationRequestForm = () => {
 
           {/* Provider ID Info (if provided) */}
           {formData.providerId && (
-            <div className="p-4 bg-teal-50 border border-teal-200 rounded-lg">
-              <p className="text-sm text-teal-800">
+            <div className="p-4 bg-accent border border-accent rounded-lg">
+              <p className="text-sm text-accent">
                 <strong>Provider Selected:</strong> A provider has been pre-selected for this
                 request.
               </p>

@@ -2,8 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-@media (prefers-reduced-motion: reduce) {
-  .motion-div {
-    transition: none;
-  }
+body {
+  background: #F8FAFC;
+  color: #0F172A;
+  font-family: "Inter", sans-serif;
 }

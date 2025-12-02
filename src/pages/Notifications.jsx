@@ -61,31 +61,31 @@ const Notifications = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Notifications</h1>
+        <h1 className="text-3xl font-bold text-textMain mb-8">Notifications</h1>
 
         {notifications.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <p className="text-gray-600">No notifications yet</p>
+          <div className="bg-surface rounded-base shadow-md p-8 text-center">
+            <p className="text-textSecondary">No notifications yet</p>
           </div>
         ) : (
           <div className="space-y-4">
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`bg-white rounded-lg shadow-md p-6 ${
-                  !notification.read ? 'border-l-4 border-blue-500' : ''
+                className={`bg-surface rounded-base shadow-md p-6 ${
+                  !notification.read ? 'border-l-4 border-primary' : ''
                 }`}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className="text-lg font-semibold text-textMain mb-2">
                       {notification.title || 'Notification'}
                     </h3>
-                    <p className="text-gray-600">{notification.message || notification.body}</p>
+                    <p className="text-textSecondary">{notification.message || notification.body}</p>
                     {notification.createdAt && (
-                      <p className="text-sm text-gray-400 mt-2">
+                      <p className="text-sm text-textSecondary mt-2">
                         {notification.createdAt.toDate?.().toLocaleDateString() || 'Recently'}
                       </p>
                     )}
@@ -93,7 +93,7 @@ const Notifications = () => {
                   {!notification.read && (
                     <button
                       onClick={() => markAsRead(notification.id)}
-                      className="ml-4 text-blue-600 hover:text-blue-800 text-sm"
+                      className="ml-4 text-primary hover:text-primaryDark text-sm"
                     >
                       Mark as read
                     </button>

@@ -64,15 +64,15 @@ const ManageCollections = () => {
       <div className="mb-8 flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-display font-bold text-charcoal">Manage Collections</h1>
-          <p className="text-lg text-gray-600 font-inter">Organize your watch collections</p>
+          <p className="text-lg text-textSecondary font-inter">Organize your watch collections</p>
         </div>
         <Link to="/admin/collections/add">
-          <Button className="bg-luxury-gold text-charcoal hover:bg-yellow-600">
+          <Button className="bg-luxury-gold text-charcoal hover:bg-accent">
             Add New Collection
           </Button>
         </Link>
       </div>
-      <div className="bg-white shadow-xl rounded-xl overflow-hidden">
+      <div className="bg-surface shadow-xl rounded-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-luxury-gold bg-opacity-10">
             <tr>
@@ -99,19 +99,19 @@ const ManageCollections = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-charcoal font-inter">
                   {getBrandName(collection.brandId)}
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600 font-inter">
+                <td className="px-6 py-4 text-sm text-textSecondary font-inter">
                   {collection.description || 'No description'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <Link
                     to={`/admin/collections/edit/${collection.id}`}
-                    className="text-luxury-gold hover:text-yellow-600 mr-4 font-inter"
+                    className="text-accent hover:text-accent mr-4 font-inter"
                   >
                     Edit
                   </Link>
                   <button
                     onClick={() => handleDelete(collection.id)}
-                    className="text-red-600 hover:text-red-700 font-inter"
+                    className="text-error hover:text-error font-inter"
                   >
                     Delete
                   </button>

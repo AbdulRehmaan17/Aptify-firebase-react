@@ -121,8 +121,8 @@ const Products = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-gray-900 mb-4">Luxury Watches</h1>
-        <p className="text-lg text-gray-600">
+        <h1 className="text-3xl font-display font-bold text-textMain mb-4">Luxury Watches</h1>
+        <p className="text-lg text-textSecondary">
           Discover our complete collection of premium timepieces
         </p>
       </div>
@@ -145,7 +145,7 @@ const Products = () => {
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-textSecondary">
                 {products.length} product{products.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -153,11 +153,11 @@ const Products = () => {
             <div className="flex items-center space-x-4">
               {/* Sort Dropdown */}
               <div className="flex items-center space-x-2">
-                <SortAsc className="w-4 h-4 text-gray-500" />
+                <SortAsc className="w-4 h-4 text-textSecondary" />
                 <select
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-luxury-gold focus:border-transparent"
+                  className="border border-muted rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-luxury-gold focus:border-transparent"
                 >
                   <option value="newest">Newest</option>
                   <option value="price-low">Price: Low to High</option>
@@ -168,13 +168,13 @@ const Products = () => {
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+              <div className="flex items-center border border-muted rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p - 2 ${
                     viewMode === 'grid'
                       ? 'bg-luxury-gold text-luxury-black'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      : 'text-textSecondary hover:bg-muted'
                   } `}
                 >
                   <Grid className="w-4 h-4" />
@@ -184,7 +184,7 @@ const Products = () => {
                   className={`p - 2 ${
                     viewMode === 'list'
                       ? 'bg-luxury-gold text-luxury-black'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      : 'text-textSecondary hover:bg-muted'
                   } `}
                 >
                   <List className="w-4 h-4" />
@@ -210,11 +210,11 @@ const Products = () => {
             </div>
           ) : (
             <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
+              <div className="text-textSecondary mb-4">
                 <Grid className="w-16 h-16 mx-auto" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters or search criteria</p>
+              <h3 className="text-lg font-medium text-textMain mb-2">No products found</h3>
+              <p className="text-textSecondary mb-6">Try adjusting your filters or search criteria</p>
               <Button
                 onClick={() =>
                   handleFiltersChange({

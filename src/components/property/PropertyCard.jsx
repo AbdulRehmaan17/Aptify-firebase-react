@@ -78,9 +78,9 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
       className="block"
       onClick={handleCardClick}
     >
-      <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden group">
+      <div className="bg-surface shadow-soft rounded-lg border border-muted p-4 hover:shadow-md hover:border-primary transition group">
         {/* Image */}
-        <div className="relative h-48 sm:h-56 overflow-hidden bg-gray-200">
+        <div className="relative h-48 sm:h-56 overflow-hidden bg-muted rounded-lg mb-4">
           <img
             src={getImageUrl()}
             alt={property.title || 'Property'}
@@ -97,12 +97,12 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
           {/* Status Badge */}
           <div className="absolute top-2 left-2">
             <span
-              className={`px-2 py-1 rounded text-xs font-semibold ${
+              className={`px-2 py-1 rounded-base text-xs font-semibold ${
                 property.status === 'published'
-                  ? 'bg-green-500 text-white'
+                  ? 'bg-primary text-white'
                   : property.status === 'pending'
-                    ? 'bg-yellow-500 text-white'
-                    : 'bg-gray-500 text-white'
+                    ? 'bg-accent text-white'
+                    : 'bg-textSecondary text-white'
               }`}
             >
               {property.status === 'published' ? 'Available' : property.status || 'Unknown'}
@@ -110,7 +110,7 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
           </div>
           {/* Type Badge */}
           <div className="absolute top-2 right-2">
-            <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-500 text-white capitalize">
+            <span className="px-2 py-1 rounded-base text-xs font-semibold bg-primary text-white capitalize">
               {property.type || 'Property'}
             </span>
           </div>
@@ -118,11 +118,11 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
           {user && (
             <button
               onClick={handleFavoriteToggle}
-              className="absolute bottom-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-red-50 transition-colors"
+              className="absolute bottom-2 right-2 p-2 bg-surface rounded-full shadow-md hover:bg-error/10 transition-colors"
               aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             >
               <svg
-                className={`w-5 h-5 ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-400'}`}
+                className={`w-5 h-5 ${isFavorite ? 'text-error fill-current' : 'text-textSecondary'}`}
                 fill={isFavorite ? 'currentColor' : 'none'}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -139,15 +139,15 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
         </div>
 
         {/* Content */}
-        <div className="p-4">
+        <div>
           {/* Title */}
-          <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+          <h3 className="text-textMain font-semibold text-lg mb-2 line-clamp-2">
             {property.title || 'Untitled Property'}
           </h3>
 
           {/* Location */}
           {property.address && (
-            <div className="flex items-center text-gray-600 text-sm mb-3">
+            <div className="flex items-center text-textSecondary text-sm mb-3">
               <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
               <span className="truncate">
                 {(() => {
@@ -167,12 +167,12 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
 
           {/* Price */}
           <div className="mb-3">
-            <p className="text-2xl font-bold text-blue-600">{formatPrice(property.price)}</p>
-            {property.type === 'rent' && <p className="text-xs text-gray-500">per month</p>}
+            <p className="text-primary font-bold text-xl">{formatPrice(property.price)}</p>
+            {property.type === 'rent' && <p className="text-xs text-textSecondary">per month</p>}
           </div>
 
           {/* Features */}
-          <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+          <div className="flex items-center gap-4 text-sm text-textSecondary mb-3">
             {property.bedrooms !== undefined && property.bedrooms !== null && (
               <div className="flex items-center">
                 <Bed className="w-4 h-4 mr-1" />
@@ -197,12 +197,12 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
           {property.amenities && property.amenities.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-3">
               {property.amenities.slice(0, 3).map((amenity, index) => (
-                <span key={index} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                <span key={index} className="px-2 py-1 bg-muted text-textSecondary text-xs rounded-base">
                   {amenity}
                 </span>
               ))}
               {property.amenities.length > 3 && (
-                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                <span className="px-2 py-1 bg-muted text-textSecondary text-xs rounded-base">
                   +{property.amenities.length - 3}
                 </span>
               )}

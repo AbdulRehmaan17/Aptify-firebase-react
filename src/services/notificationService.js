@@ -24,7 +24,7 @@ class NotificationService {
    * @param {string} userId - Target user UID
    * @param {string} title - Notification title
    * @param {string} message - Notification message
-   * @param {string} type - Notification type: 'info', 'success', 'warning', 'error'
+   * @param {string} type - Notification type: 'service-request', 'admin', 'system', 'status-update', 'info', 'success', 'warning', 'error'
    * @param {string} link - Optional link URL
    * @returns {Promise<string>} - Notification document ID
    */
@@ -54,6 +54,19 @@ class NotificationService {
       console.error('Error creating notification:', error);
       throw new Error(error.message || 'Failed to create notification');
     }
+  }
+
+  /**
+   * Send notification (alias for create)
+   * @param {string} userId - Target user UID
+   * @param {string} title - Notification title
+   * @param {string} message - Notification message
+   * @param {string} type - Notification type
+   * @param {string} link - Optional link URL
+   * @returns {Promise<string>} - Notification document ID
+   */
+  async sendNotification(userId, title, message, type = 'info', link = null) {
+    return this.create(userId, title, message, type, link);
   }
 
   /**

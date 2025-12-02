@@ -14,6 +14,8 @@ import ReviewsAndRatings from './ReviewsAndRatings';
 import PropertyCard from '../components/property/PropertyCard';
 import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
+import RentalRequestForm from './RentalRequestForm';
+import BuySellOfferForm from './BuySellOfferForm';
 
 const PropertyDetailPage = () => {
   const { id } = useParams();
@@ -164,79 +166,19 @@ const PropertyDetailPage = () => {
     setActiveImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
-  const handleRentalSubmit = async (e) => {
-    e.preventDefault();
-    if (!user) {
-      toast.error('Please log in to submit a rental request');
-      navigate('/auth');
-      return;
-    }
-
-    if (!rentalFormData.startDate || !rentalFormData.endDate) {
-      toast.error('Please select start and end dates');
-      return;
-    }
-
-    if (new Date(rentalFormData.startDate) >= new Date(rentalFormData.endDate)) {
-      toast.error('End date must be after start date');
-      return;
-    }
-
-    try {
-      setSubmittingRental(true);
-      await rentalRequestService.create({
-        userId: user.uid,
-        propertyId: id,
-        startDate: rentalFormData.startDate,
-        endDate: rentalFormData.endDate,
-        message: rentalFormData.message,
-      });
-      toast.success('Rental request submitted successfully!');
-      setShowRentalModal(false);
-      setRentalFormData({ startDate: '', endDate: '', message: '' });
-    } catch (error) {
-      console.error('Error submitting rental request:', error);
-      toast.error('Failed to submit rental request');
-    } finally {
-      setSubmittingRental(false);
-    }
+  const handleRentalSuccess = () => {
+    setShowRentalModal(false);
+    setRentalFormData({ startDate: '', endDate: '', message: '' });
   };
 
-  const handleBuySellSubmit = async (e) => {
-    e.preventDefault();
-    if (!user) {
-      toast.error('Please log in to make a purchase offer');
-      navigate('/auth');
-      return;
-    }
-
-    if (!buySellFormData.offerAmount || Number(buySellFormData.offerAmount) <= 0) {
-      toast.error('Please enter a valid offer amount');
-      return;
-    }
-
-    try {
-      setSubmittingBuySell(true);
-      await buySellRequestService.create({
-        userId: user.uid,
-        propertyId: id,
-        offerAmount: buySellFormData.offerAmount,
-        message: buySellFormData.message,
-      });
-      toast.success('Purchase offer submitted successfully!');
-      setShowBuySellModal(false);
-      setBuySellFormData({ offerAmount: '', message: '' });
-    } catch (error) {
-      console.error('Error submitting buy/sell request:', error);
-      toast.error('Failed to submit purchase offer');
-    } finally {
-      setSubmittingBuySell(false);
-    }
+  const handleBuySellSuccess = () => {
+    setShowBuySellModal(false);
+    setBuySellFormData({ offerAmount: '', message: '' });
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-ivory">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -244,13 +186,13 @@ const PropertyDetailPage = () => {
 
   if (error || !property) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-ivory">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <p className="text-red-600 mb-4 font-inter text-lg">{error || 'Property not found'}</p>
+          <p className="text-error mb-4 font-inter text-lg">{error || 'Property not found'}</p>
           <Button onClick={() => navigate('/properties')} variant="primary">
             Back to Properties
           </Button>
@@ -263,52 +205,52 @@ const PropertyDetailPage = () => {
   const displayImage = images[activeImageIndex] || images[0] || '';
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-ivory min-h-screen">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-background min-h-screen">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}>
         {/* Breadcrumbs */}
-        <nav className="text-sm text-gray-600 mb-6">
-          <Link to="/" className="hover:text-luxury-gold">
+        <nav className="text-sm text-textSecondary mb-6">
+          <Link to="/" className="hover:text-primary">
             Home
           </Link>
           <span className="mx-2">/</span>
-          <Link to="/properties" className="hover:text-luxury-gold">
+          <Link to="/properties" className="hover:text-primary">
             Properties
           </Link>
           <span className="mx-2">/</span>
-          <span className="text-gray-900">{property.title}</span>
+          <span className="text-textMain">{property.title}</span>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Property Images Carousel */}
           <div className="relative group">
             {displayImage ? (
-              <div className="relative w-full h-[500px] sm:h-[600px] rounded-xl shadow-2xl overflow-hidden">
-                <motion.img
+              <div className="relative w-full h-[500px] sm:h-[600px] rounded-base shadow-lg overflow-hidden">
+              <motion.img
                   key={activeImageIndex}
-                  src={displayImage}
-                  alt={property.title}
+                src={displayImage}
+                alt={property.title}
                   className="w-full h-full object-cover"
-                  loading="lazy"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5 }}
-                />
+                loading="lazy"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+              />
                 {/* Navigation Arrows */}
                 {images.length > 1 && (
                   <>
                     <button
                       onClick={prevImage}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/90 rounded-full shadow-lg hover:bg-white transition-colors z-10"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-surface/90 rounded-full shadow-lg hover:bg-surface transition-colors z-10"
                       aria-label="Previous image"
                     >
-                      <ChevronLeft className="w-6 h-6 text-gray-800" />
+                      <ChevronLeft className="w-6 h-6 text-textMain" />
                     </button>
                     <button
                       onClick={nextImage}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/90 rounded-full shadow-lg hover:bg-white transition-colors z-10"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-surface/90 rounded-full shadow-lg hover:bg-surface transition-colors z-10"
                       aria-label="Next image"
                     >
-                      <ChevronRight className="w-6 h-6 text-gray-800" />
+                      <ChevronRight className="w-6 h-6 text-textMain" />
                     </button>
                     {/* Image Counter */}
                     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/50 text-white text-sm rounded-full">
@@ -318,8 +260,8 @@ const PropertyDetailPage = () => {
                 )}
               </div>
             ) : (
-              <div className="w-full h-[500px] sm:h-[600px] bg-gray-200 rounded-xl flex items-center justify-center">
-                <span className="text-gray-400">No image available</span>
+              <div className="w-full h-[500px] sm:h-[600px] bg-muted rounded-base flex items-center justify-center">
+                <span className="text-textSecondary">No image available</span>
               </div>
             )}
 
@@ -332,8 +274,8 @@ const PropertyDetailPage = () => {
                     onClick={() => setActiveImageIndex(index)}
                     className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
                       activeImageIndex === index
-                        ? 'border-luxury-gold scale-105'
-                        : 'border-gray-300 hover:border-gray-400'
+                        ? 'border-primary scale-105'
+                        : 'border-muted hover:border-primary'
                     }`}
                   >
                     <img
@@ -357,10 +299,10 @@ const PropertyDetailPage = () => {
             <div className="flex-1">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h1 className="text-4xl sm:text-5xl font-display font-bold text-charcoal mb-3 tracking-tight">
+                  <h1 className="text-4xl sm:text-5xl font-display font-bold text-textMain mb-3 tracking-tight">
                     {property.title}
                   </h1>
-                  <div className="flex items-center text-gray-500 mb-4">
+                  <div className="flex items-center text-textSecondary mb-4">
                     <MapPin className="w-5 h-5 mr-2" />
                     <span>
                       {property.address?.line1 || ''}
@@ -374,15 +316,15 @@ const PropertyDetailPage = () => {
                     onClick={handleToggleFavorite}
                     className={`p-2 rounded-full transition-colors ${
                       isFavorite
-                        ? 'bg-red-500 text-white'
-                        : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                        ? 'bg-error text-white'
+                        : 'bg-muted text-textSecondary hover:bg-accent'
                     }`}
                   >
                     <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
                   </button>
                   <button
                     onClick={handleShare}
-                    className="p-2 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+                    className="p-2 rounded-full bg-muted text-textSecondary hover:bg-accent transition-colors"
                   >
                     <Share2 className="w-5 h-5" />
                   </button>
@@ -390,37 +332,37 @@ const PropertyDetailPage = () => {
               </div>
 
               <div className="mb-6">
-                <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-luxury-gold text-charcoal mb-4">
+                <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-primary text-white mb-4">
                   {property.type?.toUpperCase() || 'PROPERTY'}
                 </span>
-                <p className="text-3xl font-bold text-charcoal mb-4 font-inter">
+                <p className="text-3xl font-bold text-textMain mb-4 font-inter">
                   {formatPrice(property.price)}
                 </p>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-textSecondary">
                   Status: {property.status || 'published'}
                 </span>
               </div>
 
               {/* Property Features */}
-              <div className="grid grid-cols-3 gap-4 mb-6 p-4 bg-white rounded-lg">
+              <div className="grid grid-cols-3 gap-4 mb-6 p-4 card-base">
                 <div className="text-center">
-                  <Bed className="w-6 h-6 mx-auto mb-2 text-luxury-gold" />
-                  <p className="text-sm text-gray-600">Bedrooms</p>
+                  <Bed className="w-6 h-6 mx-auto mb-2 text-primary" />
+                  <p className="text-sm text-textSecondary">Bedrooms</p>
                   <p className="text-lg font-semibold">{property.bedrooms || '-'}</p>
                 </div>
                 <div className="text-center">
-                  <Bath className="w-6 h-6 mx-auto mb-2 text-luxury-gold" />
-                  <p className="text-sm text-gray-600">Bathrooms</p>
+                  <Bath className="w-6 h-6 mx-auto mb-2 text-primary" />
+                  <p className="text-sm text-textSecondary">Bathrooms</p>
                   <p className="text-lg font-semibold">{property.bathrooms || '-'}</p>
                 </div>
                 <div className="text-center">
-                  <Square className="w-6 h-6 mx-auto mb-2 text-luxury-gold" />
-                  <p className="text-sm text-gray-600">Area</p>
+                  <Square className="w-6 h-6 mx-auto mb-2 text-primary" />
+                  <p className="text-sm text-textSecondary">Area</p>
                   <p className="text-lg font-semibold">{property.areaSqFt || '-'} sqft</p>
                 </div>
               </div>
 
-              <p className="text-gray-600 mb-8 font-inter leading-relaxed">
+              <p className="text-textSecondary mb-8 font-inter leading-relaxed">
                 {property.description}
               </p>
 
@@ -432,7 +374,7 @@ const PropertyDetailPage = () => {
                     {property.amenities.map((amenity, index) => (
                       <span
                         key={index}
-                        className="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700"
+                        className="px-3 py-1 bg-muted rounded-full text-sm text-textSecondary"
                       >
                         {amenity}
                       </span>
@@ -443,15 +385,15 @@ const PropertyDetailPage = () => {
 
               {/* Owner Contact & Action Buttons */}
               {property.ownerName && !isOwner && (
-                <div className="mb-8 p-4 bg-white rounded-lg shadow-md">
+                <div className="mb-8 p-4 card-base shadow-md">
                   <h3 className="text-xl font-semibold mb-4">Contact Owner</h3>
-                  <p className="text-gray-700 mb-2 font-medium">{property.ownerName}</p>
+                  <p className="text-textMain mb-2 font-medium">{property.ownerName}</p>
                   {property.ownerPhone && (
-                    <div className="flex items-center gap-2 text-gray-600 mb-4">
+                    <div className="flex items-center gap-2 text-textSecondary mb-4">
                       <Phone className="w-4 h-4" />
                       <a
                         href={`tel:${property.ownerPhone}`}
-                        className="hover:text-blue-600 transition-colors"
+                        className="hover:text-primary transition-colors"
                       >
                         {property.ownerPhone}
                       </a>
@@ -460,7 +402,7 @@ const PropertyDetailPage = () => {
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
                       <Button
-                        className="flex-1 bg-luxury-gold text-charcoal hover:bg-yellow-600"
+                        className="flex-1 bg-primary text-white hover:bg-primaryDark"
                         onClick={() => {
                           if (property.ownerPhone) {
                             window.location.href = `tel:${property.ownerPhone}`;
@@ -475,18 +417,30 @@ const PropertyDetailPage = () => {
                       <Button
                         variant="outline"
                         className="flex-1"
-                        onClick={() => {
-                          navigate(`/chat?property=${id}&owner=${property.ownerId}`);
+                        onClick={async () => {
+                          if (!user) {
+                            toast.error('Please log in to message the owner');
+                            navigate('/auth');
+                            return;
+                          }
+                          try {
+                            const { getOrCreateChat } = await import('../utils/chatHelpers');
+                            const chatId = await getOrCreateChat(user.uid, property.ownerId);
+                            navigate(`/chats?chatId=${chatId}`);
+                          } catch (error) {
+                            console.error('Error creating chat:', error);
+                            toast.error('Failed to start chat. Please try again.');
+                          }
                         }}
                       >
                         <Mail className="w-4 h-4 mr-2" />
-                        Message
+                        Message Owner
                       </Button>
                     </div>
                     {/* Request Rental Button (for rent properties) */}
                     {property.type === 'rent' && (
                       <Button
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        className="w-full bg-primary hover:bg-primaryDark text-white"
                         onClick={() => setShowRentalModal(true)}
                       >
                         <Calendar className="w-4 h-4 mr-2" />
@@ -496,7 +450,7 @@ const PropertyDetailPage = () => {
                     {/* Make Purchase Offer Button (for sale properties) */}
                     {property.type === 'sale' && (
                       <Button
-                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        className="w-full bg-primary hover:bg-primaryDark text-white"
                         onClick={() => setShowBuySellModal(true)}
                       >
                         <DollarSign className="w-4 h-4 mr-2" />
@@ -509,7 +463,7 @@ const PropertyDetailPage = () => {
 
               {/* Edit/Delete Buttons for Owner/Admin */}
               {(isOwner || isAdmin) && (
-                <div className="mb-8 p-4 bg-white rounded-lg shadow-md">
+                <div className="mb-8 p-4 card-base shadow-md">
                   <h3 className="text-xl font-semibold mb-4">Manage Property</h3>
                   <div className="flex gap-2">
                     <Button
@@ -520,14 +474,14 @@ const PropertyDetailPage = () => {
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Property
                     </Button>
-                    <Button
+                  <Button
                       variant="outline"
-                      className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
+                      className="flex-1 text-error border-error hover:bg-error/10"
                       onClick={() => setShowDeleteModal(true)}
-                    >
+                  >
                       <Trash2 className="w-4 h-4 mr-2" />
                       Delete
-                    </Button>
+                  </Button>
                   </div>
                 </div>
               )}
@@ -538,7 +492,7 @@ const PropertyDetailPage = () => {
         {/* Similar Properties Section */}
         {similarProperties.length > 0 && (
           <div className="mt-12">
-            <h2 className="text-3xl font-display font-bold text-gray-900 mb-6">Similar Properties</h2>
+            <h2 className="text-3xl font-display font-bold text-textMain mb-6">Similar Properties</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {similarProperties.map((similarProperty) => (
                 <PropertyCard key={similarProperty.id} property={similarProperty} />
@@ -563,7 +517,7 @@ const PropertyDetailPage = () => {
         size="md"
       >
         <div className="space-y-4">
-          <p className="text-gray-700">
+          <p className="text-textSecondary">
             Are you sure you want to delete this property? This action cannot be undone.
           </p>
           <div className="flex gap-3 justify-end">
@@ -575,7 +529,7 @@ const PropertyDetailPage = () => {
               Cancel
             </Button>
             <Button
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-error hover:bg-error text-white"
               onClick={handleDelete}
               loading={deleting}
               disabled={deleting}
@@ -596,64 +550,15 @@ const PropertyDetailPage = () => {
         title="Request Rental"
         size="md"
       >
-        <form onSubmit={handleRentalSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Start Date <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="date"
-              value={rentalFormData.startDate}
-              onChange={(e) =>
-                setRentalFormData((prev) => ({ ...prev, startDate: e.target.value }))
-              }
-              min={new Date().toISOString().split('T')[0]}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              End Date <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="date"
-              value={rentalFormData.endDate}
-              onChange={(e) =>
-                setRentalFormData((prev) => ({ ...prev, endDate: e.target.value }))
-              }
-              min={rentalFormData.startDate || new Date().toISOString().split('T')[0]}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-            <textarea
-              value={rentalFormData.message}
-              onChange={(e) =>
-                setRentalFormData((prev) => ({ ...prev, message: e.target.value }))
-              }
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Tell the owner about your rental needs..."
-            />
-          </div>
-          <div className="flex gap-3 justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowRentalModal(false);
-                setRentalFormData({ startDate: '', endDate: '', message: '' });
-              }}
-              disabled={submittingRental}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" loading={submittingRental} disabled={submittingRental}>
-              Submit Request
-            </Button>
-          </div>
-        </form>
+        <RentalRequestForm
+          propertyId={id}
+          propertyTitle={property?.title}
+          onSuccess={handleRentalSuccess}
+          onCancel={() => {
+            setShowRentalModal(false);
+            setRentalFormData({ startDate: '', endDate: '', message: '' });
+          }}
+        />
       </Modal>
 
       {/* Buy/Sell Offer Modal */}
@@ -666,58 +571,16 @@ const PropertyDetailPage = () => {
         title="Make Purchase Offer"
         size="md"
       >
-        <form onSubmit={handleBuySellSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Offer Amount (PKR) <span className="text-red-500">*</span>
-            </label>
-            <Input
-              type="number"
-              value={buySellFormData.offerAmount}
-              onChange={(e) =>
-                setBuySellFormData((prev) => ({ ...prev, offerAmount: e.target.value }))
-              }
-              placeholder="Enter your offer amount"
-              min="0"
-              step="1000"
-              required
-              leftIcon={<DollarSign className="w-4 h-4" />}
-            />
-            {property && (
-              <p className="mt-1 text-sm text-gray-500">
-                Property price: {formatPrice(property.price)}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-            <textarea
-              value={buySellFormData.message}
-              onChange={(e) =>
-                setBuySellFormData((prev) => ({ ...prev, message: e.target.value }))
-              }
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              placeholder="Tell the owner about your offer..."
-            />
-          </div>
-          <div className="flex gap-3 justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowBuySellModal(false);
-                setBuySellFormData({ offerAmount: '', message: '' });
-              }}
-              disabled={submittingBuySell}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" loading={submittingBuySell} disabled={submittingBuySell}>
-              Submit Offer
-            </Button>
-          </div>
-        </form>
+        <BuySellOfferForm
+          propertyId={id}
+          propertyTitle={property?.title}
+          propertyPrice={property?.price}
+          onSuccess={handleBuySellSuccess}
+          onCancel={() => {
+            setShowBuySellModal(false);
+            setBuySellFormData({ offerAmount: '', message: '' });
+          }}
+        />
       </Modal>
     </div>
   );

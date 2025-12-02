@@ -255,17 +255,17 @@ const ConstructionDashboard = () => {
 
     switch (status?.toLowerCase()) {
       case 'pending':
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+        return `${baseClasses} bg-accent/20 text-accent`;
       case 'in progress':
       case 'inprogress':
-        return `${baseClasses} bg-slate-100 text-slate-800`;
+        return `${baseClasses} bg-primary/20 text-primary`;
       case 'completed':
-        return `${baseClasses} bg-green-100 text-green-800`;
+        return `${baseClasses} bg-primary/20 text-primary`;
       case 'cancelled':
       case 'canceled':
-        return `${baseClasses} bg-red-100 text-red-800`;
+        return `${baseClasses} bg-error/20 text-error`;
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return `${baseClasses} bg-muted text-textMain`;
     }
   };
 
@@ -303,7 +303,7 @@ const ConstructionDashboard = () => {
   // Show loading spinner while checking auth or initial load
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -312,11 +312,11 @@ const ConstructionDashboard = () => {
   // Redirect to login if not authenticated
   if (!currentUser || !currentUser.uid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto px-4">
-          <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
-          <p className="text-gray-600 mb-6">Please log in to view your construction projects.</p>
+          <AlertCircle className="w-16 h-16 mx-auto text-error mb-4" />
+          <h2 className="text-2xl font-bold text-textMain mb-2">Authentication Required</h2>
+          <p className="text-textSecondary mb-6">Please log in to view your construction projects.</p>
           <Button onClick={() => navigate('/auth')} variant="primary">
             Log In
           </Button>
@@ -328,11 +328,11 @@ const ConstructionDashboard = () => {
   // Error state (only show if there's an actual error, not just empty collection)
   if (error && projects.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto px-4">
-          <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Projects</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <AlertCircle className="w-16 h-16 mx-auto text-error mb-4" />
+          <h2 className="text-2xl font-bold text-textMain mb-2">Error Loading Projects</h2>
+          <p className="text-textSecondary mb-6">{error}</p>
           <Button onClick={() => window.location.reload()} variant="primary">
             Try Again
           </Button>
@@ -342,24 +342,24 @@ const ConstructionDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-display font-bold text-textMain mb-2">
             Construction Dashboard
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-textSecondary">
             View and manage your construction projects in real-time.
           </p>
         </div>
 
         {/* Empty State */}
         {projects.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <Building2 className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Construction Projects</h2>
-            <p className="text-gray-600 mb-6">
+          <div className="bg-surface rounded-base shadow-lg p-12 text-center">
+            <Building2 className="w-16 h-16 mx-auto text-muted mb-4" />
+            <h2 className="text-2xl font-bold text-textMain mb-2">No Construction Projects</h2>
+            <p className="text-textSecondary mb-6">
               You have not requested any construction services yet.
             </p>
             <Button onClick={() => navigate('/construction-request')} variant="primary">
@@ -368,53 +368,53 @@ const ConstructionDashboard = () => {
           </div>
         ) : (
           /* Projects Table - Desktop View */
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="bg-surface rounded-base shadow-lg overflow-hidden">
             {/* Responsive Table */}
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-muted">
+                <thead className="bg-background">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                       Project Type
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                       Property
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                       Budget
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                       Start Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                       End Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-textSecondary uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-surface divide-y divide-gray-200">
                   {projects.map((project) => {
                     const propertyName = project.propertyId
                       ? propertyNames[project.propertyId] || 'Loading...'
                       : 'No Property';
 
                     return (
-                      <tr key={project.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={project.id} className="hover:bg-background transition-colors">
                         {/* Project Type */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-textMain">
                             {project.projectType || 'Not specified'}
                           </div>
                         </td>
 
                         {/* Property */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-600">
+                          <div className="flex items-center text-sm text-textSecondary">
                             <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
                             <span className="truncate max-w-xs">{propertyName}</span>
                           </div>
@@ -422,7 +422,7 @@ const ConstructionDashboard = () => {
 
                         {/* Budget */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-900">
+                          <div className="flex items-center text-sm text-textMain">
                             <DollarSign className="w-4 h-4 mr-1 flex-shrink-0" />
                             {formatBudget(project.budget)}
                           </div>
@@ -430,7 +430,7 @@ const ConstructionDashboard = () => {
 
                         {/* Start Date */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-600">
+                          <div className="flex items-center text-sm text-textSecondary">
                             <Calendar className="w-4 h-4 mr-1 flex-shrink-0" />
                             {formatDate(project.startDate)}
                           </div>
@@ -438,7 +438,7 @@ const ConstructionDashboard = () => {
 
                         {/* End Date */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-600">
+                          <div className="flex items-center text-sm text-textSecondary">
                             <Calendar className="w-4 h-4 mr-1 flex-shrink-0" />
                             {formatDate(project.endDate)}
                           </div>
@@ -484,10 +484,10 @@ const ConstructionDashboard = () => {
                   <div key={project.id} className="p-4 space-y-3">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900">
+                        <h3 className="text-sm font-semibold text-textMain">
                           {project.projectType || 'Not specified'}
                         </h3>
-                        <p className="text-xs text-gray-600 mt-1">{propertyName}</p>
+                        <p className="text-xs text-textSecondary mt-1">{propertyName}</p>
                       </div>
                       <span className={getStatusBadgeClasses(project.status)}>
                         {project.status || 'Unknown'}
@@ -496,16 +496,16 @@ const ConstructionDashboard = () => {
 
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <p className="text-xs text-gray-500">Budget</p>
-                        <p className="font-medium text-gray-900">{formatBudget(project.budget)}</p>
+                        <p className="text-xs text-textSecondary">Budget</p>
+                        <p className="font-medium text-textMain">{formatBudget(project.budget)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Start Date</p>
-                        <p className="font-medium text-gray-900">{formatDate(project.startDate)}</p>
+                        <p className="text-xs text-textSecondary">Start Date</p>
+                        <p className="font-medium text-textMain">{formatDate(project.startDate)}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">End Date</p>
-                        <p className="font-medium text-gray-900">{formatDate(project.endDate)}</p>
+                        <p className="text-xs text-textSecondary">End Date</p>
+                        <p className="font-medium text-textMain">{formatDate(project.endDate)}</p>
                       </div>
                     </div>
 

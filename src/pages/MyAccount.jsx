@@ -3,40 +3,44 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
   User,
   Home,
-  Calendar,
-  DollarSign,
-  Wrench,
-  Building2,
   MessageCircle,
   Star,
   Bell,
   Edit2,
   Save,
-  LogOut,
-  Eye,
   Trash2,
+  Eye,
+  X,
+  Plus,
+  Search,
+  Building2,
+  Calendar,
+  DollarSign,
+  Wrench,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import userService from '../services/userService';
+import propertyService from '../services/propertyService';
 import rentalRequestService from '../services/rentalRequestService';
 import buySellRequestService from '../services/buySellRequestService';
-import propertyService from '../services/propertyService';
 import reviewsService from '../services/reviewsService';
 import notificationService from '../services/notificationService';
 import {
   collection,
   query,
   where,
-  getDocs,
-  orderBy,
   onSnapshot,
+  orderBy,
   doc,
   getDoc,
+  deleteDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
 
 const MyAccount = () => {
   const navigate = useNavigate();
@@ -54,43 +58,40 @@ const MyAccount = () => {
   const [profileLoading, setProfileLoading] = useState(true);
   const [errors, setErrors] = useState({});
 
-  // Counts state
-  const [counts, setCounts] = useState({
+  // Summary counts
+  const [summaryCounts, setSummaryCounts] = useState({
     properties: 0,
-    rentalRequests: 0,
-    buySellRequests: 0,
-    constructionRequests: 0,
-    renovationRequests: 0,
-    chats: 0,
-    reviews: 0,
-    notifications: 0,
+    activeRequests: 0,
+    unreadMessages: 0,
   });
 
   // Data state
   const [myProperties, setMyProperties] = useState([]);
   const [propertiesLoading, setPropertiesLoading] = useState(false);
-  const [rentalRequestsSent, setRentalRequestsSent] = useState([]);
-  const [buySellRequestsSent, setBuySellRequestsSent] = useState([]);
-  const [constructionRequests, setConstructionRequests] = useState([]);
-  const [renovationRequests, setRenovationRequests] = useState([]);
+  const [allRequests, setAllRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
+  const [activeChats, setActiveChats] = useState([]);
   const [chatsLoading, setChatsLoading] = useState(false);
   const [myReviews, setMyReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  // Delete confirmation modals
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    type: null, // 'property', 'review'
+    id: null,
+    title: null,
+  });
 
   // Tabs configuration
   const tabs = [
-    { key: 'profile', label: 'Profile Info', icon: User, count: null },
-    { key: 'properties', label: 'My Properties', icon: Home, count: counts.properties },
-    { key: 'rental-buysell', label: 'Rental/Buy-Sell', icon: DollarSign, count: counts.rentalRequests + counts.buySellRequests },
-    { key: 'construction', label: 'Construction', icon: Building2, count: counts.constructionRequests },
-    { key: 'renovation', label: 'Renovation', icon: Wrench, count: counts.renovationRequests },
-    { key: 'chats', label: 'My Chats', icon: MessageCircle, count: counts.chats },
-    { key: 'reviews', label: 'My Reviews', icon: Star, count: counts.reviews },
-    { key: 'notifications', label: 'Notifications', icon: Bell, count: counts.notifications },
+    { key: 'profile', label: 'Profile', icon: User },
+    { key: 'properties', label: 'My Properties', icon: Home },
+    { key: 'requests', label: 'My Requests', icon: Calendar },
+    { key: 'chats', label: 'My Chats', icon: MessageCircle },
+    { key: 'reviews', label: 'My Reviews', icon: Star },
+    { key: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
   // Fetch profile
@@ -106,10 +107,11 @@ const MyAccount = () => {
             address:
               typeof userProfile.address === 'string'
                 ? userProfile.address
-                : userProfile.address?.line1 || '',
+                : userProfile.address?.line1 || userProfile.address || '',
           });
         } catch (error) {
           console.error('Error fetching profile:', error);
+          toast.error('Failed to load profile');
         } finally {
           setProfileLoading(false);
         }
@@ -121,229 +123,547 @@ const MyAccount = () => {
     }
   }, [authLoading, user, navigate]);
 
-  // Fetch counts
+  // Live updates for summary counts
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (!user || authLoading || !db) return;
 
-    const fetchCounts = async () => {
-      try {
-        // Properties count
-        const propertiesQuery = query(
-          collection(db, 'properties'),
-          where('ownerId', '==', user.uid)
-        );
-        const propertiesSnapshot = await getDocs(propertiesQuery);
-        const propertiesCount = propertiesSnapshot.size;
+    const unsubscribes = [];
 
-        // Rental requests count
-        const rentalRequests = await rentalRequestService.getByUser(user.uid);
-        const rentalCount = rentalRequests.length;
-
-        // Buy/Sell requests count
-        const buySellRequests = await buySellRequestService.getByUser(user.uid);
-        const buySellCount = buySellRequests.length;
-
-        // Construction projects count
-        const constructionQuery = query(
-          collection(db, 'constructionProjects'),
-          where('userId', '==', user.uid)
-        );
-        const constructionSnapshot = await getDocs(constructionQuery);
-        const constructionCount = constructionSnapshot.size;
-
-        // Renovation projects count
-        const renovationQuery = query(
-          collection(db, 'renovationProjects'),
-          where('userId', '==', user.uid)
-        );
-        const renovationSnapshot = await getDocs(renovationQuery);
-        const renovationCount = renovationSnapshot.size;
-
-        // Chat messages count (check if chat document exists)
-        const chatDoc = await getDoc(doc(db, 'supportChats', user.uid));
-        const chatCount = chatDoc.exists() ? 1 : 0;
-
-        // Reviews count
-        const reviewsQuery = query(
-          collection(db, 'reviews'),
-          where('reviewerId', '==', user.uid)
-        );
-        const reviewsSnapshot = await getDocs(reviewsQuery);
-        const reviewsCount = reviewsSnapshot.size;
-
-        // Notifications count
-        const unreadCount = await notificationService.getUnreadCount(user.uid);
-
-        setCounts({
-          properties: propertiesCount,
-          rentalRequests: rentalCount,
-          buySellRequests: buySellCount,
-          constructionRequests: constructionCount,
-          renovationRequests: renovationCount,
-          chats: chatCount,
-          reviews: reviewsCount,
-          notifications: unreadCount,
-        });
-      } catch (error) {
-        console.error('Error fetching counts:', error);
+    // Properties count
+    const propertiesQuery = query(
+      collection(db, 'properties'),
+      where('ownerId', '==', user.uid)
+    );
+    const unsubscribeProperties = onSnapshot(
+      propertiesQuery,
+      (snapshot) => {
+        setSummaryCounts((prev) => ({
+          ...prev,
+          properties: snapshot.size,
+        }));
+      },
+      (error) => {
+        console.error('Error fetching properties count:', error);
       }
-    };
+    );
+    unsubscribes.push(unsubscribeProperties);
 
-    fetchCounts();
+    // Active requests count (rental + buySell + construction + renovation)
+    const rentalQuery = query(
+      collection(db, 'rentalRequests'),
+      where('userId', '==', user.uid)
+    );
+    const buySellQuery = query(
+      collection(db, 'buySellRequests'),
+      where('userId', '==', user.uid)
+    );
+    const constructionQuery = query(
+      collection(db, 'constructionProjects'),
+      where('userId', '==', user.uid)
+    );
+    const renovationQuery = query(
+      collection(db, 'renovationProjects'),
+      where('userId', '==', user.uid)
+    );
+
+    let rentalCount = 0;
+    let buySellCount = 0;
+    let constructionCount = 0;
+    let renovationCount = 0;
+
+    const unsubscribeRental = onSnapshot(rentalQuery, (snapshot) => {
+      rentalCount = snapshot.size;
+      updateActiveRequestsCount();
+    });
+    unsubscribes.push(unsubscribeRental);
+
+    const unsubscribeBuySell = onSnapshot(buySellQuery, (snapshot) => {
+      buySellCount = snapshot.size;
+      updateActiveRequestsCount();
+    });
+    unsubscribes.push(unsubscribeBuySell);
+
+    const unsubscribeConstruction = onSnapshot(constructionQuery, (snapshot) => {
+      constructionCount = snapshot.size;
+      updateActiveRequestsCount();
+    });
+    unsubscribes.push(unsubscribeConstruction);
+
+    const unsubscribeRenovation = onSnapshot(renovationQuery, (snapshot) => {
+      renovationCount = snapshot.size;
+      updateActiveRequestsCount();
+    });
+    unsubscribes.push(unsubscribeRenovation);
+
+    function updateActiveRequestsCount() {
+      setSummaryCounts((prev) => ({
+        ...prev,
+        activeRequests: rentalCount + buySellCount + constructionCount + renovationCount,
+      }));
+    }
+
+    // Unread messages count (from chats)
+    const chatsQuery = query(
+      collection(db, 'chats'),
+      where('participants', 'array-contains', user.uid)
+    );
+    const unsubscribeChats = onSnapshot(
+      chatsQuery,
+      async (snapshot) => {
+        let unreadCount = 0;
+        const chatPromises = snapshot.docs.map(async (chatDoc) => {
+          const chatData = chatDoc.data();
+          const unreadFor = chatData.unreadFor || {};
+          return unreadFor[user.uid] || 0;
+        });
+        const counts = await Promise.all(chatPromises);
+        unreadCount = counts.reduce((sum, count) => sum + count, 0);
+        setSummaryCounts((prev) => ({
+          ...prev,
+          unreadMessages: unreadCount,
+        }));
+      },
+      (error) => {
+        console.error('Error fetching chats count:', error);
+      }
+    );
+    unsubscribes.push(unsubscribeChats);
+
+    // Unread notifications count
+    const notificationsQuery = query(
+      collection(db, 'notifications'),
+      where('userId', '==', user.uid),
+      where('read', '==', false)
+    );
+    const unsubscribeNotifications = onSnapshot(
+      notificationsQuery,
+      (snapshot) => {
+        setUnreadNotificationCount(snapshot.size);
+      },
+      (error) => {
+        console.error('Error fetching notifications count:', error);
+      }
+    );
+    unsubscribes.push(unsubscribeNotifications);
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
   }, [user, authLoading]);
 
-  // Fetch data based on active tab
+  // Live updates for My Properties tab
   useEffect(() => {
-    if (!user || authLoading || !activeTab) return;
+    if (!user || authLoading || !db || activeTab !== 'properties') return;
 
-    const fetchTabData = async () => {
-      try {
-        if (activeTab === 'properties') {
-          setPropertiesLoading(true);
-          const propertiesQuery = query(
+    setPropertiesLoading(true);
+    const propertiesQuery = query(
+      collection(db, 'properties'),
+      where('ownerId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      propertiesQuery,
+      (snapshot) => {
+        const properties = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMyProperties(properties);
+        setPropertiesLoading(false);
+      },
+      (error) => {
+        // Fallback without orderBy
+        if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+          const fallbackQuery = query(
             collection(db, 'properties'),
-            where('ownerId', '==', user.uid),
-            orderBy('createdAt', 'desc')
+            where('ownerId', '==', user.uid)
           );
-          const snapshot = await getDocs(propertiesQuery);
-          const properties = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setMyProperties(properties);
+          const fallbackUnsubscribe = onSnapshot(
+            fallbackQuery,
+            (fallbackSnapshot) => {
+              const properties = fallbackSnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+              }));
+              properties.sort((a, b) => {
+                const aTime = a.createdAt?.toDate?.() || new Date(0);
+                const bTime = b.createdAt?.toDate?.() || new Date(0);
+                return bTime - aTime;
+              });
+              setMyProperties(properties);
+              setPropertiesLoading(false);
+            },
+            (fallbackError) => {
+              console.error('Error fetching properties (fallback):', fallbackError);
+              toast.error('Failed to load properties');
+              setMyProperties([]);
+              setPropertiesLoading(false);
+            }
+          );
+          return () => fallbackUnsubscribe();
+        } else {
+          console.error('Error fetching properties:', error);
+          toast.error('Failed to load properties');
+          setMyProperties([]);
           setPropertiesLoading(false);
-        } else if (activeTab === 'rental-buysell') {
-          setRequestsLoading(true);
-          const [rentals, buySells] = await Promise.all([
-            rentalRequestService.getByUser(user.uid),
-            buySellRequestService.getByUser(user.uid),
-          ]);
-
-          // Fetch property details
-          const rentalsWithProps = await Promise.all(
-            rentals.map(async (req) => {
-              try {
-                const property = await propertyService.getById(req.propertyId, false);
-                return { ...req, property };
-              } catch {
-                return { ...req, property: null };
-              }
-            })
-          );
-
-          const buySellsWithProps = await Promise.all(
-            buySells.map(async (req) => {
-              try {
-                const property = await propertyService.getById(req.propertyId, false);
-                return { ...req, property };
-              } catch {
-                return { ...req, property: null };
-              }
-            })
-          );
-
-          setRentalRequestsSent(rentalsWithProps);
-          setBuySellRequestsSent(buySellsWithProps);
-          setRequestsLoading(false);
-        } else if (activeTab === 'construction') {
-          setRequestsLoading(true);
-          const constructionQuery = query(
-            collection(db, 'constructionProjects'),
-            where('userId', '==', user.uid),
-            orderBy('createdAt', 'desc')
-          );
-          const snapshot = await getDocs(constructionQuery);
-          const projects = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setConstructionRequests(projects);
-          setRequestsLoading(false);
-        } else if (activeTab === 'renovation') {
-          setRequestsLoading(true);
-          const renovationQuery = query(
-            collection(db, 'renovationProjects'),
-            where('userId', '==', user.uid),
-            orderBy('createdAt', 'desc')
-          );
-          const snapshot = await getDocs(renovationQuery);
-          const projects = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setRenovationRequests(projects);
-          setRequestsLoading(false);
-        } else if (activeTab === 'chats') {
-          setChatsLoading(true);
-          const messagesRef = collection(db, 'supportChats', user.uid, 'messages');
-          const messagesQuery = query(messagesRef, orderBy('createdAt', 'desc'));
-          const unsubscribe = onSnapshot(
-            messagesQuery,
-            (snapshot) => {
-              const messages = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              }));
-              setChatMessages(messages);
-              setChatsLoading(false);
-            },
-            (error) => {
-              console.error('Error fetching chat messages:', error);
-              setChatsLoading(false);
-            }
-          );
-          return () => unsubscribe();
-        } else if (activeTab === 'reviews') {
-          setReviewsLoading(true);
-          const reviewsQuery = query(
-            collection(db, 'reviews'),
-            where('reviewerId', '==', user.uid),
-            orderBy('createdAt', 'desc')
-          );
-          const snapshot = await getDocs(reviewsQuery);
-          const reviews = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setMyReviews(reviews);
-          setReviewsLoading(false);
-        } else if (activeTab === 'notifications') {
-          setNotificationsLoading(true);
-          const notificationsQuery = query(
-            collection(db, 'notifications'),
-            where('userId', '==', user.uid),
-            orderBy('createdAt', 'desc')
-          );
-          const unsubscribe = onSnapshot(
-            notificationsQuery,
-            (snapshot) => {
-              const notifs = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-              }));
-              setNotifications(notifs);
-              setNotificationsLoading(false);
-            },
-            (error) => {
-              console.error('Error fetching notifications:', error);
-              setNotificationsLoading(false);
-            }
-          );
-          return () => unsubscribe();
         }
-      } catch (error) {
-        console.error('Error fetching tab data:', error);
-        if (activeTab === 'properties') setPropertiesLoading(false);
-        if (activeTab === 'rental-buysell' || activeTab === 'construction' || activeTab === 'renovation') setRequestsLoading(false);
-        if (activeTab === 'chats') setChatsLoading(false);
-        if (activeTab === 'reviews') setReviewsLoading(false);
-        if (activeTab === 'notifications') setNotificationsLoading(false);
       }
-    };
+    );
 
-    fetchTabData();
+    return () => unsubscribe();
   }, [user, authLoading, activeTab]);
 
+  // Live updates for My Requests tab
+  useEffect(() => {
+    if (!user || authLoading || !db || activeTab !== 'requests') return;
+
+    setRequestsLoading(true);
+    const unsubscribes = [];
+    const allRequestsData = [];
+
+    // Rental requests
+    const rentalQuery = query(
+      collection(db, 'rentalRequests'),
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribeRental = onSnapshot(
+      rentalQuery,
+      (snapshot) => {
+        const requests = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          type: 'rental',
+          ...doc.data(),
+        }));
+        updateAllRequests('rental', requests);
+      },
+      (error) => {
+        if (error.code === 'failed-precondition') {
+          const fallbackQuery = query(
+            collection(db, 'rentalRequests'),
+            where('userId', '==', user.uid)
+          );
+          const fallbackUnsub = onSnapshot(fallbackQuery, (snapshot) => {
+            const requests = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              type: 'rental',
+              ...doc.data(),
+            }));
+            requests.sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date(0);
+              const bTime = b.createdAt?.toDate?.() || new Date(0);
+              return bTime - aTime;
+            });
+            updateAllRequests('rental', requests);
+          });
+          return () => fallbackUnsub();
+        }
+      }
+    );
+    unsubscribes.push(unsubscribeRental);
+
+    // Buy/Sell requests
+    const buySellQuery = query(
+      collection(db, 'buySellRequests'),
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribeBuySell = onSnapshot(
+      buySellQuery,
+      (snapshot) => {
+        const requests = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          type: 'buySell',
+          ...doc.data(),
+        }));
+        updateAllRequests('buySell', requests);
+      },
+      (error) => {
+        if (error.code === 'failed-precondition') {
+          const fallbackQuery = query(
+            collection(db, 'buySellRequests'),
+            where('userId', '==', user.uid)
+          );
+          const fallbackUnsub = onSnapshot(fallbackQuery, (snapshot) => {
+            const requests = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              type: 'buySell',
+              ...doc.data(),
+            }));
+            requests.sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date(0);
+              const bTime = b.createdAt?.toDate?.() || new Date(0);
+              return bTime - aTime;
+            });
+            updateAllRequests('buySell', requests);
+          });
+          return () => fallbackUnsub();
+        }
+      }
+    );
+    unsubscribes.push(unsubscribeBuySell);
+
+    // Construction projects (try clientId first, fallback to userId)
+    const constructionQuery = query(
+      collection(db, 'constructionProjects'),
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribeConstruction = onSnapshot(
+      constructionQuery,
+      (snapshot) => {
+        const requests = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          type: 'construction',
+          ...doc.data(),
+        }));
+        updateAllRequests('construction', requests);
+      },
+      (error) => {
+        if (error.code === 'failed-precondition') {
+          const fallbackQuery = query(
+            collection(db, 'constructionProjects'),
+            where('userId', '==', user.uid)
+          );
+          const fallbackUnsub = onSnapshot(fallbackQuery, (snapshot) => {
+            const requests = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              type: 'construction',
+              ...doc.data(),
+            }));
+            requests.sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date(0);
+              const bTime = b.createdAt?.toDate?.() || new Date(0);
+              return bTime - aTime;
+            });
+            updateAllRequests('construction', requests);
+          });
+          return () => fallbackUnsub();
+        }
+      }
+    );
+    unsubscribes.push(unsubscribeConstruction);
+
+    // Renovation projects (try clientId first, fallback to userId)
+    const renovationQuery = query(
+      collection(db, 'renovationProjects'),
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribeRenovation = onSnapshot(
+      renovationQuery,
+      (snapshot) => {
+        const requests = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          type: 'renovation',
+          ...doc.data(),
+        }));
+        updateAllRequests('renovation', requests);
+      },
+      (error) => {
+        if (error.code === 'failed-precondition') {
+          const fallbackQuery = query(
+            collection(db, 'renovationProjects'),
+            where('userId', '==', user.uid)
+          );
+          const fallbackUnsub = onSnapshot(fallbackQuery, (snapshot) => {
+            const requests = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              type: 'renovation',
+              ...doc.data(),
+            }));
+            requests.sort((a, b) => {
+              const aTime = a.createdAt?.toDate?.() || new Date(0);
+              const bTime = b.createdAt?.toDate?.() || new Date(0);
+              return bTime - aTime;
+            });
+            updateAllRequests('renovation', requests);
+          });
+          return () => fallbackUnsub();
+        }
+      }
+    );
+    unsubscribes.push(unsubscribeRenovation);
+
+    function updateAllRequests(type, requests) {
+      setAllRequests((prev) => {
+        const filtered = prev.filter((r) => r.type !== type);
+        const combined = [...filtered, ...requests];
+        combined.sort((a, b) => {
+          const aTime = a.createdAt?.toDate?.() || new Date(0);
+          const bTime = b.createdAt?.toDate?.() || new Date(0);
+          return bTime - aTime;
+        });
+        setRequestsLoading(false);
+        return combined;
+      });
+    }
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  }, [user, authLoading, activeTab]);
+
+  // Live updates for My Chats tab
+  useEffect(() => {
+    if (!user || authLoading || !db || activeTab !== 'chats') return;
+
+    setChatsLoading(true);
+    const chatsQuery = query(
+      collection(db, 'chats'),
+      where('participants', 'array-contains', user.uid),
+      orderBy('updatedAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      chatsQuery,
+      async (snapshot) => {
+        const chats = await Promise.all(
+          snapshot.docs.slice(0, 5).map(async (chatDoc) => {
+            const chatData = chatDoc.data();
+            const otherUid = chatData.participants?.find((uid) => uid !== user.uid);
+            let otherName = 'Unknown';
+            if (otherUid) {
+              try {
+                const userDoc = await getDoc(doc(db, 'users', otherUid));
+                if (userDoc.exists()) {
+                  const userData = userDoc.data();
+                  otherName = userData.name || userData.displayName || userData.email || 'Unknown';
+                }
+              } catch (err) {
+                console.error('Error fetching user name:', err);
+              }
+            }
+            return {
+              id: chatDoc.id,
+              ...chatData,
+              otherParticipantName: otherName,
+            };
+          })
+        );
+        setActiveChats(chats);
+        setChatsLoading(false);
+      },
+      (error) => {
+        if (error.code === 'failed-precondition') {
+          const fallbackQuery = query(
+            collection(db, 'chats'),
+            where('participants', 'array-contains', user.uid)
+          );
+          const fallbackUnsubscribe = onSnapshot(
+            fallbackQuery,
+            async (snapshot) => {
+              const chats = await Promise.all(
+                snapshot.docs.slice(0, 5).map(async (chatDoc) => {
+                  const chatData = chatDoc.data();
+                  const otherUid = chatData.participants?.find((uid) => uid !== user.uid);
+                  let otherName = 'Unknown';
+                  if (otherUid) {
+                    try {
+                      const userDoc = await getDoc(doc(db, 'users', otherUid));
+                      if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        otherName = userData.name || userData.displayName || userData.email || 'Unknown';
+                      }
+                    } catch (err) {
+                      console.error('Error fetching user name:', err);
+                    }
+                  }
+                  return {
+                    id: chatDoc.id,
+                    ...chatData,
+                    otherParticipantName: otherName,
+                  };
+                })
+              );
+              chats.sort((a, b) => {
+                const aTime = a.updatedAt?.toDate?.() || new Date(0);
+                const bTime = b.updatedAt?.toDate?.() || new Date(0);
+                return bTime - aTime;
+              });
+              setActiveChats(chats);
+              setChatsLoading(false);
+            },
+            (fallbackError) => {
+              console.error('Error fetching chats (fallback):', fallbackError);
+              setActiveChats([]);
+              setChatsLoading(false);
+            }
+          );
+          return () => fallbackUnsubscribe();
+        } else {
+          console.error('Error fetching chats:', error);
+          setActiveChats([]);
+          setChatsLoading(false);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user, authLoading, activeTab]);
+
+  // Live updates for My Reviews tab
+  useEffect(() => {
+    if (!user || authLoading || !db || activeTab !== 'reviews') return;
+
+    setReviewsLoading(true);
+    const reviewsQuery = query(
+      collection(db, 'reviews'),
+      where('reviewerId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      reviewsQuery,
+      (snapshot) => {
+        const reviews = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMyReviews(reviews);
+        setReviewsLoading(false);
+      },
+      (error) => {
+        if (error.code === 'failed-precondition') {
+          const fallbackQuery = query(
+            collection(db, 'reviews'),
+            where('reviewerId', '==', user.uid)
+          );
+          const fallbackUnsubscribe = onSnapshot(
+            fallbackQuery,
+            (snapshot) => {
+              const reviews = snapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+              }));
+              reviews.sort((a, b) => {
+                const aTime = a.createdAt?.toDate?.() || new Date(0);
+                const bTime = b.createdAt?.toDate?.() || new Date(0);
+                return bTime - aTime;
+              });
+              setMyReviews(reviews);
+              setReviewsLoading(false);
+            },
+            (fallbackError) => {
+              console.error('Error fetching reviews (fallback):', fallbackError);
+              setMyReviews([]);
+              setReviewsLoading(false);
+            }
+          );
+          return () => fallbackUnsubscribe();
+        } else {
+          console.error('Error fetching reviews:', error);
+          setMyReviews([]);
+          setReviewsLoading(false);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user, authLoading, activeTab]);
+
+  // Profile handlers
   const validateForm = () => {
     const newErrors = {};
     if (!profile.displayName.trim()) {
@@ -382,14 +702,26 @@ const MyAccount = () => {
     }
   };
 
-  const handleLogout = async () => {
+  // Delete handlers
+  const handleDeleteProperty = async (propertyId) => {
     try {
-      await logout();
-      toast.success('Logged out successfully.');
-      navigate('/auth');
+      await propertyService.delete(propertyId);
+      toast.success('Property deleted successfully');
+      setDeleteModal({ isOpen: false, type: null, id: null, title: null });
     } catch (error) {
-      console.error('Error logging out:', error);
-      toast.error('Failed to log out.');
+      console.error('Error deleting property:', error);
+      toast.error(error.message || 'Failed to delete property');
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    try {
+      await reviewsService.delete(reviewId);
+      toast.success('Review deleted successfully');
+      setDeleteModal({ isOpen: false, type: null, id: null, title: null });
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      toast.error(error.message || 'Failed to delete review');
     }
   };
 
@@ -409,9 +741,39 @@ const MyAccount = () => {
     }
   };
 
+  const getRequestTypeLabel = (type) => {
+    switch (type) {
+      case 'rental':
+        return 'Rental Request';
+      case 'buySell':
+        return 'Buy/Sell Offer';
+      case 'construction':
+        return 'Construction Project';
+      case 'renovation':
+        return 'Renovation Project';
+      default:
+        return 'Request';
+    }
+  };
+
+  const getRequestTypeIcon = (type) => {
+    switch (type) {
+      case 'rental':
+        return <Calendar className="w-5 h-5" />;
+      case 'buySell':
+        return <DollarSign className="w-5 h-5" />;
+      case 'construction':
+        return <Building2 className="w-5 h-5" />;
+      case 'renovation':
+        return <Wrench className="w-5 h-5" />;
+      default:
+        return <Calendar className="w-5 h-5" />;
+    }
+  };
+
   if (authLoading || profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -422,83 +784,118 @@ const MyAccount = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-background py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-8">My Account</h1>
+        <h1 className="text-4xl font-bold text-textMain mb-8">My Account</h1>
+
+        {/* Header Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="card-base p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-textSecondary">My Properties</p>
+                <p className="text-3xl font-bold text-primary mt-2">{summaryCounts.properties}</p>
+              </div>
+              <Home className="w-12 h-12 text-primary" />
+            </div>
+          </div>
+          <div className="card-base p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-textSecondary">Active Requests</p>
+                <p className="text-3xl font-bold text-primary mt-2">{summaryCounts.activeRequests}</p>
+              </div>
+              <Calendar className="w-12 h-12 text-primary" />
+            </div>
+          </div>
+          <div className="card-base p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-textSecondary">Unread Messages</p>
+                <p className="text-3xl font-bold text-textMain mt-2">{summaryCounts.unreadMessages}</p>
+              </div>
+              <MessageCircle className="w-12 h-12 text-primary" />
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="mb-6 flex flex-wrap gap-3">
+          <Link to="/post-property">
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Post Property
+            </Button>
+          </Link>
+          <Link to="/providers">
+            <Button variant="outline">
+              <Search className="w-4 h-4 mr-2" />
+              Browse Providers
+            </Button>
+          </Link>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar Tabs */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky top-24">
+            <div className="card-base p-4 sticky top-24">
               <nav className="space-y-2">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.key;
+                  const count =
+                    tab.key === 'notifications' ? unreadNotificationCount : null;
                   return (
                     <button
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
                         isActive
-                          ? 'bg-blue-600 text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-primary text-white'
+                          : 'text-textSecondary hover:bg-muted'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <Icon className="w-5 h-5" />
                         <span className="font-medium">{tab.label}</span>
                       </div>
-                      {tab.count !== null && tab.count > 0 && (
+                      {count !== null && count > 0 && (
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${
                             isActive
-                              ? 'bg-white text-blue-600'
-                              : 'bg-blue-100 text-blue-600'
+                              ? 'bg-surface text-primary'
+                              : 'bg-primary/10 text-primary'
                           }`}
                         >
-                          {tab.count}
+                          {count}
                         </span>
                       )}
                     </button>
                   );
                 })}
               </nav>
-
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Log Out
-                </Button>
-              </div>
             </div>
           </div>
 
           {/* Content Area */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              {/* Profile Info Tab */}
+            <div className="card-base p-6">
+              {/* Profile Tab */}
               {activeTab === 'profile' && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <h2 className="text-2xl font-bold text-textMain flex items-center">
                       <User className="w-6 h-6 mr-2" />
                       Profile Information
                     </h2>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsEditing(!isEditing)}
-                    >
+                    <Button variant="outline" onClick={() => setIsEditing(!isEditing)}>
                       {isEditing ? 'Cancel' : 'Edit'} <Edit2 className="w-4 h-4 ml-2" />
                     </Button>
                   </div>
 
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-textSecondary mb-1">
                         Full Name
                       </label>
                       <input
@@ -508,28 +905,26 @@ const MyAccount = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className={`w-full px-4 py-2 border rounded-lg ${
-                          errors.displayName ? 'border-red-500' : 'border-gray-300'
-                        } ${!isEditing ? 'bg-gray-100' : ''}`}
+                          errors.displayName ? 'border-error' : 'border-muted'
+                        } ${!isEditing ? 'bg-muted' : ''}`}
                       />
                       {errors.displayName && (
-                        <p className="text-red-500 text-xs mt-1">{errors.displayName}</p>
+                        <p className="text-error text-xs mt-1">{errors.displayName}</p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
+                      <label className="block text-sm font-medium text-textSecondary mb-1">Email</label>
                       <input
                         type="email"
                         value={profile.email}
                         disabled
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                        className="w-full px-4 py-2 border border-muted rounded-base bg-muted cursor-not-allowed"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-textSecondary mb-1">
                         Phone Number
                       </label>
                       <input
@@ -539,18 +934,16 @@ const MyAccount = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className={`w-full px-4 py-2 border rounded-lg ${
-                          errors.phone ? 'border-red-500' : 'border-gray-300'
-                        } ${!isEditing ? 'bg-gray-100' : ''}`}
+                          errors.phone ? 'border-error' : 'border-muted'
+                        } ${!isEditing ? 'bg-muted' : ''}`}
                       />
                       {errors.phone && (
-                        <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
+                        <p className="text-error text-xs mt-1">{errors.phone}</p>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Address
-                      </label>
+                      <label className="block text-sm font-medium text-textSecondary mb-1">Address</label>
                       <textarea
                         name="address"
                         value={profile.address}
@@ -558,8 +951,8 @@ const MyAccount = () => {
                         disabled={!isEditing}
                         rows="3"
                         className={`w-full px-4 py-2 border rounded-lg ${
-                          errors.address ? 'border-red-500' : 'border-gray-300'
-                        } ${!isEditing ? 'bg-gray-100' : ''}`}
+                          errors.address ? 'border-error' : 'border-muted'
+                        } ${!isEditing ? 'bg-muted' : ''}`}
                       />
                     </div>
 
@@ -577,12 +970,15 @@ const MyAccount = () => {
               {activeTab === 'properties' && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <h2 className="text-2xl font-bold text-textMain flex items-center">
                       <Home className="w-6 h-6 mr-2" />
-                      My Properties ({counts.properties})
+                      My Properties ({summaryCounts.properties})
                     </h2>
                     <Link to="/post-property">
-                      <Button>Post New Property</Button>
+                      <Button>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Post New Property
+                      </Button>
                     </Link>
                   </div>
 
@@ -592,8 +988,8 @@ const MyAccount = () => {
                     </div>
                   ) : myProperties.length === 0 ? (
                     <div className="text-center py-12">
-                      <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 mb-4">No properties listed yet</p>
+                      <Home className="w-16 h-16 text-muted mx-auto mb-4" />
+                      <p className="text-textSecondary mb-4">No properties listed yet</p>
                       <Link to="/post-property">
                         <Button>Post Your First Property</Button>
                       </Link>
@@ -603,34 +999,31 @@ const MyAccount = () => {
                       {myProperties.map((property) => (
                         <div
                           key={property.id}
-                          className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                          className="border border-muted rounded-lg p-4 hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-start justify-between mb-2">
-                            <h3 className="text-lg font-semibold text-gray-900">
-                              {property.title}
-                            </h3>
+                            <h3 className="text-lg font-semibold text-textMain">{property.title}</h3>
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded ${
                                 property.status === 'published' || property.status === 'active'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-yellow-100 text-yellow-800'
+                                  ? 'bg-primary/20 text-primary'
+                                  : 'bg-accent text-accent'
                               }`}
                             >
                               {property.status || 'published'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">{property.city}</p>
-                          <p className="text-lg font-bold text-blue-600 mb-4">
+                          <p className="text-sm text-textSecondary mb-2">
+                            {property.address?.city || property.city || 'N/A'}
+                          </p>
+                          <p className="text-lg font-bold text-primary mb-4">
                             {new Intl.NumberFormat('en-PK', {
                               style: 'currency',
                               currency: 'PKR',
                             }).format(property.price)}
                           </p>
                           <div className="flex gap-2">
-                            <Link
-                              to={`/properties/${property.id}`}
-                              className="flex-1"
-                            >
+                            <Link to={`/properties/${property.id}`} className="flex-1">
                               <Button variant="outline" size="sm" className="w-full">
                                 <Eye className="w-4 h-4 mr-2" />
                                 View
@@ -641,6 +1034,20 @@ const MyAccount = () => {
                                 <Edit2 className="w-4 h-4" />
                               </Button>
                             </Link>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setDeleteModal({
+                                  isOpen: true,
+                                  type: 'property',
+                                  id: property.id,
+                                  title: property.title,
+                                })
+                              }
+                            >
+                              <Trash2 className="w-4 h-4 text-error" />
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -649,251 +1056,89 @@ const MyAccount = () => {
                 </div>
               )}
 
-              {/* Rental/Buy-Sell Requests Tab */}
-              {activeTab === 'rental-buysell' && (
+              {/* My Requests Tab */}
+              {activeTab === 'requests' && (
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                    <DollarSign className="w-6 h-6 mr-2" />
-                    Rental & Buy-Sell Requests
+                  <h2 className="text-2xl font-bold text-textMain mb-6 flex items-center">
+                    <Calendar className="w-6 h-6 mr-2" />
+                    My Requests ({summaryCounts.activeRequests})
                   </h2>
 
                   {requestsLoading ? (
                     <div className="flex items-center justify-center py-12">
                       <LoadingSpinner size="md" />
                     </div>
+                  ) : allRequests.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Calendar className="w-16 h-16 text-muted mx-auto mb-4" />
+                      <p className="text-textSecondary mb-4">No requests yet</p>
+                      <div className="flex flex-wrap gap-3 justify-center">
+                        <Link to="/rent">
+                          <Button>Request Rental</Button>
+                        </Link>
+                        <Link to="/buy">
+                          <Button>Make Purchase Offer</Button>
+                        </Link>
+                        <Link to="/request-construction">
+                          <Button>Request Construction</Button>
+                        </Link>
+                        <Link to="/request-renovation">
+                          <Button>Request Renovation</Button>
+                        </Link>
+                      </div>
+                    </div>
                   ) : (
-                    <div className="space-y-6">
-                      {/* Rental Requests */}
-                      {rentalRequestsSent.length > 0 && (
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                            <Calendar className="w-5 h-5 mr-2" />
-                            Rental Requests ({rentalRequestsSent.length})
-                          </h3>
-                          <div className="space-y-3">
-                            {rentalRequestsSent.map((request) => (
-                              <div
-                                key={request.id}
-                                className="border border-gray-200 rounded-lg p-4"
-                              >
-                                <div className="flex items-start justify-between mb-2">
-                                  <div className="flex-1">
-                                    <h4 className="font-semibold text-gray-900">
-                                      {request.property?.title || 'Property'}
-                                    </h4>
-                                    <p className="text-sm text-gray-600">
-                                      {formatDate(request.startDate)} - {formatDate(request.endDate)}
-                                    </p>
-                                  </div>
-                                  <span
-                                    className={`px-2 py-1 text-xs font-medium rounded ${
-                                      request.status === 'Accepted'
-                                        ? 'bg-green-100 text-green-800'
-                                        : request.status === 'Rejected'
-                                          ? 'bg-red-100 text-red-800'
-                                          : 'bg-yellow-100 text-yellow-800'
-                                    }`}
-                                  >
-                                    {request.status}
-                                  </span>
-                                </div>
-                                {request.message && (
-                                  <p className="text-sm text-gray-700 mt-2">{request.message}</p>
-                                )}
-                                <Link to={`/properties/${request.propertyId}`}>
-                                  <Button variant="outline" size="sm" className="mt-3">
-                                    View Property
-                                  </Button>
-                                </Link>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Buy/Sell Requests */}
-                      {buySellRequestsSent.length > 0 && (
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                            <DollarSign className="w-5 h-5 mr-2" />
-                            Purchase Offers ({buySellRequestsSent.length})
-                          </h3>
-                          <div className="space-y-3">
-                            {buySellRequestsSent.map((request) => (
-                              <div
-                                key={request.id}
-                                className="border border-gray-200 rounded-lg p-4"
-                              >
-                                <div className="flex items-start justify-between mb-2">
-                                  <div className="flex-1">
-                                    <h4 className="font-semibold text-gray-900">
-                                      {request.property?.title || 'Property'}
-                                    </h4>
-                                    <p className="text-sm text-gray-600">
-                                      Offer: {new Intl.NumberFormat('en-PK', {
+                    <div className="space-y-4">
+                      {allRequests.map((request) => (
+                        <div
+                          key={`${request.type}-${request.id}`}
+                          className="border border-muted rounded-base p-4"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              {getRequestTypeIcon(request.type)}
+                              <div>
+                                <h3 className="font-semibold text-textMain">
+                                  {getRequestTypeLabel(request.type)}
+                                </h3>
+                                <p className="text-sm text-textSecondary">
+                                  {request.type === 'rental' && request.startDate && request.endDate
+                                    ? `${formatDate(request.startDate)} - ${formatDate(request.endDate)}`
+                                    : request.type === 'buySell' && request.offerAmount
+                                    ? `Offer: ${new Intl.NumberFormat('en-PK', {
                                         style: 'currency',
                                         currency: 'PKR',
-                                      }).format(request.offerAmount)}
-                                    </p>
-                                  </div>
-                                  <span
-                                    className={`px-2 py-1 text-xs font-medium rounded ${
-                                      request.status === 'Accepted'
-                                        ? 'bg-green-100 text-green-800'
-                                        : request.status === 'Rejected'
-                                          ? 'bg-red-100 text-red-800'
-                                          : 'bg-yellow-100 text-yellow-800'
-                                    }`}
-                                  >
-                                    {request.status}
-                                  </span>
-                                </div>
-                                {request.message && (
-                                  <p className="text-sm text-gray-700 mt-2">{request.message}</p>
-                                )}
-                                <Link to={`/properties/${request.propertyId}`}>
-                                  <Button variant="outline" size="sm" className="mt-3">
-                                    View Property
-                                  </Button>
-                                </Link>
+                                      }).format(request.offerAmount)}`
+                                    : request.type === 'construction' && request.projectType
+                                    ? `Type: ${request.projectType}`
+                                    : request.type === 'renovation' && request.projectType
+                                    ? `Type: ${request.projectType}`
+                                    : 'N/A'}
+                                </p>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {rentalRequestsSent.length === 0 && buySellRequestsSent.length === 0 && (
-                        <div className="text-center py-12">
-                          <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                          <p className="text-gray-600">No requests sent yet</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Construction Requests Tab */}
-              {activeTab === 'construction' && (
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                    <Building2 className="w-6 h-6 mr-2" />
-                    Construction Requests ({counts.constructionRequests})
-                  </h2>
-
-                  {requestsLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <LoadingSpinner size="md" />
-                    </div>
-                  ) : constructionRequests.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 mb-4">No construction requests yet</p>
-                      <Link to="/request-construction">
-                        <Button>Request Construction Service</Button>
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {constructionRequests.map((project) => (
-                        <div
-                          key={project.id}
-                          className="border border-gray-200 rounded-lg p-4"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900">Project #{project.id.slice(0, 8)}</h3>
-                              <p className="text-sm text-gray-600">
-                                Budget: {new Intl.NumberFormat('en-PK', {
-                                  style: 'currency',
-                                  currency: 'PKR',
-                                }).format(project.budget)}
-                              </p>
                             </div>
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded ${
-                                project.status === 'Completed'
-                                  ? 'bg-green-100 text-green-800'
-                                  : project.status === 'In Progress'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : project.status === 'Accepted'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-gray-100 text-gray-800'
+                                request.status === 'Accepted' || request.status === 'Completed'
+                                  ? 'bg-primary/20 text-primary'
+                                  : request.status === 'Rejected' || request.status === 'Cancelled'
+                                  ? 'bg-error text-error'
+                                  : 'bg-accent text-accent'
                               }`}
                             >
-                              {project.status || 'Pending'}
+                              {request.status || 'Pending'}
                             </span>
                           </div>
-                          {project.description && (
-                            <p className="text-sm text-gray-700 mt-2">{project.description}</p>
+                          {request.message && (
+                            <p className="text-sm text-textSecondary mt-2">{request.message}</p>
                           )}
-                          <p className="text-xs text-gray-500 mt-2">
-                            Created: {formatDate(project.createdAt)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Renovation Requests Tab */}
-              {activeTab === 'renovation' && (
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                    <Wrench className="w-6 h-6 mr-2" />
-                    Renovation Requests ({counts.renovationRequests})
-                  </h2>
-
-                  {requestsLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <LoadingSpinner size="md" />
-                    </div>
-                  ) : renovationRequests.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Wrench className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 mb-4">No renovation requests yet</p>
-                      <Link to="/request-renovation">
-                        <Button>Request Renovation Service</Button>
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {renovationRequests.map((project) => (
-                        <div
-                          key={project.id}
-                          className="border border-gray-200 rounded-lg p-4"
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900">Project #{project.id.slice(0, 8)}</h3>
-                              <p className="text-sm text-gray-600">
-                                Budget: {new Intl.NumberFormat('en-PK', {
-                                  style: 'currency',
-                                  currency: 'PKR',
-                                }).format(project.budget)}
-                              </p>
-                            </div>
-                            <span
-                              className={`px-2 py-1 text-xs font-medium rounded ${
-                                project.status === 'Completed'
-                                  ? 'bg-green-100 text-green-800'
-                                  : project.status === 'In Progress'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : project.status === 'Accepted'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-gray-100 text-gray-800'
-                              }`}
-                            >
-                              {project.status || 'Pending'}
-                            </span>
-                          </div>
-                          {project.description && (
-                            <p className="text-sm text-gray-700 mt-2">{project.description}</p>
+                          {request.propertyId && (
+                            <Link to={`/properties/${request.propertyId}`} className="mt-3 inline-block">
+                              <Button variant="outline" size="sm">
+                                View Property
+                              </Button>
+                            </Link>
                           )}
-                          <p className="text-xs text-gray-500 mt-2">
-                            Created: {formatDate(project.createdAt)}
-                          </p>
                         </div>
                       ))}
                     </div>
@@ -905,12 +1150,12 @@ const MyAccount = () => {
               {activeTab === 'chats' && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <h2 className="text-2xl font-bold text-textMain flex items-center">
                       <MessageCircle className="w-6 h-6 mr-2" />
                       My Chats
                     </h2>
-                    <Link to="/chatbot">
-                      <Button>Open Support Chat</Button>
+                    <Link to="/chats">
+                      <Button>View All Chats</Button>
                     </Link>
                   </div>
 
@@ -918,39 +1163,47 @@ const MyAccount = () => {
                     <div className="flex items-center justify-center py-12">
                       <LoadingSpinner size="md" />
                     </div>
-                  ) : chatMessages.length === 0 ? (
+                  ) : activeChats.length === 0 ? (
                     <div className="text-center py-12">
-                      <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 mb-4">No chat messages yet</p>
-                      <Link to="/chatbot">
+                      <MessageCircle className="w-16 h-16 text-muted mx-auto mb-4" />
+                      <p className="text-textSecondary mb-4">No active chats yet</p>
+                      <Link to="/chats">
                         <Button>Start a Chat</Button>
                       </Link>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {chatMessages.slice(0, 10).map((message) => (
-                        <div
-                          key={message.id}
-                          className={`border rounded-lg p-4 ${
-                            message.isAdmin
-                              ? 'bg-blue-50 border-blue-200'
-                              : 'bg-gray-50 border-gray-200'
-                          }`}
+                      {activeChats.map((chat) => (
+                        <Link
+                          key={chat.id}
+                          to={`/chats?chatId=${chat.id}`}
+                          className="block border border-muted rounded-lg p-4 hover:shadow-md transition-shadow"
                         >
-                          <div className="flex items-start justify-between mb-2">
-                            <span className="font-medium text-gray-900">
-                              {message.isAdmin ? 'Admin' : 'You'}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {formatDate(message.createdAt)}
-                            </span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                <MessageCircle className="w-5 h-5 text-primary" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-textMain">
+                                  {chat.otherParticipantName || 'Unknown User'}
+                                </h3>
+                                <p className="text-sm text-textSecondary">
+                                  {formatDate(chat.updatedAt)}
+                                </p>
+                              </div>
+                            </div>
+                            {chat.unreadFor?.[user.uid] > 0 && (
+                              <span className="bg-primary text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                                {chat.unreadFor[user.uid]}
+                              </span>
+                            )}
                           </div>
-                          <p className="text-sm text-gray-700">{message.text}</p>
-                        </div>
+                        </Link>
                       ))}
-                      <Link to="/chatbot">
+                      <Link to="/chats">
                         <Button variant="outline" className="w-full">
-                          View All Messages
+                          View All Chats
                         </Button>
                       </Link>
                     </div>
@@ -961,9 +1214,9 @@ const MyAccount = () => {
               {/* My Reviews Tab */}
               {activeTab === 'reviews' && (
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                  <h2 className="text-2xl font-bold text-textMain mb-6 flex items-center">
                     <Star className="w-6 h-6 mr-2" />
-                    My Reviews ({counts.reviews})
+                    My Reviews ({myReviews.length})
                   </h2>
 
                   {reviewsLoading ? (
@@ -972,16 +1225,13 @@ const MyAccount = () => {
                     </div>
                   ) : myReviews.length === 0 ? (
                     <div className="text-center py-12">
-                      <Star className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No reviews written yet</p>
+                      <Star className="w-16 h-16 text-muted mx-auto mb-4" />
+                      <p className="text-textSecondary">No reviews written yet</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {myReviews.map((review) => (
-                        <div
-                          key={review.id}
-                          className="border border-gray-200 rounded-lg p-4"
-                        >
+                        <div key={review.id} className="border border-muted rounded-lg p-4">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <div className="flex">
@@ -990,34 +1240,53 @@ const MyAccount = () => {
                                     key={i}
                                     className={`w-5 h-5 ${
                                       i < review.rating
-                                        ? 'text-yellow-400 fill-current'
-                                        : 'text-gray-300'
+                                        ? 'text-accent fill-current'
+                                        : 'text-muted'
                                     }`}
                                   />
                                 ))}
                               </div>
-                              <span className="text-sm text-gray-600">
-                                {review.targetType === 'property' ? 'Property' : review.targetType === 'construction' ? 'Construction' : 'Renovation'}
+                              <span className="text-sm text-textSecondary capitalize">
+                                {review.targetType}
                               </span>
                             </div>
-                            <span className="text-xs text-gray-500">
-                              {formatDate(review.createdAt)}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-textSecondary">
+                                {formatDate(review.createdAt)}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setDeleteModal({
+                                    isOpen: true,
+                                    type: 'review',
+                                    id: review.id,
+                                    title: `Review for ${review.targetType}`,
+                                  })
+                                }
+                              >
+                                <Trash2 className="w-4 h-4 text-error" />
+                              </Button>
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-700 mt-2">{review.comment}</p>
-                          <Link
-                            to={
-                              review.targetType === 'property'
-                                ? `/properties/${review.targetId}`
-                                : review.targetType === 'construction'
+                          <p className="text-sm text-textSecondary mt-2">{review.comment}</p>
+                          {review.targetId && (
+                            <Link
+                              to={
+                                review.targetType === 'property'
+                                  ? `/properties/${review.targetId}`
+                                  : review.targetType === 'construction'
                                   ? `/construction-providers/${review.targetId}`
                                   : `/renovation-providers/${review.targetId}`
-                            }
-                          >
-                            <Button variant="outline" size="sm" className="mt-3">
-                              View {review.targetType === 'property' ? 'Property' : 'Provider'}
-                            </Button>
-                          </Link>
+                              }
+                              className="mt-3 inline-block"
+                            >
+                              <Button variant="outline" size="sm">
+                                View {review.targetType === 'property' ? 'Property' : 'Provider'}
+                              </Button>
+                            </Link>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1029,69 +1298,63 @@ const MyAccount = () => {
               {activeTab === 'notifications' && (
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                    <h2 className="text-2xl font-bold text-textMain flex items-center">
                       <Bell className="w-6 h-6 mr-2" />
-                      Notifications ({counts.notifications} unread)
+                      Notifications ({unreadNotificationCount} unread)
                     </h2>
                     <Link to="/notifications">
                       <Button variant="outline">View All</Button>
                     </Link>
                   </div>
 
-                  {notificationsLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <LoadingSpinner size="md" />
-                    </div>
-                  ) : notifications.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Bell className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No notifications yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {notifications.slice(0, 10).map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`border rounded-lg p-4 ${
-                            !notification.read
-                              ? 'bg-blue-50 border-blue-200'
-                              : 'bg-white border-gray-200'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <h4 className="font-semibold text-gray-900">
-                              {notification.title}
-                            </h4>
-                            {!notification.read && (
-                              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-700">{notification.message}</p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            {formatDate(notification.createdAt)}
-                          </p>
-                          {notification.link && (
-                            <Link to={notification.link}>
-                              <Button variant="outline" size="sm" className="mt-3">
-                                View Details
-                              </Button>
-                            </Link>
-                          )}
-                        </div>
-                      ))}
-                      <Link to="/notifications">
-                        <Button variant="outline" className="w-full">
-                          View All Notifications
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
+                  <div className="text-center py-12">
+                    <Bell className="w-16 h-16 text-muted mx-auto mb-4" />
+                    <p className="text-textSecondary mb-4">View all notifications</p>
+                    <Link to="/notifications">
+                      <Button>Go to Notifications</Button>
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, type: null, id: null, title: null })}
+        title="Confirm Delete"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-textSecondary">
+            Are you sure you want to delete {deleteModal.title}? This action cannot be undone.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteModal({ isOpen: false, type: null, id: null, title: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (deleteModal.type === 'property') {
+                  handleDeleteProperty(deleteModal.id);
+                } else if (deleteModal.type === 'review') {
+                  handleDeleteReview(deleteModal.id);
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

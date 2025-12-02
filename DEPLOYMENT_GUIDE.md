@@ -54,7 +54,21 @@ npm install
 cd ..
 ```
 
-### Step 2: Build the Application
+### Step 2: Verify Environment Variables
+```bash
+# Ensure .env.local exists with VITE_FIREBASE_* variables
+cat .env.local
+
+# Variables should include:
+# VITE_FIREBASE_API_KEY
+# VITE_FIREBASE_AUTH_DOMAIN
+# VITE_FIREBASE_PROJECT_ID
+# VITE_FIREBASE_STORAGE_BUCKET
+# VITE_FIREBASE_MESSAGING_SENDER_ID
+# VITE_FIREBASE_APP_ID
+```
+
+### Step 3: Build the Application
 ```bash
 npm run build
 ```
@@ -63,6 +77,7 @@ This will:
 - Compile React app with Vite
 - Output to `dist/` directory
 - Optimize assets for production
+- Inject environment variables at build time
 
 **Expected Output:**
 ```
@@ -72,14 +87,20 @@ dist/assets/index-XXXXX.js
 dist/assets/index-XXXXX.css
 ```
 
-### Step 3: Deploy to Firebase
+### Step 4: Deploy to Firebase
 
-#### Option A: Deploy Everything
+#### Recommended: Deploy All Services
 ```bash
-firebase deploy
+firebase deploy --only hosting,firestore:rules,storage:rules,functions
 ```
 
-#### Option B: Deploy Specific Services
+This deploys:
+- **Hosting:** Web application
+- **Firestore Rules:** Database security rules
+- **Storage Rules:** File storage security rules
+- **Functions:** Cloud Functions for automation
+
+#### Alternative: Deploy Individual Services
 ```bash
 # Deploy hosting only
 firebase deploy --only hosting
@@ -87,11 +108,11 @@ firebase deploy --only hosting
 # Deploy functions only
 firebase deploy --only functions
 
-# Deploy Firestore rules
+# Deploy Firestore rules only
 firebase deploy --only firestore:rules
 
-# Deploy storage rules
-firebase deploy --only storage
+# Deploy storage rules only
+firebase deploy --only storage:rules
 
 # Deploy multiple services
 firebase deploy --only hosting,functions,firestore:rules

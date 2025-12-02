@@ -207,19 +207,20 @@ service cloud.firestore {
     // - Only participants can read/write
     match /chats/{chatId} {
       allow read: if isAuthenticated() && 
-                     (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
+                     (request.auth.uid in resource.data.participants || isAdmin());
       allow create: if isAuthenticated() && 
-                       request.resource.data.participants.hasAny([request.auth.uid]);
+                       request.auth.uid in request.resource.data.participants;
       allow update: if isAuthenticated() && 
-                       (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
+                       (request.auth.uid in resource.data.participants || isAdmin());
       
       // Messages subcollection
       match /messages/{messageId} {
         allow read: if isAuthenticated() && 
-                       (get(/databases/$(database)/documents/chats/$(chatId)).data.participants.hasAny([request.auth.uid]) || 
+                       (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants || 
                         isAdmin());
         allow create: if isAuthenticated() && 
-                         request.resource.data.senderId == request.auth.uid;
+                         request.resource.data.senderId == request.auth.uid &&
+                         request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
         allow update, delete: if isAuthenticated() && 
                                  (resource.data.senderId == request.auth.uid || isAdmin());
       }
@@ -309,6 +310,100 @@ service cloud.firestore {
                        (resource.data.userId == request.auth.uid || 
                         isOwnerOfProperty(resource.data.propertyId) ||
                         isAdmin());
+    }
+    
+    // ============================================
+    // CONSTRUCTION PROJECTS COLLECTION
+    // ============================================
+    // - Client can create/read/update their own projects
+    // - Provider can read/update projects assigned to them
+    // - Client can cancel if status is Pending
+    // - Admin can read/write all
+    match /constructionProjects/{projectId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid ||
+                      resource.data.clientId == request.auth.uid ||
+                      resource.data.providerId == request.auth.uid ||
+                      isAdmin());
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.userId == request.auth.uid ||
+                        request.resource.data.clientId == request.auth.uid);
+      allow update: if isAuthenticated() && 
+                       (resource.data.providerId == request.auth.uid ||
+                        resource.data.userId == request.auth.uid ||
+                        resource.data.clientId == request.auth.uid ||
+                        isAdmin()) &&
+                       // Client can only cancel if status is Pending
+                       (resource.data.providerId != request.auth.uid ||
+                        resource.data.status == 'Pending' ||
+                        request.resource.data.status == 'Cancelled' ||
+                        isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid ||
+                        resource.data.clientId == request.auth.uid ||
+                        isAdmin());
+      
+      // Project updates subcollection
+      match /projectUpdates/{updateId} {
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.userId == request.auth.uid ||
+                        get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.clientId == request.auth.uid ||
+                        get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.providerId == request.auth.uid ||
+                        isAdmin());
+        allow create: if isAuthenticated() && 
+                         (get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.providerId == request.auth.uid ||
+                          get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.userId == request.auth.uid ||
+                          get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.clientId == request.auth.uid ||
+                          isAdmin());
+        allow update, delete: if isAdmin();
+      }
+    }
+    
+    // ============================================
+    // RENOVATION PROJECTS COLLECTION
+    // ============================================
+    // - Client can create/read/update their own projects
+    // - Provider can read/update projects assigned to them
+    // - Client can cancel if status is Pending
+    // - Admin can read/write all
+    match /renovationProjects/{projectId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid ||
+                      resource.data.clientId == request.auth.uid ||
+                      resource.data.providerId == request.auth.uid ||
+                      isAdmin());
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.userId == request.auth.uid ||
+                        request.resource.data.clientId == request.auth.uid);
+      allow update: if isAuthenticated() && 
+                       (resource.data.providerId == request.auth.uid ||
+                        resource.data.userId == request.auth.uid ||
+                        resource.data.clientId == request.auth.uid ||
+                        isAdmin()) &&
+                       // Client can only cancel if status is Pending
+                       (resource.data.providerId != request.auth.uid ||
+                        resource.data.status == 'Pending' ||
+                        request.resource.data.status == 'Cancelled' ||
+                        isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid ||
+                        resource.data.clientId == request.auth.uid ||
+                        isAdmin());
+      
+      // Project updates subcollection
+      match /projectUpdates/{updateId} {
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.userId == request.auth.uid ||
+                        get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.clientId == request.auth.uid ||
+                        get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.providerId == request.auth.uid ||
+                        isAdmin());
+        allow create: if isAuthenticated() && 
+                         (get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.providerId == request.auth.uid ||
+                          get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.userId == request.auth.uid ||
+                          get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.clientId == request.auth.uid ||
+                          isAdmin());
+        allow update, delete: if isAdmin();
+      }
     }
     
     // Helper function to check if user owns a property

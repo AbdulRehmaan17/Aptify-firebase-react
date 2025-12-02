@@ -131,31 +131,31 @@ const RenovationProviders = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-display font-bold text-textMain mb-2">
             Renovation Providers
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-textSecondary">
             Browse verified renovation professionals for your project
           </p>
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="card-base p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4 mb-4">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-textSecondary" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search by name, city, or specialization..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full pl-10 pr-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary bg-surface"
                 />
               </div>
             </div>
@@ -164,14 +164,14 @@ const RenovationProviders = () => {
           {/* Filter Options */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-textMain mb-2">
                 <MapPin className="w-4 h-4 inline mr-1" />
                 Filter by City
               </label>
               <select
                 value={filters.city}
                 onChange={(e) => setFilters((prev) => ({ ...prev, city: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary bg-surface"
               >
                 <option value="">All Cities</option>
                 {cities.map((city) => (
@@ -183,7 +183,7 @@ const RenovationProviders = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-textMain mb-2">
                 <Filter className="w-4 h-4 inline mr-1" />
                 Filter by Specialization
               </label>
@@ -192,7 +192,7 @@ const RenovationProviders = () => {
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, specialization: e.target.value }))
                 }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary bg-surface"
               >
                 <option value="">All Specializations</option>
                 {specializations.map((spec) => (
@@ -223,17 +223,17 @@ const RenovationProviders = () => {
 
         {/* Results Count */}
         <div className="mb-6">
-          <p className="text-gray-600">
+          <p className="text-textSecondary">
             Showing {filteredProviders.length} of {providers.length} providers
           </p>
         </div>
 
         {/* Providers Grid */}
         {filteredProviders.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <Wrench className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Providers Found</h3>
-            <p className="text-gray-600 mb-6">
+          <div className="card-base p-12 text-center">
+            <Wrench className="w-16 h-16 mx-auto text-muted mb-4" />
+            <h3 className="text-xl font-semibold text-textMain mb-2">No Providers Found</h3>
+            <p className="text-textSecondary mb-6">
               {providers.length === 0
                 ? 'No approved renovation providers available yet.'
                 : 'Try adjusting your filters or search criteria.'}
@@ -249,10 +249,10 @@ const RenovationProviders = () => {
             {filteredProviders.map((provider) => (
               <div
                 key={provider.id}
-                className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow overflow-hidden"
+                className="card-base hover:shadow-xl transition-shadow overflow-hidden"
               >
                 {/* Provider Image */}
-                <div className="relative h-48 bg-gray-200">
+                <div className="relative h-48 bg-muted">
                   {provider.profileImageUrl || provider.profileImage ? (
                     <img
                       src={provider.profileImageUrl || provider.profileImage}
@@ -261,13 +261,13 @@ const RenovationProviders = () => {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Wrench className="w-16 h-16 text-gray-400" />
+                      <Wrench className="w-16 h-16 text-muted" />
                     </div>
                   )}
                   {/* Verified Badge */}
                   {(provider.isApproved || provider.approved) && (
                     <div className="absolute top-2 right-2">
-                      <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center">
+                      <div className="bg-primary text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center">
                         <CheckCircle className="w-3 h-3 mr-1" />
                         Verified
                       </div>
@@ -277,16 +277,16 @@ const RenovationProviders = () => {
 
                 {/* Provider Info */}
                 <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{provider.name}</h3>
+                  <h3 className="text-xl font-semibold text-textMain mb-2">{provider.name}</h3>
 
                   {/* Rating */}
                   <div className="flex items-center mb-3">
-                    <Star className="w-5 h-5 text-yellow-400 fill-current" />
-                    <span className="ml-2 text-sm text-gray-600">
+                    <Star className="w-5 h-5 text-accent fill-current" />
+                    <span className="ml-2 text-sm text-textSecondary">
                       {formatRating(provider.rating)}
                     </span>
                     {provider.totalProjects > 0 && (
-                      <span className="ml-2 text-xs text-gray-500">
+                      <span className="ml-2 text-xs text-textSecondary">
                         ({provider.totalProjects} projects)
                       </span>
                     )}
@@ -294,7 +294,7 @@ const RenovationProviders = () => {
 
                   {/* City */}
                   {provider.city && (
-                    <div className="flex items-center text-gray-600 mb-3">
+                    <div className="flex items-center text-textSecondary mb-3">
                       <MapPin className="w-4 h-4 mr-1" />
                       <span className="text-sm">{provider.city}</span>
                     </div>
@@ -302,7 +302,7 @@ const RenovationProviders = () => {
 
                   {/* Specialization */}
                   <div className="mb-4">
-                    <p className="text-xs text-gray-500 mb-1">Specialization:</p>
+                    <p className="text-xs text-textSecondary mb-1">Specialization:</p>
                     <div className="flex flex-wrap gap-1">
                       {(Array.isArray(provider.specialization)
                         ? provider.specialization
@@ -314,7 +314,7 @@ const RenovationProviders = () => {
                         .map((spec, index) => (
                           <span
                             key={index}
-                            className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded"
+                            className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-base"
                           >
                             {spec}
                           </span>
@@ -324,7 +324,7 @@ const RenovationProviders = () => {
 
                   {/* Experience */}
                   {provider.experience || provider.experienceYears ? (
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-textSecondary mb-4">
                       {provider.experience || provider.experienceYears} years of experience
                     </p>
                   ) : null}

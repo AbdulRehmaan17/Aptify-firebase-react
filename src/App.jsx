@@ -24,6 +24,7 @@ import ConstructionDashboard from './pages/ConstructionDashboard';
 import ConstructorDashboard from './pages/ConstructorDashboard';
 import ProviderConstructionPanel from './pages/ProviderConstructionPanel';
 import RegisterConstructor from './pages/RegisterConstructor';
+import ProviderOptions from './pages/providers/ProviderOptions';
 import Renovation from './pages/Renovation';
 import RenovationServicesPage from './pages/RenovationServicesPage';
 import RenovationList from './pages/RenovationList';
@@ -45,15 +46,17 @@ import RentalRequestForm from './pages/RentalRequestForm';
 import BrowseRentals from './pages/BrowseRentals';
 import Dashboard from './pages/Dashboard';
 import NotificationsPage from './pages/NotificationsPage';
+import UserChatsPage from './pages/UserChatsPage';
 import Chat from './pages/Chat';
 import Chatbot from './pages/Chatbot';
 import OwnerDashboard from './pages/OwnerDashboard';
+import PaymentMock from './pages/PaymentMock';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-white flex flex-col">
+        <div className="min-h-screen bg-background flex flex-col">
           <Navbar />
           <main className="flex-1">
             <Routes>
@@ -91,6 +94,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <NotificationsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/chats"
+                element={
+                  <ProtectedRoute>
+                    <UserChatsPage />
                   </ProtectedRoute>
                 }
               />
@@ -150,6 +161,14 @@ function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/payment-mock"
+                element={
+                  <ProtectedRoute>
+                    <PaymentMock />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Construction Module Routes */}
               <Route
@@ -205,6 +224,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ProviderConstructionPanel />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/providers"
+                element={
+                  <ProtectedRoute>
+                    <ProviderOptions />
                   </ProtectedRoute>
                 }
               />
@@ -299,9 +326,9 @@ function App() {
                 element={
                   <div className="min-h-screen flex items-center justify-center">
                     <div className="text-center">
-                      <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
-                      <p className="text-gray-600 mb-8">Page not found</p>
-                      <a href="/" className="text-blue-600 hover:underline">
+                      <h1 className="text-4xl font-bold text-textMain mb-4">404</h1>
+                      <p className="text-textSecondary mb-8">Page not found</p>
+                      <a href="/" className="text-primary hover:underline">
                         Go back home
                       </a>
                     </div>

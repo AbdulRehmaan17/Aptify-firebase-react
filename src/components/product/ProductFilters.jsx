@@ -70,7 +70,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
           <Filter className="w-4 h-4" />
           <span>Filters</span>
           {activeFilterCount > 0 && (
-            <span className="bg-luxury-gold text-luxury-black rounded-full w-5 h-5 flex items-center justify-center text-xs">
+            <span className="bg-primary text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
               {activeFilterCount}
             </span>
           )}
@@ -82,7 +82,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
         className={`
         ${isOpen ? 'block' : 'hidden'} lg:block
         fixed lg:static inset-0 lg:inset-auto z-50 lg:z-auto
-        bg-white lg:bg-transparent
+        bg-surface lg:bg-transparent
         p-4 lg:p-0
         overflow-y-auto lg:overflow-visible
         lg:w-64
@@ -99,7 +99,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
         <div className="space-y-6">
           {/* Categories */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Category</h3>
+            <h3 className="text-sm font-semibold text-textMain mb-3">Category</h3>
             <div className="space-y-2">
               {categories.map((category) => (
                 <label key={category} className="flex items-center">
@@ -107,9 +107,9 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
                     type="checkbox"
                     checked={localFilters.category.includes(category)}
                     onChange={() => handleArrayFilterToggle('category', category)}
-                    className="rounded border-gray-300 text-luxury-gold focus:ring-luxury-gold"
+                    className="rounded border-muted text-primary focus:ring-primary bg-surface"
                   />
-                  <span className="ml-2 text-sm text-gray-700">{category}</span>
+                  <span className="ml-2 text-sm text-textMain">{category}</span>
                 </label>
               ))}
             </div>
@@ -117,7 +117,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
 
           {/* Brands */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Brand</h3>
+            <h3 className="text-sm font-semibold text-textMain mb-3">Brand</h3>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {brands.map((brand) => (
                 <label key={brand} className="flex items-center">
@@ -125,9 +125,9 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
                     type="checkbox"
                     checked={localFilters.brand.includes(brand)}
                     onChange={() => handleArrayFilterToggle('brand', brand)}
-                    className="rounded border-gray-300 text-luxury-gold focus:ring-luxury-gold"
+                    className="rounded border-muted text-primary focus:ring-primary bg-surface"
                   />
-                  <span className="ml-2 text-sm text-gray-700">{brand}</span>
+                  <span className="ml-2 text-sm text-textMain">{brand}</span>
                 </label>
               ))}
             </div>
@@ -135,7 +135,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
 
           {/* Price Range */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Price Range</h3>
+            <h3 className="text-sm font-semibold text-textMain mb-3">Price Range</h3>
             <div className="space-y-3">
               <div>
                 <input
@@ -147,7 +147,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
                   onChange={(e) => handleFilterChange('priceRange', [0, parseInt(e.target.value)])}
                   className="w-full"
                 />
-                <div className="flex justify-between text-sm text-gray-500 mt-1">
+                <div className="flex justify-between text-sm text-textSecondary mt-1">
                   <span>$0</span>
                   <span>${localFilters.priceRange[1].toLocaleString()}</span>
                 </div>
@@ -157,7 +157,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
 
           {/* Rating */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Minimum Rating</h3>
+            <h3 className="text-sm font-semibold text-textMain mb-3">Minimum Rating</h3>
             <div className="space-y-2">
               {[4, 3, 2, 1].map((rating) => (
                 <label key={rating} className="flex items-center">
@@ -166,9 +166,9 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
                     name="rating"
                     checked={localFilters.rating === rating}
                     onChange={() => handleFilterChange('rating', rating)}
-                    className="text-luxury-gold focus:ring-luxury-gold"
+                    className="text-primary focus:ring-luxury-gold"
                   />
-                  <span className="ml-2 text-sm text-gray-700">{rating}+ Stars</span>
+                  <span className="ml-2 text-sm text-textMain">{rating}+ Stars</span>
                 </label>
               ))}
             </div>
@@ -181,9 +181,9 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
                 type="checkbox"
                 checked={localFilters.inStock}
                 onChange={(e) => handleFilterChange('inStock', e.target.checked)}
-                className="rounded border-gray-300 text-luxury-gold focus:ring-luxury-gold"
+                className="rounded border-muted text-primary focus:ring-primary bg-surface"
               />
-              <span className="ml-2 text-sm text-gray-700">In Stock Only</span>
+              <span className="ml-2 text-sm text-textMain">In Stock Only</span>
             </label>
           </div>
 

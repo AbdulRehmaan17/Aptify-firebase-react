@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, getFirebaseInitError, googleProvider } from '../firebase';
 import { signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
 
 const AuthContext = createContext();
 
@@ -11,6 +11,8 @@ export const AuthProvider = ({ children }) => {
   const [currentUserRole, setCurrentUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     // Check for Firebase initialization error
@@ -82,6 +84,66 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   }, []);
+
+  // Global notification listener
+  useEffect(() => {
+    if (!user || !db) {
+      setUnreadNotificationCount(0);
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('userId', '==', user.uid),
+        where('read', '==', false)
+      );
+
+      const unsubscribe = onSnapshot(
+        notificationsQuery,
+        (snapshot) => {
+          const notifs = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setNotifications(notifs);
+          setUnreadNotificationCount(notifs.length);
+        },
+        (error) => {
+          console.error('Error fetching notifications:', error);
+          // Fallback without orderBy if index doesn't exist
+          if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+            const fallbackQuery = query(
+              collection(db, 'notifications'),
+              where('userId', '==', user.uid)
+            );
+            const fallbackUnsubscribe = onSnapshot(
+              fallbackQuery,
+              (snapshot) => {
+                const notifs = snapshot.docs
+                  .map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                  }))
+                  .filter((n) => !n.read);
+                setNotifications(notifs);
+                setUnreadNotificationCount(notifs.length);
+              },
+              (fallbackError) => {
+                console.error('Error fetching notifications (fallback):', fallbackError);
+              }
+            );
+            return () => fallbackUnsubscribe();
+          }
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error setting up notification listener:', error);
+    }
+  }, [user]);
 
   const register = async (email, password, name, phone, role = 'customer') => {
     try {
@@ -254,11 +316,11 @@ export const AuthProvider = ({ children }) => {
   // If there's an initialization error, show error UI instead of blank screen
   if (error && !loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="max-w-md w-full card-base p-6 text-center">
           <div className="mb-4">
             <svg
-              className="mx-auto h-12 w-12 text-red-500"
+              className="mx-auto h-12 w-12 text-error"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -271,15 +333,15 @@ export const AuthProvider = ({ children }) => {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Firebase Configuration Error</h1>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <p className="text-sm text-gray-500 mb-4">
+          <h1 className="text-2xl font-bold text-textMain mb-2">Firebase Configuration Error</h1>
+          <p className="text-textSecondary mb-4">{error}</p>
+          <p className="text-sm text-textSecondary mb-4">
             Please check your .env file and ensure all Firebase environment variables are set
             correctly.
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primaryDark transition-colors"
           >
             Reload Page
           </button>
@@ -302,6 +364,8 @@ export const AuthProvider = ({ children }) => {
         logout,
         updateUserRole,
         error,
+        unreadNotificationCount,
+        notifications,
       }}
     >
       {children}

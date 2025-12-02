@@ -141,7 +141,7 @@ const AddWatchForm = () => {
       transition={{ duration: 0.8 }}
       className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-ivory"
     >
-      <div className="bg-white shadow-xl rounded-xl p-8">
+      <div className="bg-surface shadow-xl rounded-lg p-8">
         <h1 className="text-3xl font-display font-bold text-charcoal mb-6">
           {id ? 'Edit Watch' : 'Add New Watch'}
         </h1>
@@ -155,7 +155,7 @@ const AddWatchForm = () => {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
               placeholder="e.g., Submariner Date"
               required
             />
@@ -168,7 +168,7 @@ const AddWatchForm = () => {
               name="brandId"
               value={formData.brandId}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
               required
             >
               <option value="">Select a brand</option>
@@ -187,7 +187,7 @@ const AddWatchForm = () => {
               name="collectionId"
               value={formData.collectionId}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
               required
             >
               <option value="">Select a collection</option>
@@ -209,7 +209,7 @@ const AddWatchForm = () => {
               name="price"
               value={formData.price}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
               placeholder="e.g., 9999.99"
               step="0.01"
               required
@@ -224,7 +224,7 @@ const AddWatchForm = () => {
               name="stock"
               value={formData.stock}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
               placeholder="e.g., 10"
               required
             />
@@ -237,7 +237,7 @@ const AddWatchForm = () => {
               name="description"
               value={formData.description}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
               placeholder="Describe the watch..."
               rows="4"
             />
@@ -257,20 +257,20 @@ const AddWatchForm = () => {
               type="file"
               accept="image/*"
               onChange={handleImageChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg font-inter"
             />
           </div>
           <div className="flex space-x-4">
             <Button
               type="submit"
-              className="bg-luxury-gold text-charcoal hover:bg-yellow-600 flex-1"
+              className="bg-luxury-gold text-charcoal hover:bg-accent flex-1"
               disabled={loading}
             >
               {loading ? 'Saving...' : id ? 'Update Watch' : 'Add Watch'}
             </Button>
             <Button
               type="button"
-              className="bg-gray-200 text-charcoal hover:bg-gray-300 flex-1"
+              className="bg-muted text-charcoal hover:bg-muted flex-1"
               onClick={() => navigate('/admin/watches')}
             >
               Cancel

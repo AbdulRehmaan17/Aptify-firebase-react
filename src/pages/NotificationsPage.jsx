@@ -199,26 +199,26 @@ const NotificationsPage = () => {
   const getTypeIcon = (type) => {
     switch (type) {
       case 'success':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
+        return <CheckCircle className="w-5 h-5 text-primary" />;
       case 'warning':
-        return <AlertTriangle className="w-5 h-5 text-yellow-600" />;
+        return <AlertTriangle className="w-5 h-5 text-accent" />;
       case 'error':
-        return <AlertCircle className="w-5 h-5 text-red-600" />;
+        return <AlertCircle className="w-5 h-5 text-error" />;
       default:
-        return <Info className="w-5 h-5 text-blue-600" />;
+        return <Info className="w-5 h-5 text-primary" />;
     }
   };
 
   const getTypeColor = (type) => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 border-green-200';
+        return 'bg-primary/10 border-primary/30';
       case 'warning':
-        return 'bg-yellow-50 border-yellow-200';
+        return 'bg-accent/10 border-accent/30';
       case 'error':
-        return 'bg-red-50 border-red-200';
+        return 'bg-error/10 border-error/30';
       default:
-        return 'bg-blue-50 border-blue-200';
+        return 'bg-primary/10 border-primary/20';
     }
   };
 
@@ -226,9 +226,9 @@ const NotificationsPage = () => {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Please log in to view notifications</p>
+          <p className="text-textSecondary mb-4">Please log in to view notifications</p>
           <Button onClick={() => navigate('/auth')}>Log In</Button>
         </div>
       </div>
@@ -237,23 +237,23 @@ const NotificationsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-display font-bold text-gray-900 mb-2">
+              <h1 className="text-3xl font-display font-bold text-textMain mb-2">
                 Notifications
               </h1>
-              <p className="text-gray-600">
+              <p className="text-textSecondary">
                 {unreadCount > 0
                   ? `${unreadCount} unread ${unreadCount === 1 ? 'notification' : 'notifications'}`
                   : 'All caught up!'}
@@ -289,20 +289,20 @@ const NotificationsPage = () => {
 
         {/* Notifications List */}
         {notifications.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <Bell className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Notifications</h2>
-            <p className="text-gray-600 mb-6">You're all caught up! No notifications to display.</p>
+          <div className="bg-surface rounded-base shadow-lg p-12 text-center">
+            <Bell className="w-16 h-16 mx-auto text-muted mb-4" />
+            <h2 className="text-2xl font-bold text-textMain mb-2">No Notifications</h2>
+            <p className="text-textSecondary mb-6">You're all caught up! No notifications to display.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`bg-white rounded-lg shadow-md p-6 border-l-4 transition-all ${
+                className={`bg-surface rounded-base shadow-md p-6 border-l-4 transition-all ${
                   !notification.read
                     ? `${getTypeColor(notification.type)} border-l-4`
-                    : 'border-gray-200'
+                    : 'border-muted'
                 }`}
               >
                 <div className="flex items-start gap-4">
@@ -317,24 +317,24 @@ const NotificationsPage = () => {
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900">
+                          <h3 className="font-semibold text-textMain">
                             {notification.title || 'Notification'}
                           </h3>
                           {!notification.read && (
-                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                            <span className="w-2 h-2 bg-primary rounded-full"></span>
                           )}
                           {notification.isBroadcast && (
-                            <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded">
+                            <span className="px-2 py-0.5 text-xs font-medium bg-primary text-primary rounded">
                               Broadcast
                             </span>
                           )}
                         </div>
-                        <p className="text-gray-700 leading-relaxed">{notification.message}</p>
-                        <p className="text-sm text-gray-500 mt-2">
+                        <p className="text-textMain leading-relaxed">{notification.message}</p>
+                        <p className="text-sm text-textSecondary mt-2">
                           {formatDate(notification.createdAt)}
                         </p>
                         {notification.link && (
-                          <p className="text-sm text-blue-600 mt-1 hover:underline">
+                          <p className="text-sm text-primary mt-1 hover:underline">
                             Click to view →
                           </p>
                         )}
@@ -348,7 +348,7 @@ const NotificationsPage = () => {
                       <button
                         onClick={() => handleMarkAsRead(notification.id)}
                         disabled={markingAsRead === notification.id}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="p-2 text-primary hover:bg-primary rounded-lg transition-colors disabled:opacity-50"
                         title="Mark as read"
                       >
                         <Check className="w-4 h-4" />
@@ -357,7 +357,7 @@ const NotificationsPage = () => {
                     <button
                       onClick={() => handleDelete(notification.id)}
                       disabled={deletingId === notification.id}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      className="p-2 text-error hover:bg-error rounded-lg transition-colors disabled:opacity-50"
                       title="Delete notification"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -378,14 +378,14 @@ const NotificationsPage = () => {
         size="md"
       >
         <div className="space-y-4">
-          <p className="text-gray-700">
+          <p className="text-textMain">
             Are you sure you want to delete all notifications? This action cannot be undone.
           </p>
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <p className="text-sm text-gray-600">
+          <div className="bg-background p-4 rounded-lg">
+            <p className="text-sm text-textSecondary">
               <strong>Total notifications:</strong> {notifications.length}
             </p>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-textSecondary">
               <strong>Unread:</strong> {unreadCount}
             </p>
           </div>

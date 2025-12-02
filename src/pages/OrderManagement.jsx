@@ -72,15 +72,15 @@ const OrderManagement = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-600';
+        return 'bg-accent text-accent';
       case 'shipped':
-        return 'bg-blue-100 text-blue-600';
+        return 'bg-primary text-primary';
       case 'delivered':
         return 'bg-emerald-100 text-emerald-600';
       case 'cancelled':
-        return 'bg-red-100 text-red-600';
+        return 'bg-error text-error';
       default:
-        return 'bg-gray-100 text-gray-600';
+        return 'bg-muted text-textSecondary';
     }
   };
 
@@ -111,10 +111,10 @@ const OrderManagement = () => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-16 bg-white rounded-xl shadow-xl"
+            className="text-center py-16 bg-surface rounded-lg shadow-xl"
           >
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-xl text-gray-600 font-inter mb-6">No orders have been placed yet.</p>
+            <Package className="w-16 h-16 text-textSecondary mx-auto mb-4" />
+            <p className="text-xl text-textSecondary font-inter mb-6">No orders have been placed yet.</p>
             <Button
               className="bg-gradient-to-r from-luxury-gold to-yellow-600 text-charcoal hover:from-yellow-600 hover:to-luxury-gold transition-all duration-500 font-inter font-medium text-lg py-3 px-8 shadow-lg"
               onClick={() => navigate('/admin')}
@@ -123,31 +123,31 @@ const OrderManagement = () => {
             </Button>
           </motion.div>
         ) : (
-          <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+          <div className="bg-surface rounded-lg shadow-xl overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-100">
+              <thead className="bg-muted">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-textSecondary uppercase tracking-wider">
                     Order ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-textSecondary uppercase tracking-wider">
                     User ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-textSecondary uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-textSecondary uppercase tracking-wider">
                     Total
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-inter font-medium text-textSecondary uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-inter font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-inter font-medium text-textSecondary uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-surface divide-y divide-gray-200">
                 {orders.map((order, index) => (
                   <React.Fragment key={order.id}>
                     <motion.tr
@@ -163,7 +163,7 @@ const OrderManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-inter text-charcoal">
                         {order.userId.slice(0, 8)}...
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-inter text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-inter text-textSecondary">
                         {new Date(order.createdAt.seconds * 1000).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-inter text-charcoal">
@@ -183,7 +183,7 @@ const OrderManagement = () => {
                           value={order.status}
                           onClick={(e) => e.stopPropagation()}
                           onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                          className="border border-gray-300 rounded-lg p-1 text-sm font-inter text-charcoal focus:ring-luxury-gold focus:border-luxury-gold"
+                          className="border border-muted rounded-lg p-1 text-sm font-inter text-charcoal focus:ring-luxury-gold focus:border-luxury-gold"
                         >
                           <option value="pending">Pending</option>
                           <option value="shipped">Shipped</option>
@@ -220,7 +220,7 @@ const OrderManagement = () => {
                                       <p className="text-sm font-inter text-charcoal">
                                         {item.name}
                                       </p>
-                                      <p className="text-sm text-gray-500 font-inter">
+                                      <p className="text-sm text-textSecondary font-inter">
                                         Quantity: {item.quantity} | ${item.price.toFixed(2)} each
                                       </p>
                                     </div>
@@ -230,7 +230,7 @@ const OrderManagement = () => {
                                   </p>
                                 </div>
                               ))}
-                              <div className="flex justify-between mt-4 pt-4 border-t border-gray-200">
+                              <div className="flex justify-between mt-4 pt-4 border-t border-muted">
                                 <span className="text-md font-display font-bold text-charcoal">
                                   Total
                                 </span>

@@ -58,7 +58,7 @@ const BrandDetail = () => {
       className="min-h-screen bg-ivory py-12 px-4 sm:px-6 lg:px-8"
     >
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white shadow-xl rounded-xl p-8 mb-12">
+        <div className="bg-surface shadow-xl rounded-lg p-8 mb-12">
           <div className="flex flex-col md:flex-row items-center">
             {brand.logoUrl && (
               <img
@@ -71,7 +71,7 @@ const BrandDetail = () => {
               <h1 className="text-3xl sm:text-4xl font-display font-bold text-charcoal mb-4">
                 {brand.name}
               </h1>
-              <p className="text-gray-600 font-inter text-lg">
+              <p className="text-textSecondary font-inter text-lg">
                 {brand.description || 'No description available.'}
               </p>
             </div>
@@ -89,12 +89,12 @@ const BrandDetail = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white rounded-xl shadow-lg p-6 hover:bg-gradient-to-br hover:from-luxury-gold hover:to-yellow-600 hover:text-charcoal"
+                    className="bg-surface rounded-lg shadow-lg p-6 hover:bg-gradient-to-br hover:from-luxury-gold hover:to-yellow-600 hover:text-charcoal"
                   >
                     <h3 className="text-xl font-display font-bold text-charcoal mb-2">
                       {collection.name}
                     </h3>
-                    <p className="text-gray-600 font-inter text-sm line-clamp-2">
+                    <p className="text-textSecondary font-inter text-sm line-clamp-2">
                       {collection.description || 'No description available.'}
                     </p>
                   </motion.div>
@@ -115,7 +115,7 @@ const BrandDetail = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                     whileHover={{ scale: 1.05 }}
-                    className="bg-white rounded-xl shadow-lg overflow-hidden hover:bg-gradient-to-br hover:from-luxury-gold hover:to-yellow-600 hover:text-charcoal"
+                    className="bg-surface rounded-lg shadow-lg overflow-hidden hover:bg-gradient-to-br hover:from-luxury-gold hover:to-yellow-600 hover:text-charcoal"
                   >
                     {watch.imageUrl && (
                       <img
@@ -128,10 +128,10 @@ const BrandDetail = () => {
                       <h3 className="text-xl font-display font-bold text-charcoal mb-2">
                         {watch.name}
                       </h3>
-                      <p className="text-gray-600 font-inter text-sm mb-2">
+                      <p className="text-textSecondary font-inter text-sm mb-2">
                         ${watch.price.toFixed(2)}
                       </p>
-                      <p className="text-gray-600 font-inter text-sm line-clamp-2">
+                      <p className="text-textSecondary font-inter text-sm line-clamp-2">
                         {watch.description || 'No description available.'}
                       </p>
                     </div>

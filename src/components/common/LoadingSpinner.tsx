@@ -19,8 +19,8 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   };
 
   const colorClasses = {
-    primary: 'text-luxury-gold',
-    secondary: 'text-luxury-silver',
+    primary: 'text-primary',
+    secondary: 'text-accent',
     white: 'text-white'
   };
 

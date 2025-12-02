@@ -40,11 +40,15 @@ const RegisterConstructor = () => {
   // Form state
   const [formData, setFormData] = useState({
     name: '',
+    companyName: '',
+    cnic: '',
     phone: '',
+    email: '',
     experience: '',
-    specialization: '',
-    portfolioLinks: '',
+    skills: [],
     city: '',
+    address: '',
+    portfolioLinks: '',
   });
 
   // File uploads
@@ -52,6 +56,8 @@ const RegisterConstructor = () => {
   const [cnicPreview, setCnicPreview] = useState(null);
   const [profileImageFile, setProfileImageFile] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [licenseFiles, setLicenseFiles] = useState([]);
+  const [licensePreviews, setLicensePreviews] = useState([]);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -60,9 +66,29 @@ const RegisterConstructor = () => {
   const [isAlreadyRegistered, setIsAlreadyRegistered] = useState(false);
   const [errors, setErrors] = useState({});
 
+  // Skill categories for construction
+  const skillCategories = [
+    'New Construction',
+    'Extension',
+    'Remodeling',
+    'Finishing',
+    'Grey Structure',
+    'Commercial',
+    'Residential',
+    'Interior Design',
+    'Architectural Design',
+  ];
+
+  // Initialize email from auth
+  useEffect(() => {
+    if (currentUser?.email && !formData.email) {
+      setFormData((prev) => ({ ...prev, email: currentUser.email }));
+    }
+  }, [currentUser]);
+
   /**
    * Check if user is already registered as a constructor
-   * Queries "serviceProviders" collection where userId == currentUser.uid
+   * Queries "constructionProviders" collection where userId == currentUser.uid
    */
   useEffect(() => {
     const checkExistingRegistration = async () => {
@@ -79,9 +105,9 @@ const RegisterConstructor = () => {
         setCheckingRegistration(true);
         console.log('Checking if user is already registered as constructor:', currentUser.uid);
 
-        // Query serviceProviders collection filtered by userId
+        // Query constructionProviders collection filtered by userId
         const providersQuery = query(
-          collection(db, 'serviceProviders'),
+          collection(db, 'constructionProviders'),
           where('userId', '==', currentUser.uid)
         );
 
@@ -96,21 +122,24 @@ const RegisterConstructor = () => {
           // Pre-fill form with existing data
           setFormData({
             name: existingProvider.name || currentUser.displayName || '',
+            companyName: existingProvider.companyName || '',
+            cnic: existingProvider.cnic || '',
             phone: existingProvider.phone || '',
-            experience: existingProvider.experienceYears?.toString() || existingProvider.experience?.toString() || '',
-            specialization: Array.isArray(existingProvider.specialization)
-              ? existingProvider.specialization.join(', ')
-              : existingProvider.specialization || existingProvider.expertise || '',
+            email: existingProvider.email || currentUser.email || '',
+            experience: existingProvider.experience?.toString() || '',
+            skills: existingProvider.skills || [],
+            city: existingProvider.city || '',
+            address: existingProvider.address || '',
             portfolioLinks: Array.isArray(existingProvider.portfolioLinks)
               ? existingProvider.portfolioLinks.join('\n')
               : existingProvider.portfolioLinks || '',
-            city: existingProvider.city || '',
           });
         } else {
-          // User is not registered, pre-fill name from currentUser
+          // User is not registered, pre-fill name and email from currentUser
           setFormData((prev) => ({
             ...prev,
             name: currentUser.displayName || currentUser.email?.split('@')[0] || '',
+            email: currentUser.email || '',
           }));
         }
       } catch (error) {
@@ -139,6 +168,61 @@ const RegisterConstructor = () => {
         return newErrors;
       });
     }
+  };
+
+  /**
+   * Handle skills checkbox changes
+   */
+  const handleSkillChange = (skill) => {
+    setFormData((prev) => {
+      const currentSkills = prev.skills || [];
+      const newSkills = currentSkills.includes(skill)
+        ? currentSkills.filter((s) => s !== skill)
+        : [...currentSkills, skill];
+      return { ...prev, skills: newSkills };
+    });
+
+    if (errors.skills) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.skills;
+        return newErrors;
+      });
+    }
+  };
+
+  /**
+   * Handle license files upload
+   */
+  const handleLicenseFilesChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      const validFiles = files.filter((file) => {
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} is too large. Max 5MB per file.`);
+          return false;
+        }
+        return true;
+      });
+      setLicenseFiles((prev) => [...prev, ...validFiles]);
+      validFiles.forEach((file) => {
+        if (file.type.startsWith('image/')) {
+          setLicensePreviews((prev) => [...prev, URL.createObjectURL(file)]);
+        }
+      });
+    }
+  };
+
+  /**
+   * Remove license file
+   */
+  const removeLicenseFile = (index) => {
+    setLicenseFiles((prev) => prev.filter((_, i) => i !== index));
+    setLicensePreviews((prev) => {
+      const newPreviews = [...prev];
+      URL.revokeObjectURL(newPreviews[index]);
+      return newPreviews.filter((_, i) => i !== index);
+    });
   };
 
   /**
@@ -197,7 +281,7 @@ const RegisterConstructor = () => {
       try {
         const timestamp = Date.now();
         const fileName = `${timestamp}_cnic_${cnicFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `user_uploads/${currentUser.uid}/cnic/${fileName}`;
+        const storagePath = `providers/constructors/${currentUser.uid}/${fileName}`;
         const storageRef = ref(storage, storagePath);
         await uploadBytes(storageRef, cnicFile);
         uploads.cnicUrl = await getDownloadURL(storageRef);
@@ -211,7 +295,7 @@ const RegisterConstructor = () => {
       try {
         const timestamp = Date.now();
         const fileName = `${timestamp}_profile_${profileImageFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `user_uploads/${currentUser.uid}/profile/${fileName}`;
+        const storagePath = `providers/constructors/${currentUser.uid}/${fileName}`;
         const storageRef = ref(storage, storagePath);
         await uploadBytes(storageRef, profileImageFile);
         uploads.profileImageUrl = await getDownloadURL(storageRef);
@@ -219,6 +303,26 @@ const RegisterConstructor = () => {
         console.error('Error uploading profile image:', error);
         throw new Error('Failed to upload profile image');
       }
+    }
+
+    // Upload license files
+    if (licenseFiles.length > 0) {
+      const licenseUrls = [];
+      for (const licenseFile of licenseFiles) {
+        try {
+          const timestamp = Date.now();
+          const fileName = `${timestamp}_license_${licenseFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+          const storagePath = `providers/constructors/${currentUser.uid}/${fileName}`;
+          const storageRef = ref(storage, storagePath);
+          await uploadBytes(storageRef, licenseFile);
+          const url = await getDownloadURL(storageRef);
+          licenseUrls.push(url);
+        } catch (error) {
+          console.error('Error uploading license file:', error);
+          throw new Error(`Failed to upload license file: ${licenseFile.name}`);
+        }
+      }
+      uploads.licenseFiles = licenseUrls;
     }
 
     return uploads;
@@ -255,11 +359,31 @@ const RegisterConstructor = () => {
       }
     }
 
-    // Validate specialization
-    if (!formData.specialization.trim()) {
-      newErrors.specialization = 'Specialization is required';
-    } else if (formData.specialization.trim().length < 3) {
-      newErrors.specialization = 'Please provide your specialization';
+    // Validate company name
+    if (!formData.companyName.trim()) {
+      newErrors.companyName = 'Business/Company name is required';
+    }
+
+    // Validate CNIC
+    if (!formData.cnic.trim()) {
+      newErrors.cnic = 'CNIC/National ID is required';
+    }
+
+    // Validate email
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Validate skills (at least one must be selected)
+    if (!formData.skills || formData.skills.length === 0) {
+      newErrors.skills = 'Please select at least one skill category';
+    }
+
+    // Validate address
+    if (!formData.address.trim()) {
+      newErrors.address = 'Address is required';
     }
 
     // Validate city
@@ -309,7 +433,7 @@ const RegisterConstructor = () => {
 
       // Check again if user is already registered (race condition protection)
       const providersQuery = query(
-        collection(db, 'serviceProviders'),
+        collection(db, 'constructionProviders'),
         where('userId', '==', currentUser.uid)
       );
       const snapshot = await getDocs(providersQuery);
@@ -326,13 +450,6 @@ const RegisterConstructor = () => {
       const uploads = await uploadFiles();
       setUploading(false);
 
-      // Prepare provider data
-      // Convert specialization string to array (split by comma or newline)
-      const specializationArray = formData.specialization
-        .split(/[,\n]/)
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0);
-
       // Convert portfolio links string to array (split by newline)
       const portfolioLinksArray = formData.portfolioLinks
         .split('\n')
@@ -342,23 +459,16 @@ const RegisterConstructor = () => {
       const providerData = {
         userId: currentUser.uid,
         name: formData.name.trim(),
+        companyName: formData.companyName.trim(),
+        cnic: formData.cnic.trim(),
         phone: formData.phone.trim(),
+        email: formData.email.trim(),
         experience: Number(formData.experience),
-        experienceYears: Number(formData.experience), // Keep for backward compatibility
-        specialization: specializationArray.length > 0 ? specializationArray : [formData.specialization.trim()],
-        expertise: specializationArray.length > 0 ? specializationArray : [formData.specialization.trim()], // Keep for backward compatibility
-        portfolioLinks: portfolioLinksArray,
+        skills: formData.skills,
         city: formData.city.trim(),
-        serviceType: 'Construction',
-        role: 'constructor',
-        isApproved: false,
-        approved: false, // Keep for backward compatibility
-        rating: 0,
-        totalProjects: 0,
-        completedProjects: 0,
-        email: currentUser.email || '',
+        address: formData.address.trim(),
+        portfolioLinks: portfolioLinksArray,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       };
 
       // Add file URLs if uploaded
@@ -367,18 +477,20 @@ const RegisterConstructor = () => {
       }
       if (uploads.profileImageUrl) {
         providerData.profileImageUrl = uploads.profileImageUrl;
-        providerData.profileImage = uploads.profileImageUrl; // Keep for backward compatibility
+      }
+      if (uploads.licenseFiles && uploads.licenseFiles.length > 0) {
+        providerData.licenseFiles = uploads.licenseFiles;
       }
 
-      // Add document to Firestore
-      const docRef = await addDoc(collection(db, 'serviceProviders'), providerData);
+      // Add document to Firestore - use constructionProviders collection
+      const docRef = await addDoc(collection(db, 'constructionProviders'), providerData);
       console.log('Constructor registered with ID:', docRef.id);
       console.log('Provider data:', providerData);
 
       toast.success('Registration submitted successfully! Your application is pending admin approval.');
 
-      // Navigate to construction providers list
-      navigate('/construction-providers');
+      // Navigate to my account
+      navigate('/my-account');
     } catch (error) {
       console.error('Error registering as constructor:', error);
       setUploading(false);
@@ -397,7 +509,7 @@ const RegisterConstructor = () => {
   // Show loading spinner while checking auth or registration status
   if (authLoading || checkingRegistration) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -406,9 +518,9 @@ const RegisterConstructor = () => {
   // Redirect to login if not authenticated
   if (!currentUser || !currentUser.uid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Please log in to register as a constructor.</p>
+          <p className="text-textSecondary mb-4">Please log in to register as a constructor.</p>
           <Button onClick={() => navigate('/auth')}>Log In</Button>
         </div>
       </div>
@@ -416,20 +528,20 @@ const RegisterConstructor = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-gray-50 min-h-screen">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-background min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
+        <h1 className="text-4xl font-display font-bold text-textMain mb-2">
           Register as Constructor
         </h1>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg text-textSecondary">
           Register yourself as a construction service provider to start receiving project requests.
         </p>
       </div>
 
       {/* Already Registered Message */}
       {isAlreadyRegistered && (
-        <div className="bg-slate-50 border-l-4 border-slate-400 text-slate-800 p-4 mb-6 rounded-lg flex items-start">
+        <div className="bg-muted/30 border-l-4 border-primary text-textMain p-4 mb-6 rounded-lg flex items-start">
           <CheckCircle className="w-5 h-5 mr-3 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold mb-1">You are already registered as a constructor.</p>
@@ -442,13 +554,13 @@ const RegisterConstructor = () => {
       )}
 
       {/* Form Container */}
-      <div className="bg-white rounded-xl shadow-xl p-6 sm:p-8">
+      <div className="bg-surface rounded-base shadow-xl p-6 sm:p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Full Name Field */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-textMain mb-2">
               <User className="w-4 h-4 inline mr-1" />
-              Full Name <span className="text-red-500">*</span>
+              Full Name <span className="text-error">*</span>
             </label>
             <input
               type="text"
@@ -458,18 +570,60 @@ const RegisterConstructor = () => {
               onChange={handleChange}
               disabled={isAlreadyRegistered}
               placeholder="Enter your full name"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.name ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            {errors.name && <p className="mt-1 text-sm text-error">{errors.name}</p>}
+          </div>
+
+          {/* Company Name Field */}
+          <div>
+            <label htmlFor="companyName" className="block text-sm font-medium text-textMain mb-2">
+              <Briefcase className="w-4 h-4 inline mr-1" />
+              Business / Company Name <span className="text-error">*</span>
+            </label>
+            <input
+              type="text"
+              id="companyName"
+              name="companyName"
+              value={formData.companyName}
+              onChange={handleChange}
+              disabled={isAlreadyRegistered}
+              placeholder="Enter your business or company name"
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.companyName ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
+            />
+            {errors.companyName && <p className="mt-1 text-sm text-error">{errors.companyName}</p>}
+          </div>
+
+          {/* CNIC Field */}
+          <div>
+            <label htmlFor="cnic" className="block text-sm font-medium text-textMain mb-2">
+              <FileText className="w-4 h-4 inline mr-1" />
+              CNIC / National ID <span className="text-error">*</span>
+            </label>
+            <input
+              type="text"
+              id="cnic"
+              name="cnic"
+              value={formData.cnic}
+              onChange={handleChange}
+              disabled={isAlreadyRegistered}
+              placeholder="Enter your CNIC or National ID number"
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.cnic ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
+            />
+            {errors.cnic && <p className="mt-1 text-sm text-error">{errors.cnic}</p>}
           </div>
 
           {/* Phone Field */}
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="phone" className="block text-sm font-medium text-textMain mb-2">
               <Phone className="w-4 h-4 inline mr-1" />
-              Phone Number <span className="text-red-500">*</span>
+              Phone Number <span className="text-error">*</span>
             </label>
             <input
               type="tel"
@@ -479,18 +633,39 @@ const RegisterConstructor = () => {
               onChange={handleChange}
               disabled={isAlreadyRegistered}
               placeholder="e.g., +92 300 123-4567"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.phone ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.phone ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
+            {errors.phone && <p className="mt-1 text-sm text-error">{errors.phone}</p>}
+          </div>
+
+          {/* Email Field */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-textMain mb-2">
+              <Mail className="w-4 h-4 inline mr-1" />
+              Email Address <span className="text-error">*</span>
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              disabled={isAlreadyRegistered}
+              placeholder="your.email@example.com"
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.email ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
+            />
+            {errors.email && <p className="mt-1 text-sm text-error">{errors.email}</p>}
           </div>
 
           {/* Experience Field */}
           <div>
-            <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="experience" className="block text-sm font-medium text-textMain mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
-              Years of Experience <span className="text-red-500">*</span>
+              Years of Experience <span className="text-error">*</span>
             </label>
             <input
               type="number"
@@ -502,42 +677,47 @@ const RegisterConstructor = () => {
               min="0"
               max="100"
               placeholder="Enter years of experience"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.experience ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.experience ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            {errors.experience && <p className="mt-1 text-sm text-red-600">{errors.experience}</p>}
+            {errors.experience && <p className="mt-1 text-sm text-error">{errors.experience}</p>}
           </div>
 
-          {/* Specialization Field */}
+          {/* Skills Categories Field */}
           <div>
-            <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-textMain mb-2">
               <Briefcase className="w-4 h-4 inline mr-1" />
-              Specialization <span className="text-red-500">*</span>
+              Skill Categories <span className="text-error">*</span>
             </label>
-            <textarea
-              id="specialization"
-              name="specialization"
-              value={formData.specialization}
-              onChange={handleChange}
-              disabled={isAlreadyRegistered}
-              rows={3}
-              placeholder="e.g., Residential Construction, Remodeling, Interior Finishing (separate with commas)"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none ${
-                errors.specialization ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              List your areas of specialization, separated by commas
-            </p>
-            {errors.specialization && (
-              <p className="mt-1 text-sm text-red-600">{errors.specialization}</p>
-            )}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {skillCategories.map((skill) => (
+                <label
+                  key={skill}
+                  className={`flex items-center p-3 border rounded-base cursor-pointer transition-colors ${
+                    formData.skills?.includes(skill)
+                      ? 'border-primary bg-primary/10'
+                      : 'border-muted hover:border-primary'
+                  } ${isAlreadyRegistered ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.skills?.includes(skill) || false}
+                    onChange={() => handleSkillChange(skill)}
+                    disabled={isAlreadyRegistered}
+                    className="mr-2"
+                  />
+                  <span className="text-sm">{skill}</span>
+                </label>
+              ))}
+            </div>
+            {errors.skills && <p className="mt-1 text-sm text-error">{errors.skills}</p>}
+            <p className="mt-2 text-xs text-textSecondary">Select at least one skill category</p>
           </div>
 
           {/* Portfolio Links Field */}
           <div>
-            <label htmlFor="portfolioLinks" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="portfolioLinks" className="block text-sm font-medium text-textMain mb-2">
               <LinkIcon className="w-4 h-4 inline mr-1" />
               Portfolio Links (Optional)
             </label>
@@ -549,20 +729,20 @@ const RegisterConstructor = () => {
               disabled={isAlreadyRegistered}
               rows={3}
               placeholder="Enter portfolio links, one per line (e.g., https://example.com/portfolio)"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none ${
-                errors.portfolioLinks ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none ${
+                errors.portfolioLinks ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-textSecondary">
               Add links to your portfolio or previous work (one per line)
             </p>
           </div>
 
           {/* City Field */}
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="city" className="block text-sm font-medium text-textMain mb-2">
               <MapPin className="w-4 h-4 inline mr-1" />
-              City <span className="text-red-500">*</span>
+              City <span className="text-error">*</span>
             </label>
             <input
               type="text"
@@ -572,20 +752,41 @@ const RegisterConstructor = () => {
               onChange={handleChange}
               disabled={isAlreadyRegistered}
               placeholder="e.g., Lahore, Karachi, Islamabad"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-                errors.city ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.city ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            {errors.city && <p className="mt-1 text-sm text-red-600">{errors.city}</p>}
+            {errors.city && <p className="mt-1 text-sm text-error">{errors.city}</p>}
           </div>
 
-          {/* CNIC Upload Field */}
+          {/* Address Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <FileText className="w-4 h-4 inline mr-1" />
-              CNIC Document <span className="text-red-500">*</span>
+            <label htmlFor="address" className="block text-sm font-medium text-textMain mb-2">
+              <MapPin className="w-4 h-4 inline mr-1" />
+              Address <span className="text-error">*</span>
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+            <textarea
+              id="address"
+              name="address"
+              value={formData.address}
+              onChange={handleChange}
+              disabled={isAlreadyRegistered}
+              rows={3}
+              placeholder="Enter your complete address"
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none ${
+                errors.address ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
+            />
+            {errors.address && <p className="mt-1 text-sm text-error">{errors.address}</p>}
+          </div>
+
+          {/* CNIC Document Upload Field */}
+          <div>
+            <label className="block text-sm font-medium text-textMain mb-2">
+              <FileText className="w-4 h-4 inline mr-1" />
+              CNIC Document (Upload) <span className="text-error">*</span>
+            </label>
+            <div className="border-2 border-dashed border-muted rounded-base p-4 hover:border-primary transition-colors">
               <input
                 type="file"
                 id="cnic"
@@ -600,11 +801,11 @@ const RegisterConstructor = () => {
                   isAlreadyRegistered || loading ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
-                <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-600">
+                <Upload className="w-8 h-8 text-textSecondary mb-2" />
+                <span className="text-sm text-textSecondary">
                   {cnicFile ? cnicFile.name : 'Click to upload CNIC (Image or PDF)'}
                 </span>
-                <span className="text-xs text-gray-500 mt-1">Max 5MB</span>
+                <span className="text-xs text-textSecondary mt-1">Max 5MB</span>
               </label>
             </div>
             {cnicPreview && (
@@ -612,20 +813,20 @@ const RegisterConstructor = () => {
                 <img
                   src={cnicPreview}
                   alt="CNIC Preview"
-                  className="max-w-xs max-h-32 rounded border border-gray-300"
+                  className="max-w-xs max-h-32 rounded border border-muted"
                 />
               </div>
             )}
-            {errors.cnic && <p className="mt-1 text-sm text-red-600">{errors.cnic}</p>}
+            {errors.cnic && <p className="mt-1 text-sm text-error">{errors.cnic}</p>}
           </div>
 
           {/* Profile Image Upload Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-textMain mb-2">
               <ImageIcon className="w-4 h-4 inline mr-1" />
               Profile Image (Optional)
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+            <div className="border-2 border-dashed border-muted rounded-base p-4 hover:border-primary transition-colors">
               <input
                 type="file"
                 id="profileImage"
@@ -640,11 +841,11 @@ const RegisterConstructor = () => {
                   isAlreadyRegistered || loading ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
-                <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-600">
+                <Upload className="w-8 h-8 text-textSecondary mb-2" />
+                <span className="text-sm text-textSecondary">
                   {profileImageFile ? profileImageFile.name : 'Click to upload profile image'}
                 </span>
-                <span className="text-xs text-gray-500 mt-1">Max 5MB</span>
+                <span className="text-xs text-textSecondary mt-1">Max 5MB</span>
               </label>
             </div>
             {profileImagePreview && (
@@ -652,8 +853,59 @@ const RegisterConstructor = () => {
                 <img
                   src={profileImagePreview}
                   alt="Profile Preview"
-                  className="w-32 h-32 rounded-full object-cover border-2 border-gray-300"
+                  className="w-32 h-32 rounded-full object-cover border-2 border-muted"
                 />
+              </div>
+            )}
+          </div>
+
+          {/* License / Certificates Upload Field */}
+          <div>
+            <label className="block text-sm font-medium text-textMain mb-2">
+              <FileText className="w-4 h-4 inline mr-1" />
+              License / Certificates (Optional)
+            </label>
+            <div className="border-2 border-dashed border-muted rounded-base p-4 hover:border-primary transition-colors">
+              <input
+                type="file"
+                id="licenseFiles"
+                accept="image/*,application/pdf"
+                multiple
+                onChange={handleLicenseFilesChange}
+                disabled={isAlreadyRegistered || loading}
+                className="hidden"
+              />
+              <label
+                htmlFor="licenseFiles"
+                className={`flex flex-col items-center justify-center cursor-pointer ${
+                  isAlreadyRegistered || loading ? 'cursor-not-allowed opacity-50' : ''
+                }`}
+              >
+                <Upload className="w-8 h-8 text-textSecondary mb-2" />
+                <span className="text-sm text-textSecondary">
+                  Click to upload license or certificate files
+                </span>
+                <span className="text-xs text-textSecondary mt-1">Max 5MB per file</span>
+              </label>
+            </div>
+            {licenseFiles.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {licenseFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 bg-background rounded border border-muted"
+                  >
+                    <span className="text-sm text-textMain">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeLicenseFile(index)}
+                      disabled={isAlreadyRegistered || loading}
+                      className="text-error hover:text-error text-sm"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -20,7 +20,7 @@ const PropertiesPage = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const ITEMS_PER_PAGE = 12;
   const [filters, setFilters] = useState({
-    type: '',
+    type: searchParams.get('type') || '', // Get type from URL params (e.g., ?type=sale)
     status: '', // Empty string means no status filter - show all properties
     city: '',
     minPrice: null,
@@ -33,9 +33,13 @@ const PropertiesPage = () => {
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
 
   useEffect(() => {
-    // Update search term from URL params
+    // Update search term and type from URL params
     const searchFromUrl = searchParams.get('search') || '';
+    const typeFromUrl = searchParams.get('type') || '';
     setSearchTerm(searchFromUrl);
+    if (typeFromUrl) {
+      setFilters((prev) => ({ ...prev, type: typeFromUrl }));
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -207,8 +211,8 @@ const PropertiesPage = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-gray-900 mb-4">Browse Properties</h1>
-        <p className="text-lg text-gray-600">Find your perfect rental or purchase property</p>
+        <h1 className="text-3xl font-display font-bold text-textMain mb-4">Browse Properties</h1>
+        <p className="text-lg text-textSecondary">Find your perfect rental or purchase property</p>
       </div>
 
       {/* Search Bar */}
@@ -219,7 +223,7 @@ const PropertiesPage = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by location, property type..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-transparent"
+            className="flex-1 px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary bg-surface text-textMain"
           />
           <Button type="submit">Search</Button>
         </form>
@@ -243,7 +247,7 @@ const PropertiesPage = () => {
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-textSecondary">
                 {properties.length} propert{properties.length !== 1 ? 'ies' : 'y'} found
               </span>
             </div>
@@ -251,11 +255,11 @@ const PropertiesPage = () => {
             <div className="flex items-center space-x-4">
               {/* Sort Dropdown */}
               <div className="flex items-center space-x-2">
-                <SortAsc className="w-4 h-4 text-gray-500" />
+                <SortAsc className="w-4 h-4 text-textSecondary" />
                 <select
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-luxury-gold focus:border-transparent"
+                  className="border border-muted rounded-base px-3 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-primary bg-surface text-textMain"
                 >
                   <option value="newest">Newest</option>
                   <option value="oldest">Oldest</option>
@@ -265,23 +269,23 @@ const PropertiesPage = () => {
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+              <div className="flex items-center border border-muted rounded-base overflow-hidden">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 ${
+                  className={`p-2 transition-colors ${
                     viewMode === 'grid'
-                      ? 'bg-luxury-gold text-luxury-black'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-primary text-white'
+                      : 'text-textSecondary hover:bg-muted'
                   }`}
                 >
                   <Grid className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2 ${
+                  className={`p-2 transition-colors ${
                     viewMode === 'list'
-                      ? 'bg-luxury-gold text-luxury-black'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-primary text-white'
+                      : 'text-textSecondary hover:bg-muted'
                   }`}
                 >
                   <List className="w-4 h-4" />
@@ -293,17 +297,17 @@ const PropertiesPage = () => {
           {/* Properties Grid */}
           {properties.length > 0 ? (
             <>
-              <div
-                className={`${
-                  viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
-                    : 'space-y-4'
-                }`}
-              >
-                {properties.map((property) => (
-                  <PropertyCard key={property.id} property={property} />
-                ))}
-              </div>
+            <div
+              className={`${
+                viewMode === 'grid'
+                  ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
+                  : 'space-y-4'
+              }`}
+            >
+              {properties.map((property) => (
+                <PropertyCard key={property.id} property={property} />
+              ))}
+            </div>
               {/* Load More Button */}
               {hasMore && (
                 <div className="mt-8 text-center">
@@ -320,11 +324,11 @@ const PropertiesPage = () => {
             </>
           ) : (
             <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
+              <div className="text-textSecondary mb-4">
                 <Grid className="w-16 h-16 mx-auto" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No properties found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters or search criteria</p>
+              <h3 className="text-lg font-medium text-textMain mb-2">No properties found</h3>
+              <p className="text-textSecondary mb-6">Try adjusting your filters or search criteria</p>
               <Button
                 onClick={() => {
                   setFilters({

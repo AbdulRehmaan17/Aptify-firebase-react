@@ -19,14 +19,14 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     children, 
     ...props 
   }, ref) => {
-    const baseClasses = 'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
     
     const variants = {
-      primary: 'bg-luxury-gold text-luxury-black hover:bg-yellow-500 focus:ring-luxury-gold shadow-lg hover:shadow-xl',
-      secondary: 'bg-luxury-silver text-luxury-black hover:bg-gray-300 focus:ring-luxury-silver shadow-lg hover:shadow-xl',
-      outline: 'border-2 border-luxury-gold text-luxury-gold hover:bg-luxury-gold hover:text-luxury-black focus:ring-luxury-gold',
-      ghost: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:ring-gray-300',
-      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-lg hover:shadow-xl'
+      primary: 'bg-primary text-white hover:bg-primaryDark focus:ring-primary shadow-sm hover:shadow-md rounded-base',
+      secondary: 'bg-accent text-white hover:opacity-90 focus:ring-accent shadow-sm hover:shadow-md rounded-base',
+      outline: 'border border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary rounded-base',
+      ghost: 'text-textSecondary hover:text-textMain hover:bg-muted focus:ring-muted',
+      danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm hover:shadow-md rounded-base'
     };
     
     const sizes = {

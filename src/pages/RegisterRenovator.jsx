@@ -407,7 +407,7 @@ const RegisterRenovator = () => {
   // Show loading spinner while checking auth or registration status
   if (authLoading || checkingRegistration) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -416,9 +416,9 @@ const RegisterRenovator = () => {
   // Redirect to login if not authenticated
   if (!currentUser || !currentUser.uid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Please log in to register as a renovator.</p>
+          <p className="text-textSecondary mb-4">Please log in to register as a renovator.</p>
           <Button onClick={() => navigate('/auth')}>Log In</Button>
         </div>
       </div>
@@ -426,20 +426,20 @@ const RegisterRenovator = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-gray-50 min-h-screen">
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-background min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
+        <h1 className="text-4xl font-display font-bold text-textMain mb-2">
           Register as Renovator
         </h1>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg text-textSecondary">
           Register yourself as a renovation service provider to start receiving project requests.
         </p>
       </div>
 
       {/* Already Registered Message */}
       {isAlreadyRegistered && (
-        <div className="bg-teal-50 border-l-4 border-teal-400 text-teal-800 p-4 mb-6 rounded-lg flex items-start">
+        <div className="bg-primary/10 border-l-4 border-primary text-textMain p-4 mb-6 rounded-lg flex items-start">
           <CheckCircle className="w-5 h-5 mr-3 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold mb-1">You are already registered as a renovator.</p>
@@ -452,13 +452,13 @@ const RegisterRenovator = () => {
       )}
 
       {/* Form Container */}
-      <div className="bg-white rounded-xl shadow-xl p-6 sm:p-8">
+      <div className="bg-surface rounded-base shadow-xl p-6 sm:p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Full Name Field */}
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-textMain mb-2">
               <User className="w-4 h-4 inline mr-1" />
-              Full Name <span className="text-red-500">*</span>
+              Full Name <span className="text-error">*</span>
             </label>
             <input
               type="text"
@@ -468,18 +468,18 @@ const RegisterRenovator = () => {
               onChange={handleChange}
               disabled={isAlreadyRegistered}
               placeholder="Enter your full name"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.name ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            {errors.name && <p className="mt-1 text-sm text-error">{errors.name}</p>}
           </div>
 
           {/* Phone Field */}
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="phone" className="block text-sm font-medium text-textMain mb-2">
               <Phone className="w-4 h-4 inline mr-1" />
-              Phone Number <span className="text-red-500">*</span>
+              Phone Number <span className="text-error">*</span>
             </label>
             <input
               type="tel"
@@ -489,18 +489,18 @@ const RegisterRenovator = () => {
               onChange={handleChange}
               disabled={isAlreadyRegistered}
               placeholder="e.g., +92 300 123-4567"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors ${
-                errors.phone ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.phone ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
+            {errors.phone && <p className="mt-1 text-sm text-error">{errors.phone}</p>}
           </div>
 
           {/* Experience Field */}
           <div>
-            <label htmlFor="experience" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="experience" className="block text-sm font-medium text-textMain mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
-              Years of Experience <span className="text-red-500">*</span>
+              Years of Experience <span className="text-error">*</span>
             </label>
             <input
               type="number"
@@ -512,18 +512,18 @@ const RegisterRenovator = () => {
               min="0"
               max="100"
               placeholder="Enter years of experience"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors ${
-                errors.experience ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.experience ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            {errors.experience && <p className="mt-1 text-sm text-red-600">{errors.experience}</p>}
+            {errors.experience && <p className="mt-1 text-sm text-error">{errors.experience}</p>}
           </div>
 
           {/* Specialization Field */}
           <div>
-            <label htmlFor="specialization" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="specialization" className="block text-sm font-medium text-textMain mb-2">
               <Briefcase className="w-4 h-4 inline mr-1" />
-              Specialization <span className="text-red-500">*</span>
+              Specialization <span className="text-error">*</span>
             </label>
             <textarea
               id="specialization"
@@ -533,21 +533,21 @@ const RegisterRenovator = () => {
               disabled={isAlreadyRegistered}
               rows={3}
               placeholder="e.g., Kitchen Renovation, Bathroom Remodeling, Interior Design (separate with commas)"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none ${
-                errors.specialization ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none ${
+                errors.specialization ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-textSecondary">
               List your areas of specialization, separated by commas
             </p>
             {errors.specialization && (
-              <p className="mt-1 text-sm text-red-600">{errors.specialization}</p>
+              <p className="mt-1 text-sm text-error">{errors.specialization}</p>
             )}
           </div>
 
           {/* Portfolio Links Field */}
           <div>
-            <label htmlFor="portfolioLinks" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="portfolioLinks" className="block text-sm font-medium text-textMain mb-2">
               <LinkIcon className="w-4 h-4 inline mr-1" />
               Portfolio Links (Optional)
             </label>
@@ -559,20 +559,20 @@ const RegisterRenovator = () => {
               disabled={isAlreadyRegistered}
               rows={3}
               placeholder="Enter portfolio links, one per line (e.g., https://example.com/portfolio)"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none ${
-                errors.portfolioLinks ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none ${
+                errors.portfolioLinks ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-textSecondary">
               Add links to your portfolio or previous work (one per line)
             </p>
           </div>
 
           {/* City Field */}
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="city" className="block text-sm font-medium text-textMain mb-2">
               <MapPin className="w-4 h-4 inline mr-1" />
-              City <span className="text-red-500">*</span>
+              City <span className="text-error">*</span>
             </label>
             <input
               type="text"
@@ -582,20 +582,20 @@ const RegisterRenovator = () => {
               onChange={handleChange}
               disabled={isAlreadyRegistered}
               placeholder="e.g., Lahore, Karachi, Islamabad"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors ${
-                errors.city ? 'border-red-500' : 'border-gray-300'
-              } ${isAlreadyRegistered ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors ${
+                errors.city ? 'border-error' : 'border-muted'
+              } ${isAlreadyRegistered ? 'bg-muted cursor-not-allowed' : 'bg-surface'}`}
             />
-            {errors.city && <p className="mt-1 text-sm text-red-600">{errors.city}</p>}
+            {errors.city && <p className="mt-1 text-sm text-error">{errors.city}</p>}
           </div>
 
           {/* CNIC Upload Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-textMain mb-2">
               <FileText className="w-4 h-4 inline mr-1" />
-              CNIC Document <span className="text-red-500">*</span>
+              CNIC Document <span className="text-error">*</span>
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-purple-400 transition-colors">
+            <div className="border-2 border-dashed border-muted rounded-base p-4 hover:border-primary transition-colors">
               <input
                 type="file"
                 id="cnic"
@@ -610,11 +610,11 @@ const RegisterRenovator = () => {
                   isAlreadyRegistered || loading ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
-                <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-600">
+                <Upload className="w-8 h-8 text-textSecondary mb-2" />
+                <span className="text-sm text-textSecondary">
                   {cnicFile ? cnicFile.name : 'Click to upload CNIC (Image or PDF)'}
                 </span>
-                <span className="text-xs text-gray-500 mt-1">Max 5MB</span>
+                <span className="text-xs text-textSecondary mt-1">Max 5MB</span>
               </label>
             </div>
             {cnicPreview && (
@@ -622,20 +622,20 @@ const RegisterRenovator = () => {
                 <img
                   src={cnicPreview}
                   alt="CNIC Preview"
-                  className="max-w-xs max-h-32 rounded border border-gray-300"
+                  className="max-w-xs max-h-32 rounded border border-muted"
                 />
               </div>
             )}
-            {errors.cnic && <p className="mt-1 text-sm text-red-600">{errors.cnic}</p>}
+            {errors.cnic && <p className="mt-1 text-sm text-error">{errors.cnic}</p>}
           </div>
 
           {/* Profile Image Upload Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-textMain mb-2">
               <ImageIcon className="w-4 h-4 inline mr-1" />
               Profile Image (Optional)
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-purple-400 transition-colors">
+            <div className="border-2 border-dashed border-muted rounded-base p-4 hover:border-primary transition-colors">
               <input
                 type="file"
                 id="profileImage"
@@ -650,11 +650,11 @@ const RegisterRenovator = () => {
                   isAlreadyRegistered || loading ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
-                <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-600">
+                <Upload className="w-8 h-8 text-textSecondary mb-2" />
+                <span className="text-sm text-textSecondary">
                   {profileImageFile ? profileImageFile.name : 'Click to upload profile image'}
                 </span>
-                <span className="text-xs text-gray-500 mt-1">Max 5MB</span>
+                <span className="text-xs text-textSecondary mt-1">Max 5MB</span>
               </label>
             </div>
             {profileImagePreview && (
@@ -662,7 +662,7 @@ const RegisterRenovator = () => {
                 <img
                   src={profileImagePreview}
                   alt="Profile Preview"
-                  className="w-32 h-32 rounded-full object-cover border-2 border-gray-300"
+                  className="w-32 h-32 rounded-full object-cover border-2 border-muted"
                 />
               </div>
             )}

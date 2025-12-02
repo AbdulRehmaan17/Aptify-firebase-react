@@ -90,10 +90,10 @@ const Wishlist = () => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-16 bg-white rounded-xl shadow-xl"
+            className="text-center py-16 card-base"
           >
-            <Heart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-xl text-gray-600 font-inter mb-6">Your wishlist is empty.</p>
+            <Heart className="w-16 h-16 text-muted mx-auto mb-4" />
+            <p className="text-xl text-textSecondary font-inter mb-6">Your wishlist is empty.</p>
             <Button
               className="bg-gradient-to-r from-luxury-gold to-yellow-600 text-charcoal hover:from-yellow-600 hover:to-luxury-gold transition-all duration-500 font-inter font-medium text-lg py-3 px-8 shadow-lg"
               onClick={() => navigate('/products')}
@@ -112,7 +112,7 @@ const Wishlist = () => {
                   exit={{ opacity: 0, x: -50 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                   whileHover={{ scale: 1.05 }}
-                  className="bg-white rounded-xl shadow-xl p-4 hover:shadow-2xl transition-shadow duration-300 border border-gray-100"
+                  className="card-base p-4 hover:shadow-2xl transition-shadow duration-300"
                 >
                   <img
                     src={item.imageUrl}
@@ -123,7 +123,7 @@ const Wishlist = () => {
                   <h3 className="text-lg font-display font-semibold text-charcoal mb-2">
                     {item.name}
                   </h3>
-                  <p className="text-sm text-gray-500 font-inter mb-2">${item.price.toFixed(2)}</p>
+                  <p className="text-sm text-textSecondary font-inter mb-2">${item.price.toFixed(2)}</p>
                   <div className="flex justify-between gap-2">
                     <Button
                       variant="outline"
@@ -135,7 +135,7 @@ const Wishlist = () => {
                     </Button>
                     <Button
                       variant="outline"
-                      className="flex-1 text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700 font-inter text-sm py-2"
+                      className="flex-1 text-error border-error hover:bg-error hover:text-error font-inter text-sm py-2"
                       onClick={() => handleRemoveFromWishlist(item.id)}
                     >
                       <Trash2 className="w-4 h-4 mr-1" />

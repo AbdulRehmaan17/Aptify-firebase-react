@@ -159,11 +159,11 @@ const Chatbot = () => {
         );
         const adminsSnapshot = await getDocs(adminsQuery);
         const adminPromises = adminsSnapshot.docs.map((adminDoc) =>
-          notificationService.create(
+          notificationService.sendNotification(
             adminDoc.id,
             'New Support Chat Message',
             `You have a new message from a user: "${newMessage.trim().substring(0, 50)}${newMessage.trim().length > 50 ? '...' : ''}"`,
-            'info',
+            'admin',
             '/admin'
           )
         );
@@ -205,11 +205,11 @@ const Chatbot = () => {
 
   if (!user && !currentUser) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Please Log In</h2>
-          <p className="text-gray-600 mb-4">You need to be logged in to use the support chat.</p>
+          <MessageCircle className="w-16 h-16 text-muted mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-textMain mb-2">Please Log In</h2>
+          <p className="text-textSecondary mb-4">You need to be logged in to use the support chat.</p>
           <Button onClick={() => navigate('/auth')}>Go to Login</Button>
         </div>
       </div>
@@ -217,34 +217,34 @@ const Chatbot = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 p-4">
+        <div className="bg-surface rounded-base shadow-sm border border-muted mb-6 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate(-1)}
-                className="text-gray-600"
+                className="text-textSecondary"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <MessageCircle className="w-6 h-6 mr-2 text-blue-600" />
+                <h1 className="text-2xl font-bold text-textMain flex items-center">
+                  <MessageCircle className="w-6 h-6 mr-2 text-primary" />
                   Support Chat
                 </h1>
-                <p className="text-sm text-gray-500">Chat with our support team</p>
+                <p className="text-sm text-textSecondary">Chat with our support team</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Chat Window */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[600px]">
+        <div className="bg-surface rounded-base shadow-sm border border-muted flex flex-col h-[600px]">
           {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {loading ? (
@@ -254,8 +254,8 @@ const Chatbot = () => {
             ) : messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No messages yet. Start the conversation!</p>
+                  <MessageCircle className="w-12 h-12 text-muted mx-auto mb-4" />
+                  <p className="text-textSecondary">No messages yet. Start the conversation!</p>
                 </div>
               </div>
             ) : (
@@ -269,17 +269,17 @@ const Chatbot = () => {
                   >
                     <div className="flex flex-col max-w-[70%]">
                       <div
-                        className={`rounded-lg p-3 ${
+                        className={`rounded-base p-3 ${
                           isUser
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-900'
+                            ? 'bg-primary text-white'
+                            : 'bg-muted text-textMain'
                         }`}
                       >
                         <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                       </div>
                       <p
                         className={`text-xs mt-1 px-1 ${
-                          isUser ? 'text-right text-gray-500' : 'text-left text-gray-500'
+                          isUser ? 'text-right text-textSecondary' : 'text-left text-textSecondary'
                         }`}
                       >
                         {formatDate(message.createdAt)}
@@ -293,7 +293,7 @@ const Chatbot = () => {
           </div>
 
           {/* Message Input */}
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-muted p-4">
             <form onSubmit={sendMessage} className="flex gap-2">
               <textarea
                 value={newMessage}
@@ -305,7 +305,7 @@ const Chatbot = () => {
                   }
                 }}
                 rows={2}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                className="flex-1 px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary resize-none bg-surface"
                 placeholder="Type your message..."
                 disabled={sending}
               />
@@ -313,7 +313,7 @@ const Chatbot = () => {
                 type="submit"
                 loading={sending}
                 disabled={sending || !newMessage.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primaryDark"
               >
                 <Send className="w-4 h-4" />
               </Button>

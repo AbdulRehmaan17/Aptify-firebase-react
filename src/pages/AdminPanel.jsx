@@ -29,6 +29,8 @@ import {
   Clock,
   PlayCircle,
   Filter,
+  Star,
+  CreditCard,
 } from 'lucide-react';
 import {
   collection,
@@ -54,6 +56,8 @@ import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import notificationService from '../services/notificationService';
 import propertyService from '../services/propertyService';
+import reviewsService from '../services/reviewsService';
+import transactionService from '../services/transactionService';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -123,11 +127,178 @@ const AdminPanel = () => {
   });
   const [sendingNotifications, setSendingNotifications] = useState(false);
   const [notificationProgress, setNotificationProgress] = useState({ sent: 0, total: 0 });
+  const [allNotifications, setAllNotifications] = useState([]);
+  const [allNotificationsLoading, setAllNotificationsLoading] = useState(false);
+  const [notificationFilters, setNotificationFilters] = useState({
+    userId: '',
+    type: '',
+  });
+  const [deleteNotificationModalOpen, setDeleteNotificationModalOpen] = useState(false);
+  const [notificationToDelete, setNotificationToDelete] = useState(null);
+  const [allReviews, setAllReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewFilters, setReviewFilters] = useState({
+    targetType: '',
+    minRating: '',
+  });
+  const [deleteReviewModalOpen, setDeleteReviewModalOpen] = useState(false);
+  const [reviewToDelete, setReviewToDelete] = useState(null);
+  const [allTransactions, setAllTransactions] = useState([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
+  const [transactionFilters, setTransactionFilters] = useState({
+    status: '',
+    targetType: '',
+    userId: '',
+  });
+
+  // Fetch transactions when transactions tab is active
+  useEffect(() => {
+    if (activeTab !== 'transactions' || !db) return;
+
+    setTransactionsLoading(true);
+    const transactionsQuery = query(collection(db, 'transactions'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      transactionsQuery,
+      async (snapshot) => {
+        const transactionsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setAllTransactions(transactionsData);
+
+        // Fetch user names
+        const namePromises = transactionsData.map(async (transaction) => {
+          if (transaction.userId && !userNames[transaction.userId]) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', transaction.userId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                setUserNames((prev) => ({
+                  ...prev,
+                  [transaction.userId]: userData.name || userData.displayName || 'Unknown',
+                }));
+              }
+            } catch (error) {
+              console.error(`Error fetching user ${transaction.userId}:`, error);
+            }
+          }
+        });
+        await Promise.all(namePromises);
+
+        setTransactionsLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching transactions:', error);
+        if (error.code === 'failed-precondition') {
+          // Fallback without orderBy
+          const fallbackQuery = query(collection(db, 'transactions'));
+          const fallbackUnsubscribe = onSnapshot(
+            fallbackQuery,
+            async (snapshot) => {
+              const transactionsData = snapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+              }));
+              transactionsData.sort((a, b) => {
+                const aTime = a.createdAt?.toDate?.() || new Date(0);
+                const bTime = b.createdAt?.toDate?.() || new Date(0);
+                return bTime - aTime;
+              });
+              setAllTransactions(transactionsData);
+              setTransactionsLoading(false);
+            },
+            (fallbackError) => {
+              console.error('Error fetching transactions (fallback):', fallbackError);
+              setTransactionsLoading(false);
+            }
+          );
+          return () => fallbackUnsubscribe();
+        } else {
+          setTransactionsLoading(false);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [activeTab, db, userNames]);
+
+  // Fetch reviews when reviews tab is active
+  useEffect(() => {
+    if (activeTab !== 'reviews' || !db) return;
+
+    setReviewsLoading(true);
+    const reviewsQuery = query(collection(db, 'reviews'), orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(
+      reviewsQuery,
+      async (snapshot) => {
+        const reviewsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setAllReviews(reviewsData);
+
+        // Fetch reviewer names
+        const namePromises = reviewsData.map(async (review) => {
+          if (review.reviewerId && !userNames[review.reviewerId]) {
+            try {
+              const userDoc = await getDoc(doc(db, 'users', review.reviewerId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                setUserNames((prev) => ({
+                  ...prev,
+                  [review.reviewerId]: userData.name || userData.displayName || 'Unknown',
+                }));
+              }
+            } catch (error) {
+              console.error(`Error fetching user ${review.reviewerId}:`, error);
+            }
+          }
+        });
+        await Promise.all(namePromises);
+
+        setReviewsLoading(false);
+      },
+      (error) => {
+        console.error('Error fetching reviews:', error);
+        if (error.code === 'failed-precondition') {
+          // Fallback without orderBy
+          const fallbackQuery = query(collection(db, 'reviews'));
+          const fallbackUnsubscribe = onSnapshot(
+            fallbackQuery,
+            async (snapshot) => {
+              const reviewsData = snapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+              }));
+              reviewsData.sort((a, b) => {
+                const aTime = a.createdAt?.toDate?.() || new Date(0);
+                const bTime = b.createdAt?.toDate?.() || new Date(0);
+                return bTime - aTime;
+              });
+              setAllReviews(reviewsData);
+              setReviewsLoading(false);
+            },
+            (fallbackError) => {
+              console.error('Error fetching reviews (fallback):', fallbackError);
+              setReviewsLoading(false);
+            }
+          );
+          return () => fallbackUnsubscribe();
+        } else {
+          setReviewsLoading(false);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [activeTab, db, userNames]);
 
   // Show loading while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -136,13 +307,13 @@ const AdminPanel = () => {
   // Access denied if not logged in or not admin
   if (!user || !currentUser || currentUserRole !== 'admin') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-6">You do not have permission to access this page.</p>
+          <h1 className="text-3xl font-bold text-textMain mb-4">Access Denied</h1>
+          <p className="text-textSecondary mb-6">You do not have permission to access this page.</p>
           <Link
             to="/auth"
-            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-block px-6 py-3 bg-primary text-white rounded-base hover:bg-primaryDark transition-colors"
           >
             Go to Login
           </Link>
@@ -158,9 +329,12 @@ const AdminPanel = () => {
     { key: 'providers', label: 'Manage Providers', icon: Building2 },
     { key: 'properties', label: 'Manage Properties', icon: Home },
     { key: 'requests', label: 'Manage Requests', icon: FileText },
+    { key: 'reviews', label: 'Manage Reviews', icon: Star },
+    { key: 'transactions', label: 'Transactions', icon: CreditCard },
     { key: 'support-messages', label: 'Support Messages', icon: MessageSquare },
     { key: 'support-chats', label: 'Support Chats', icon: MessageCircle },
     { key: 'notifications', label: 'Send Notifications', icon: Bell },
+    { key: 'manage-notifications', label: 'Manage Notifications', icon: Bell },
   ];
 
   // Fetch platform statistics
@@ -1025,11 +1199,11 @@ const AdminPanel = () => {
       }
 
       // Create notification for provider
-      await notificationService.create(
+      await notificationService.sendNotification(
         provider.userId,
         'Provider Application Approved',
         `Congratulations! Your ${provider.serviceType} provider application has been approved. You can now start receiving project requests.`,
-        'success',
+        'status-update',
         provider.serviceType === 'Construction' ? '/constructor-dashboard' : '/renovator-dashboard'
       );
 
@@ -1060,11 +1234,11 @@ const AdminPanel = () => {
       });
 
       // Create notification for provider
-      await notificationService.create(
+      await notificationService.sendNotification(
         selectedProvider.userId,
         'Provider Application Rejected',
         `Your ${selectedProvider.serviceType} provider application has been rejected.${rejectReason.trim() ? ` Reason: ${rejectReason.trim()}` : ''}`,
-        'error',
+        'status-update',
         null
       );
 
@@ -1242,22 +1416,22 @@ const AdminPanel = () => {
           link = '/renovator-dashboard';
         }
 
-        await notificationService.create(
+        await notificationService.sendNotification(
           request.userId,
           title,
           `Your ${request.requestType.toLowerCase()} request ${message}.`,
-          notificationType,
+          'status-update',
           link
         );
       }
 
       // Notify provider (if construction/renovation project)
       if (request.providerId && (request.requestType === 'Construction' || request.requestType === 'Renovation')) {
-        await notificationService.create(
+        await notificationService.sendNotification(
           request.providerId,
           `${request.requestType} Project Status Updated`,
           `A ${request.requestType.toLowerCase()} project assigned to you ${message}.`,
-          notificationType,
+          'status-update',
           request.requestType === 'Construction' ? '/constructor-dashboard' : '/renovator-dashboard'
         );
       }
@@ -1272,6 +1446,78 @@ const AdminPanel = () => {
   };
 
   // Filter requests based on filters
+  // Fetch all notifications for manage-notifications tab
+  useEffect(() => {
+    if (activeTab !== 'manage-notifications' || !db) return;
+
+    setAllNotificationsLoading(true);
+    try {
+      const notificationsQuery = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'));
+
+      const unsubscribe = onSnapshot(
+        notificationsQuery,
+        (snapshot) => {
+          const notifs = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setAllNotifications(notifs);
+          setAllNotificationsLoading(false);
+        },
+        (error) => {
+          console.error('Error fetching notifications:', error);
+          if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+            const fallbackQuery = query(collection(db, 'notifications'));
+            const fallbackUnsubscribe = onSnapshot(
+              fallbackQuery,
+              (snapshot) => {
+                const notifs = snapshot.docs.map((doc) => ({
+                  id: doc.id,
+                  ...doc.data(),
+                }));
+                notifs.sort((a, b) => {
+                  const aTime = a.createdAt?.toDate?.() || new Date(0);
+                  const bTime = b.createdAt?.toDate?.() || new Date(0);
+                  return bTime - aTime;
+                });
+                setAllNotifications(notifs);
+                setAllNotificationsLoading(false);
+              },
+              (fallbackError) => {
+                console.error('Error fetching notifications (fallback):', fallbackError);
+                setAllNotificationsLoading(false);
+              }
+            );
+            return () => fallbackUnsubscribe();
+          } else {
+            setAllNotificationsLoading(false);
+          }
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error setting up notifications listener:', error);
+      setAllNotificationsLoading(false);
+    }
+  }, [activeTab]);
+
+  const getFilteredNotifications = () => {
+    let filtered = [...allNotifications];
+
+    if (notificationFilters.userId.trim()) {
+      filtered = filtered.filter((n) =>
+        n.userId?.toLowerCase().includes(notificationFilters.userId.toLowerCase())
+      );
+    }
+
+    if (notificationFilters.type) {
+      filtered = filtered.filter((n) => n.type === notificationFilters.type);
+    }
+
+    return filtered;
+  };
+
   const getFilteredRequests = () => {
     let filtered = allRequests;
 
@@ -1327,12 +1573,12 @@ const AdminPanel = () => {
       });
 
       // Create notification for user
-      await notificationService.create(
+      await notificationService.sendNotification(
         selectedMessage.userId,
         'Support Message Reply',
         `An admin has replied to your support message: "${selectedMessage.subject}".`,
-        'info',
-        '/support'
+        'admin',
+        '/my-account'
       );
 
       toast.success('Reply sent successfully');
@@ -1413,11 +1659,11 @@ const AdminPanel = () => {
       });
 
       // Create notification for user
-      await notificationService.create(
+      await notificationService.sendNotification(
         chatUserId,
         'New Support Chat Message',
         `You have a new message from support: "${newMessageText.trim().substring(0, 50)}${newMessageText.trim().length > 50 ? '...' : ''}"`,
-        'info',
+        'admin',
         '/chatbot'
       );
 
@@ -1496,7 +1742,7 @@ const AdminPanel = () => {
             userId,
             title: notificationForm.title.trim(),
             message: notificationForm.message.trim(),
-            type: 'info',
+            type: 'admin',
             read: false,
             link: null,
             createdAt: serverTimestamp(),
@@ -1525,7 +1771,7 @@ const AdminPanel = () => {
       return (
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Overview</h2>
+            <h2 className="text-2xl font-bold text-textMain">Overview</h2>
             <Button
               onClick={fetchStats}
               disabled={statsLoading}
@@ -1546,60 +1792,60 @@ const AdminPanel = () => {
             <>
               {/* Stat Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
+                <div className="bg-surface rounded-lg border border-muted shadow-sm hover:shadow-md transition p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-blue-600 mb-1">Total Users</p>
-                      <p className="text-3xl font-bold text-blue-900">{stats.users}</p>
+                      <p className="text-sm font-medium text-textSecondary mb-1">Total Users</p>
+                      <p className="text-primary font-bold text-3xl">{stats.users}</p>
                     </div>
-                    <Users className="w-10 h-10 text-blue-500 opacity-50" />
+                    <Users className="w-10 h-10 text-primary opacity-50" />
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200">
+                <div className="bg-surface rounded-lg border border-muted shadow-sm hover:shadow-md transition p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-green-600 mb-1">Properties</p>
-                      <p className="text-3xl font-bold text-green-900">{stats.properties}</p>
+                      <p className="text-sm font-medium text-textSecondary mb-1">Properties</p>
+                      <p className="text-primary font-bold text-3xl">{stats.properties}</p>
                     </div>
-                    <Home className="w-10 h-10 text-green-500 opacity-50" />
+                    <Home className="w-10 h-10 text-primary opacity-50" />
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border border-purple-200">
+                <div className="bg-surface rounded-lg border border-muted shadow-sm hover:shadow-md transition p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-purple-600 mb-1">Providers</p>
-                      <p className="text-3xl font-bold text-purple-900">{stats.providers}</p>
+                      <p className="text-sm font-medium text-textSecondary mb-1">Providers</p>
+                      <p className="text-primary font-bold text-3xl">{stats.providers}</p>
                     </div>
-                    <Building2 className="w-10 h-10 text-purple-500 opacity-50" />
+                    <Building2 className="w-10 h-10 text-primary opacity-50" />
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-6 border border-orange-200">
+                <div className="bg-surface rounded-lg border border-muted shadow-sm hover:shadow-md transition p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-orange-600 mb-1">Requests</p>
-                      <p className="text-3xl font-bold text-orange-900">{stats.requests}</p>
+                      <p className="text-sm font-medium text-textSecondary mb-1">Requests</p>
+                      <p className="text-primary font-bold text-3xl">{stats.requests}</p>
                     </div>
-                    <FileText className="w-10 h-10 text-orange-500 opacity-50" />
+                    <FileText className="w-10 h-10 text-primary opacity-50" />
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-lg p-6 border border-pink-200 md:col-span-2 lg:col-span-1">
+                <div className="bg-surface rounded-lg border border-muted shadow-sm hover:shadow-md transition p-6 md:col-span-2 lg:col-span-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-pink-600 mb-1">Support Messages</p>
-                      <p className="text-3xl font-bold text-pink-900">{stats.supportChats}</p>
+                      <p className="text-sm font-medium text-textSecondary mb-1">Support Messages</p>
+                      <p className="text-primary font-bold text-3xl">{stats.supportChats}</p>
                     </div>
-                    <MessageSquare className="w-10 h-10 text-pink-500 opacity-50" />
+                    <MessageSquare className="w-10 h-10 text-primary opacity-50" />
                   </div>
                 </div>
               </div>
 
               {/* Chart */}
-              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Platform Statistics</h3>
+              <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
+                <h3 className="text-lg font-semibold text-textMain mb-4">Platform Statistics</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={[
@@ -1629,67 +1875,67 @@ const AdminPanel = () => {
     if (activeTab === 'users') {
       return (
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Manage Users</h2>
+          <h2 className="text-2xl font-bold text-textMain mb-6">Manage Users</h2>
 
           {usersLoading ? (
             <div className="flex items-center justify-center py-12">
               <LoadingSpinner size="lg" />
             </div>
           ) : users.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No users found</p>
+            <div className="bg-surface rounded-lg shadow p-8 text-center">
+              <Users className="w-16 h-16 text-muted mx-auto mb-4" />
+              <p className="text-textSecondary">No users found</p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-surface rounded-lg shadow-sm border border-muted overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-muted">
+                  <thead className="bg-background">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Name
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Email
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Role
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Created At
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-surface divide-y divide-muted">
                     {users.map((userItem) => {
                       const isCurrentUser = userItem.id === currentUser?.uid;
                       const isAdmin = userItem.role === 'admin';
 
                       return (
-                        <tr key={userItem.id} className="hover:bg-gray-50">
+                        <tr key={userItem.id} className="hover:bg-background">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-textMain">
                               {userItem.name || userItem.displayName || 'N/A'}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{userItem.email || 'N/A'}</div>
+                            <div className="text-sm text-textSecondary">{userItem.email || 'N/A'}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
                               className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                 isAdmin
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-gray-100 text-gray-800'
+                                  ? 'bg-accent/20 text-accent'
+                                  : 'bg-muted text-textMain'
                               }`}
                             >
                               {userItem.role || 'customer'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
                             {formatDate(userItem.createdAt)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -1700,7 +1946,7 @@ const AdminPanel = () => {
                                   variant="outline"
                                   onClick={() => handlePromoteToAdmin(userItem.id)}
                                   disabled={processing}
-                                  className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                                  className="text-primary border-primary hover:bg-primary"
                                 >
                                   <Shield className="w-4 h-4 mr-1" />
                                   Promote
@@ -1713,7 +1959,7 @@ const AdminPanel = () => {
                                   disabled={processing || isCurrentUser}
                                   className={`${
                                     isCurrentUser
-                                      ? 'text-gray-400 border-gray-200 cursor-not-allowed'
+                                      ? 'text-muted border-muted cursor-not-allowed'
                                       : 'text-orange-600 border-orange-300 hover:bg-orange-50'
                                   }`}
                                   title={isCurrentUser ? 'You cannot demote yourself' : 'Demote to customer'}
@@ -1732,8 +1978,8 @@ const AdminPanel = () => {
                                 disabled={processing || isCurrentUser}
                                 className={`${
                                   isCurrentUser
-                                    ? 'text-gray-400 border-gray-200 cursor-not-allowed'
-                                    : 'text-red-600 border-red-300 hover:bg-red-50'
+                                    ? 'text-textSecondary border-muted cursor-not-allowed'
+                                    : 'text-error border-error hover:bg-error'
                                 }`}
                                 title={isCurrentUser ? 'You cannot delete yourself' : 'Delete user'}
                               >
@@ -1761,12 +2007,12 @@ const AdminPanel = () => {
             size="md"
           >
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-textSecondary">
                 Are you sure you want to delete user{' '}
                 <strong>{userToDelete?.name || userToDelete?.email || 'this user'}</strong>?
               </p>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800">
+              <div className="bg-accent border border-accent rounded-lg p-4">
+                <p className="text-sm text-accent">
                   <strong>Warning:</strong> This action cannot be undone. The user's account will be permanently
                   deleted. User content (properties, requests, etc.) will not be automatically deleted and should be
                   reviewed separately.
@@ -1802,16 +2048,16 @@ const AdminPanel = () => {
     if (activeTab === 'providers') {
       return (
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Manage Providers</h2>
+          <h2 className="text-2xl font-bold text-textMain mb-6">Manage Providers</h2>
 
           {providersLoading ? (
             <div className="flex items-center justify-center py-12">
               <LoadingSpinner size="lg" />
             </div>
           ) : providers.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No providers found</p>
+            <div className="bg-surface rounded-lg shadow p-8 text-center">
+              <Building2 className="w-16 h-16 text-muted mx-auto mb-4" />
+              <p className="text-textSecondary">No providers found</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1823,19 +2069,19 @@ const AdminPanel = () => {
                 return (
                   <div
                     key={provider.id}
-                    className={`bg-white rounded-lg shadow-sm border-2 ${
-                      isApproved ? 'border-green-200' : 'border-yellow-200'
+                    className={`bg-surface rounded-lg shadow-sm border-2 ${
+                      isApproved ? 'border-primary/30' : 'border-accent/30'
                     } p-6`}
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{provider.name}</h3>
+                          <h3 className="text-lg font-semibold text-textMain">{provider.name}</h3>
                           <span
                             className={`px-2 py-1 text-xs font-medium rounded-full ${
                               isApproved
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                                ? 'bg-primary/20 text-primary'
+                                : 'bg-accent text-accent'
                             }`}
                           >
                             {isApproved ? 'Approved' : 'Pending'}
@@ -1843,14 +2089,14 @@ const AdminPanel = () => {
                           <span
                             className={`px-2 py-1 text-xs font-medium rounded-full ${
                               provider.serviceType === 'Construction'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-purple-100 text-purple-800'
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-primary text-primary'
                             }`}
                           >
                             {provider.serviceType || 'N/A'}
                           </span>
                         </div>
-                        <div className="space-y-2 text-sm text-gray-600">
+                        <div className="space-y-2 text-sm text-textSecondary">
                           {provider.city && (
                             <div className="flex items-center gap-2">
                               <MapPin className="w-4 h-4" />
@@ -1884,18 +2130,18 @@ const AdminPanel = () => {
                         </div>
                         {specialization.length > 0 && (
                           <div className="mt-3">
-                            <p className="text-xs font-medium text-gray-500 mb-1">Specialization:</p>
+                            <p className="text-xs font-medium text-textSecondary mb-1">Specialization:</p>
                             <div className="flex flex-wrap gap-1">
                               {specialization.slice(0, 3).map((spec, idx) => (
                                 <span
                                   key={idx}
-                                  className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
+                                  className="px-2 py-1 text-xs bg-muted text-textSecondary rounded-base"
                                 >
                                   {spec}
                                 </span>
                               ))}
                               {specialization.length > 3 && (
-                                <span className="px-2 py-1 text-xs text-gray-500">
+                                <span className="px-2 py-1 text-xs text-textSecondary">
                                   +{specialization.length - 3} more
                                 </span>
                               )}
@@ -1904,7 +2150,7 @@ const AdminPanel = () => {
                         )}
                         {portfolioLinks.length > 0 && (
                           <div className="mt-3">
-                            <p className="text-xs font-medium text-gray-500 mb-1">Portfolio Links:</p>
+                            <p className="text-xs font-medium text-textSecondary mb-1">Portfolio Links:</p>
                             <div className="flex flex-wrap gap-2">
                               {portfolioLinks.slice(0, 2).map((link, idx) => (
                                 <a
@@ -1912,7 +2158,7 @@ const AdminPanel = () => {
                                   href={link}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                  className="text-xs text-primary hover:text-primary flex items-center gap-1"
                                 >
                                   <ExternalLink className="w-3 h-3" />
                                   Portfolio {idx + 1}
@@ -1924,7 +2170,7 @@ const AdminPanel = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex items-center gap-2 mt-4 pt-4 border-t border-muted">
                       <Button
                         size="sm"
                         variant="outline"
@@ -1932,7 +2178,7 @@ const AdminPanel = () => {
                           setSelectedProvider(provider);
                           setViewProfileModalOpen(true);
                         }}
-                        className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                        className="text-primary border-primary/30 hover:bg-primary/10"
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         View Profile
@@ -1944,7 +2190,7 @@ const AdminPanel = () => {
                             variant="outline"
                             onClick={() => handleApproveProvider(provider)}
                             disabled={processing}
-                            className="text-green-600 border-green-300 hover:bg-green-50 flex-1"
+                            className="text-primary border-primary/30 hover:bg-primary/10 flex-1"
                           >
                             <CheckCircle className="w-4 h-4 mr-1" />
                             Approve
@@ -1957,7 +2203,7 @@ const AdminPanel = () => {
                               setRejectModalOpen(true);
                             }}
                             disabled={processing}
-                            className="text-red-600 border-red-300 hover:bg-red-50"
+                            className="text-error border-error hover:bg-error"
                           >
                             <XCircle className="w-4 h-4 mr-1" />
                             Reject
@@ -1999,33 +2245,33 @@ const AdminPanel = () => {
               <div className="space-y-6">
                 {/* Basic Info */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Basic Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Name</p>
-                      <p className="text-gray-900">{selectedProvider.name}</p>
+                      <p className="text-sm font-medium text-textSecondary">Name</p>
+                      <p className="text-textMain">{selectedProvider.name}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Service Type</p>
-                      <p className="text-gray-900">{selectedProvider.serviceType || 'N/A'}</p>
+                      <p className="text-sm font-medium text-textSecondary">Service Type</p>
+                      <p className="text-textMain">{selectedProvider.serviceType || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">City</p>
-                      <p className="text-gray-900">{selectedProvider.city || 'N/A'}</p>
+                      <p className="text-sm font-medium text-textSecondary">City</p>
+                      <p className="text-textMain">{selectedProvider.city || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Experience</p>
-                      <p className="text-gray-900">
+                      <p className="text-sm font-medium text-textSecondary">Experience</p>
+                      <p className="text-textMain">
                         {selectedProvider.experience || selectedProvider.experienceYears || 0} years
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Phone</p>
-                      <p className="text-gray-900">{selectedProvider.phone || 'N/A'}</p>
+                      <p className="text-sm font-medium text-textSecondary">Phone</p>
+                      <p className="text-textMain">{selectedProvider.phone || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Email</p>
-                      <p className="text-gray-900">{selectedProvider.email || 'N/A'}</p>
+                      <p className="text-sm font-medium text-textSecondary">Email</p>
+                      <p className="text-textMain">{selectedProvider.email || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -2033,21 +2279,21 @@ const AdminPanel = () => {
                 {/* Bio */}
                 {selectedProvider.bio && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Bio</h3>
-                    <p className="text-gray-700">{selectedProvider.bio}</p>
+                    <h3 className="text-lg font-semibold text-textMain mb-2">Bio</h3>
+                    <p className="text-textSecondary">{selectedProvider.bio}</p>
                   </div>
                 )}
 
                 {/* Specialization */}
                 {(selectedProvider.specialization || selectedProvider.expertise) && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Specialization</h3>
+                    <h3 className="text-lg font-semibold text-textMain mb-2">Specialization</h3>
                     <div className="flex flex-wrap gap-2">
                       {(selectedProvider.specialization || selectedProvider.expertise || []).map(
                         (spec, idx) => (
                           <span
                             key={idx}
-                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                            className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
                           >
                             {spec}
                           </span>
@@ -2060,7 +2306,7 @@ const AdminPanel = () => {
                 {/* Portfolio Links */}
                 {selectedProvider.portfolioLinks && selectedProvider.portfolioLinks.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Portfolio Links</h3>
+                    <h3 className="text-lg font-semibold text-textMain mb-2">Portfolio Links</h3>
                     <div className="space-y-2">
                       {selectedProvider.portfolioLinks.map((link, idx) => (
                         <a
@@ -2068,7 +2314,7 @@ const AdminPanel = () => {
                           href={link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-blue-600 hover:text-blue-800"
+                          className="flex items-center gap-2 text-primary hover:text-primary"
                         >
                           <ExternalLink className="w-4 h-4" />
                           {link}
@@ -2080,16 +2326,16 @@ const AdminPanel = () => {
 
                 {/* Documents */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Documents</h3>
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Documents</h3>
                   <div className="space-y-4">
                     {selectedProvider.cnicUrl && (
                       <div>
-                        <p className="text-sm font-medium text-gray-500 mb-2">CNIC</p>
+                        <p className="text-sm font-medium text-textSecondary mb-2">CNIC</p>
                         <a
                           href={selectedProvider.cnicUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800"
+                          className="inline-flex items-center gap-2 text-primary hover:text-primary"
                         >
                           <ExternalLink className="w-4 h-4" />
                           View CNIC Document
@@ -2098,11 +2344,11 @@ const AdminPanel = () => {
                     )}
                     {selectedProvider.profileImageUrl && (
                       <div>
-                        <p className="text-sm font-medium text-gray-500 mb-2">Profile Image</p>
+                        <p className="text-sm font-medium text-textSecondary mb-2">Profile Image</p>
                         <img
                           src={selectedProvider.profileImageUrl}
                           alt="Profile"
-                          className="w-32 h-32 object-cover rounded-lg border border-gray-200"
+                          className="w-32 h-32 object-cover rounded-lg border border-muted"
                         />
                       </div>
                     )}
@@ -2111,13 +2357,13 @@ const AdminPanel = () => {
 
                 {/* Status */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Status</h3>
+                  <h3 className="text-lg font-semibold text-textMain mb-2">Status</h3>
                   <div className="flex items-center gap-2">
                     <span
                       className={`px-3 py-1 text-sm font-medium rounded-full ${
                         selectedProvider.isApproved || selectedProvider.approved
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
+                          ? 'bg-primary/20 text-primary'
+                          : 'bg-accent/20 text-accent'
                       }`}
                     >
                       {selectedProvider.isApproved || selectedProvider.approved
@@ -2125,12 +2371,12 @@ const AdminPanel = () => {
                         : 'Pending Approval'}
                     </span>
                     {selectedProvider.approvedAt && (
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-textSecondary">
                         Approved: {formatDate(selectedProvider.approvedAt)}
                       </span>
                     )}
                     {selectedProvider.rejectedReason && (
-                      <span className="text-sm text-red-600">
+                      <span className="text-sm text-error">
                         Rejected: {selectedProvider.rejectedReason}
                       </span>
                     )}
@@ -2152,20 +2398,20 @@ const AdminPanel = () => {
             size="md"
           >
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-textSecondary">
                 {selectedProvider?.isApproved
                   ? `Are you sure you want to revoke approval for ${selectedProvider?.name}?`
                   : `Are you sure you want to reject ${selectedProvider?.name}'s application?`}
               </p>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   Reason (Optional)
                 </label>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-red-500 focus:border-error resize-none"
                   placeholder="Enter reason for rejection..."
                 />
               </div>
@@ -2202,13 +2448,13 @@ const AdminPanel = () => {
 
       return (
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Manage Properties</h2>
+          <h2 className="text-2xl font-bold text-textMain mb-6">Manage Properties</h2>
 
           {/* Search/Filter */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="bg-surface rounded-lg shadow-sm border border-muted p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   <Search className="w-4 h-4 inline mr-1" />
                   Filter by City
                 </label>
@@ -2222,7 +2468,7 @@ const AdminPanel = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   <Mail className="w-4 h-4 inline mr-1" />
                   Filter by Owner Email
                 </label>
@@ -2254,83 +2500,83 @@ const AdminPanel = () => {
               <LoadingSpinner size="lg" />
             </div>
           ) : filteredProperties.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">
+            <div className="bg-surface rounded-lg shadow p-8 text-center">
+              <Home className="w-16 h-16 text-muted mx-auto mb-4" />
+              <p className="text-textSecondary">
                 {properties.length === 0
                   ? 'No properties found'
                   : 'No properties match your search criteria'}
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-surface rounded-lg shadow-sm border border-muted overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-muted">
+                  <thead className="bg-background">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Property
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Owner
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         City
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Price
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Created
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-surface divide-y divide-muted">
                     {filteredProperties.map((property) => {
                       const isSuspended = property.status === 'suspended';
                       const city = property.address?.city || property.city || 'N/A';
                       const ownerEmail = ownerEmails[property.ownerId] || 'Loading...';
 
                       return (
-                        <tr key={property.id} className="hover:bg-gray-50">
+                        <tr key={property.id} className="hover:bg-background">
                           <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-900">{property.title}</div>
-                            <div className="text-xs text-gray-500 mt-1">
+                            <div className="text-sm font-medium text-textMain">{property.title}</div>
+                            <div className="text-xs text-textSecondary mt-1">
                               {property.type || 'N/A'} • ID: {property.id.substring(0, 8)}...
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{ownerEmail}</div>
-                            <div className="text-xs text-gray-400">
+                            <div className="text-sm text-textSecondary">{ownerEmail}</div>
+                            <div className="text-xs text-textSecondary">
                               {property.ownerName || property.ownerId.substring(0, 8)}...
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
                             {city}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-textMain">
                             {formatPrice(property.price)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 isSuspended
-                                  ? 'bg-red-100 text-red-800'
+                                  ? 'bg-error text-error'
                                   : property.status === 'published'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-yellow-100 text-yellow-800'
+                                    ? 'bg-primary/20 text-primary'
+                                    : 'bg-accent text-accent'
                               }`}
                             >
                               {property.status || 'pending'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
                             {formatDate(property.createdAt)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -2342,7 +2588,7 @@ const AdminPanel = () => {
                                   setSelectedProperty(property);
                                   setViewPropertyModalOpen(true);
                                 }}
-                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                className="text-primary border-primary/30 hover:bg-primary/10"
                               >
                                 <Eye className="w-4 h-4 mr-1" />
                                 View
@@ -2354,8 +2600,8 @@ const AdminPanel = () => {
                                 disabled={processing}
                                 className={
                                   isSuspended
-                                    ? 'text-green-600 border-green-300 hover:bg-green-50'
-                                    : 'text-orange-600 border-orange-300 hover:bg-orange-50'
+                                    ? 'text-primary border-primary/30 hover:bg-primary/10'
+                                    : 'text-accent border-accent/30 hover:bg-accent/10'
                                 }
                               >
                                 {isSuspended ? (
@@ -2378,7 +2624,7 @@ const AdminPanel = () => {
                                   setDeletePropertyModalOpen(true);
                                 }}
                                 disabled={processing}
-                                className="text-red-600 border-red-300 hover:bg-red-50"
+                                className="text-error border-error hover:bg-error"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -2408,16 +2654,16 @@ const AdminPanel = () => {
                 {/* Images */}
                 {(selectedProperty.photos?.length > 0 || selectedProperty.coverImage) && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Images</h3>
+                    <h3 className="text-lg font-semibold text-textMain mb-3">Images</h3>
                     <div className="grid grid-cols-2 gap-4">
                       {selectedProperty.coverImage && (
                         <div>
                           <img
                             src={selectedProperty.coverImage}
                             alt="Cover"
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                            className="w-full h-48 object-cover rounded-lg border border-muted"
                           />
-                          <p className="text-xs text-gray-500 mt-1">Cover Image</p>
+                          <p className="text-xs text-textSecondary mt-1">Cover Image</p>
                         </div>
                       )}
                       {selectedProperty.photos?.slice(0, 3).map((photo, idx) => (
@@ -2425,13 +2671,13 @@ const AdminPanel = () => {
                           <img
                             src={photo}
                             alt={`Property ${idx + 1}`}
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                            className="w-full h-48 object-cover rounded-lg border border-muted"
                           />
                         </div>
                       ))}
                     </div>
                     {selectedProperty.photos?.length > 4 && (
-                      <p className="text-sm text-gray-500 mt-2">
+                      <p className="text-sm text-textSecondary mt-2">
                         +{selectedProperty.photos.length - 4} more images
                       </p>
                     )}
@@ -2440,67 +2686,67 @@ const AdminPanel = () => {
 
                 {/* Basic Info */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Basic Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Title</p>
-                      <p className="text-gray-900">{selectedProperty.title}</p>
+                      <p className="text-sm font-medium text-textSecondary">Title</p>
+                      <p className="text-textMain">{selectedProperty.title}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Type</p>
-                      <p className="text-gray-900 capitalize">{selectedProperty.type || 'N/A'}</p>
+                      <p className="text-sm font-medium text-textSecondary">Type</p>
+                      <p className="text-textMain capitalize">{selectedProperty.type || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Price</p>
-                      <p className="text-gray-900">{formatPrice(selectedProperty.price)}</p>
+                      <p className="text-sm font-medium text-textSecondary">Price</p>
+                      <p className="text-textMain">{formatPrice(selectedProperty.price)}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Status</p>
+                      <p className="text-sm font-medium text-textSecondary">Status</p>
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${
                           selectedProperty.status === 'suspended'
-                            ? 'bg-red-100 text-red-800'
+                            ? 'bg-error text-error'
                             : selectedProperty.status === 'published'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              ? 'bg-primary/20 text-primary'
+                              : 'bg-accent/20 text-accent'
                         }`}
                       >
                         {selectedProperty.status || 'pending'}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">City</p>
-                      <p className="text-gray-900">
+                      <p className="text-sm font-medium text-textSecondary">City</p>
+                      <p className="text-textMain">
                         {selectedProperty.address?.city || selectedProperty.city || 'N/A'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Address</p>
-                      <p className="text-gray-900">
+                      <p className="text-sm font-medium text-textSecondary">Address</p>
+                      <p className="text-textMain">
                         {selectedProperty.address?.line1 || selectedProperty.address || 'N/A'}
                       </p>
                     </div>
                     {selectedProperty.bedrooms && (
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Bedrooms</p>
-                        <p className="text-gray-900">{selectedProperty.bedrooms}</p>
+                        <p className="text-sm font-medium text-textSecondary">Bedrooms</p>
+                        <p className="text-textMain">{selectedProperty.bedrooms}</p>
                       </div>
                     )}
                     {selectedProperty.bathrooms && (
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Bathrooms</p>
-                        <p className="text-gray-900">{selectedProperty.bathrooms}</p>
+                        <p className="text-sm font-medium text-textSecondary">Bathrooms</p>
+                        <p className="text-textMain">{selectedProperty.bathrooms}</p>
                       </div>
                     )}
                     {selectedProperty.areaSqFt && (
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Area</p>
-                        <p className="text-gray-900">{selectedProperty.areaSqFt} sq ft</p>
+                        <p className="text-sm font-medium text-textSecondary">Area</p>
+                        <p className="text-textMain">{selectedProperty.areaSqFt} sq ft</p>
                       </div>
                     )}
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Created</p>
-                      <p className="text-gray-900">{formatDate(selectedProperty.createdAt)}</p>
+                      <p className="text-sm font-medium text-textSecondary">Created</p>
+                      <p className="text-textMain">{formatDate(selectedProperty.createdAt)}</p>
                     </div>
                   </div>
                 </div>
@@ -2508,29 +2754,29 @@ const AdminPanel = () => {
                 {/* Description */}
                 {selectedProperty.description && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
-                    <p className="text-gray-700 whitespace-pre-wrap">{selectedProperty.description}</p>
+                    <h3 className="text-lg font-semibold text-textMain mb-2">Description</h3>
+                    <p className="text-textSecondary whitespace-pre-wrap">{selectedProperty.description}</p>
                   </div>
                 )}
 
                 {/* Owner Info */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Owner Information</h3>
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Owner Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Email</p>
-                      <p className="text-gray-900">{ownerEmails[selectedProperty.ownerId] || 'N/A'}</p>
+                      <p className="text-sm font-medium text-textSecondary">Email</p>
+                      <p className="text-textMain">{ownerEmails[selectedProperty.ownerId] || 'N/A'}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Name</p>
-                      <p className="text-gray-900">
+                      <p className="text-sm font-medium text-textSecondary">Name</p>
+                      <p className="text-textMain">
                         {selectedProperty.ownerName || selectedProperty.ownerId || 'N/A'}
                       </p>
                     </div>
                     {selectedProperty.ownerPhone && (
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Phone</p>
-                        <p className="text-gray-900">{selectedProperty.ownerPhone}</p>
+                        <p className="text-sm font-medium text-textSecondary">Phone</p>
+                        <p className="text-textMain">{selectedProperty.ownerPhone}</p>
                       </div>
                     )}
                   </div>
@@ -2539,12 +2785,12 @@ const AdminPanel = () => {
                 {/* Amenities */}
                 {selectedProperty.amenities?.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Amenities</h3>
+                    <h3 className="text-lg font-semibold text-textMain mb-2">Amenities</h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedProperty.amenities.map((amenity, idx) => (
                         <span
                           key={idx}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                          className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
                         >
                           {amenity}
                         </span>
@@ -2567,12 +2813,12 @@ const AdminPanel = () => {
             size="md"
           >
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-textSecondary">
                 Are you sure you want to delete property{' '}
                 <strong>{propertyToDelete?.title || 'this property'}</strong>?
               </p>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-sm text-red-800">
+              <div className="bg-error border border-error rounded-lg p-4">
+                <p className="text-sm text-error">
                   <strong>Warning:</strong> This action cannot be undone. The property will be
                   permanently deleted from the system. The owner will be notified.
                 </p>
@@ -2609,13 +2855,13 @@ const AdminPanel = () => {
 
       return (
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Manage Requests</h2>
+          <h2 className="text-2xl font-bold text-textMain mb-6">Manage Requests</h2>
 
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="bg-surface rounded-lg shadow-sm border border-muted p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   <Filter className="w-4 h-4 inline mr-1" />
                   Request Type
                 </label>
@@ -2624,7 +2870,7 @@ const AdminPanel = () => {
                   onChange={(e) =>
                     setRequestFilters((prev) => ({ ...prev, type: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   <option value="">All Types</option>
                   <option value="Rental">Rental</option>
@@ -2634,13 +2880,13 @@ const AdminPanel = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <label className="block text-sm font-medium text-textSecondary mb-2">Status</label>
                 <select
                   value={requestFilters.status}
                   onChange={(e) =>
                     setRequestFilters((prev) => ({ ...prev, status: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   <option value="">All Statuses</option>
                   <option value="Pending">Pending</option>
@@ -2653,7 +2899,7 @@ const AdminPanel = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                <label className="block text-sm font-medium text-textSecondary mb-2">Start Date</label>
                 <Input
                   type="date"
                   value={requestFilters.startDate}
@@ -2663,7 +2909,7 @@ const AdminPanel = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                <label className="block text-sm font-medium text-textSecondary mb-2">End Date</label>
                 <Input
                   type="date"
                   value={requestFilters.endDate}
@@ -2696,41 +2942,41 @@ const AdminPanel = () => {
               <LoadingSpinner size="lg" />
             </div>
           ) : filteredRequests.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">
+            <div className="bg-surface rounded-lg shadow p-8 text-center">
+              <FileText className="w-16 h-16 text-textSecondary mx-auto mb-4" />
+              <p className="text-textSecondary">
                 {allRequests.length === 0
                   ? 'No requests found'
                   : 'No requests match your filter criteria'}
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-surface rounded-lg shadow-sm border border-muted overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-muted">
+                  <thead className="bg-background">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Type
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Requester
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Target
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Created
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-surface divide-y divide-muted">
                     {filteredRequests.map((request) => {
                       const requesterName = userNames[request.userId] || 'Loading...';
                       const targetName =
@@ -2743,26 +2989,26 @@ const AdminPanel = () => {
                           case 'Accepted':
                           case 'Approved':
                           case 'Completed':
-                            return 'bg-green-100 text-green-800';
+                            return 'bg-primary/20 text-primary';
                           case 'Rejected':
                           case 'Cancelled':
-                            return 'bg-red-100 text-red-800';
+                            return 'bg-error text-error';
                           case 'In Progress':
-                            return 'bg-blue-100 text-blue-800';
+                            return 'bg-primary/10 text-primary';
                           default:
-                            return 'bg-yellow-100 text-yellow-800';
+                            return 'bg-accent text-accent';
                         }
                       };
 
                       return (
-                        <tr key={`${request.collection}-${request.id}`} className="hover:bg-gray-50">
+                        <tr key={`${request.collection}-${request.id}`} className="hover:bg-background">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 request.requestType === 'Rental'
-                                  ? 'bg-blue-100 text-blue-800'
+                                  ? 'bg-primary/10 text-primary'
                                   : request.requestType === 'Buy/Sell'
-                                    ? 'bg-purple-100 text-purple-800'
+                                    ? 'bg-primary text-primary'
                                     : request.requestType === 'Construction'
                                       ? 'bg-orange-100 text-orange-800'
                                       : 'bg-pink-100 text-pink-800'
@@ -2772,12 +3018,12 @@ const AdminPanel = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{requesterName}</div>
-                            <div className="text-xs text-gray-500">{request.userId?.substring(0, 8)}...</div>
+                            <div className="text-sm text-textMain">{requesterName}</div>
+                            <div className="text-xs text-textSecondary">{request.userId?.substring(0, 8)}...</div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900">{targetName}</div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-sm text-textMain">{targetName}</div>
+                            <div className="text-xs text-textSecondary">
                               {request.requestType === 'Rental' || request.requestType === 'Buy/Sell'
                                 ? `Property: ${request.propertyId?.substring(0, 8)}...`
                                 : `Provider: ${request.providerId?.substring(0, 8)}...`}
@@ -2792,7 +3038,7 @@ const AdminPanel = () => {
                               {request.status || 'Pending'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
                             {formatDate(request.createdAt)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -2804,7 +3050,7 @@ const AdminPanel = () => {
                                   setSelectedRequest(request);
                                   setViewRequestModalOpen(true);
                                 }}
-                                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                className="text-primary border-primary/30 hover:bg-primary/10"
                               >
                                 <Eye className="w-4 h-4 mr-1" />
                                 View
@@ -2816,7 +3062,7 @@ const AdminPanel = () => {
                                     variant="outline"
                                     onClick={() => handleUpdateRequestStatus(request, 'Approved')}
                                     disabled={processing}
-                                    className="text-green-600 border-green-300 hover:bg-green-50"
+                                    className="text-primary border-primary/30 hover:bg-primary/10"
                                   >
                                     <CheckCircle className="w-4 h-4 mr-1" />
                                     Approve
@@ -2826,7 +3072,7 @@ const AdminPanel = () => {
                                     variant="outline"
                                     onClick={() => handleUpdateRequestStatus(request, 'Rejected')}
                                     disabled={processing}
-                                    className="text-red-600 border-red-300 hover:bg-red-50"
+                                    className="text-error border-error hover:bg-error"
                                   >
                                     <XCircle className="w-4 h-4 mr-1" />
                                     Reject
@@ -2839,7 +3085,7 @@ const AdminPanel = () => {
                                   variant="outline"
                                   onClick={() => handleUpdateRequestStatus(request, 'In Progress')}
                                   disabled={processing}
-                                  className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                  className="text-primary border-primary/30 hover:bg-primary/10"
                                 >
                                   <PlayCircle className="w-4 h-4 mr-1" />
                                   Start
@@ -2851,7 +3097,7 @@ const AdminPanel = () => {
                                   variant="outline"
                                   onClick={() => handleUpdateRequestStatus(request, 'Completed')}
                                   disabled={processing}
-                                  className="text-green-600 border-green-300 hover:bg-green-50"
+                                  className="text-primary border-primary/30 hover:bg-primary/10"
                                 >
                                   <CheckCircle className="w-4 h-4 mr-1" />
                                   Complete
@@ -2882,41 +3128,41 @@ const AdminPanel = () => {
               <div className="space-y-6">
                 {/* Basic Info */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Basic Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Request Type</p>
-                      <p className="text-gray-900">{selectedRequest.requestType}</p>
+                      <p className="text-sm font-medium text-textSecondary">Request Type</p>
+                      <p className="text-textMain">{selectedRequest.requestType}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Status</p>
+                      <p className="text-sm font-medium text-textSecondary">Status</p>
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${
                           selectedRequest.status === 'Accepted' ||
                           selectedRequest.status === 'Approved' ||
                           selectedRequest.status === 'Completed'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-primary/20 text-primary'
                             : selectedRequest.status === 'Rejected' ||
                                 selectedRequest.status === 'Cancelled'
-                              ? 'bg-red-100 text-red-800'
+                              ? 'bg-error text-error'
                               : selectedRequest.status === 'In Progress'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-accent text-accent'
                         }`}
                       >
                         {selectedRequest.status || 'Pending'}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Requester</p>
-                      <p className="text-gray-900">
+                      <p className="text-sm font-medium text-textSecondary">Requester</p>
+                      <p className="text-textMain">
                         {userNames[selectedRequest.userId] || 'Loading...'}
                       </p>
-                      <p className="text-xs text-gray-500">{selectedRequest.userId}</p>
+                      <p className="text-xs text-textSecondary">{selectedRequest.userId}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Created</p>
-                      <p className="text-gray-900">{formatDate(selectedRequest.createdAt)}</p>
+                      <p className="text-sm font-medium text-textSecondary">Created</p>
+                      <p className="text-textMain">{formatDate(selectedRequest.createdAt)}</p>
                     </div>
                   </div>
                 </div>
@@ -2924,26 +3170,26 @@ const AdminPanel = () => {
                 {/* Request-specific details */}
                 {selectedRequest.requestType === 'Rental' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Rental Details</h3>
+                    <h3 className="text-lg font-semibold text-textMain mb-4">Rental Details</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Property</p>
-                        <p className="text-gray-900">
+                        <p className="text-sm font-medium text-textSecondary">Property</p>
+                        <p className="text-textMain">
                           {propertyTitles[selectedRequest.propertyId] || 'Loading...'}
                         </p>
-                        <p className="text-xs text-gray-500">{selectedRequest.propertyId}</p>
+                        <p className="text-xs text-textSecondary">{selectedRequest.propertyId}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Start Date</p>
-                        <p className="text-gray-900">
+                        <p className="text-sm font-medium text-textSecondary">Start Date</p>
+                        <p className="text-textMain">
                           {selectedRequest.startDate
                             ? new Date(selectedRequest.startDate).toLocaleDateString()
                             : 'N/A'}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500">End Date</p>
-                        <p className="text-gray-900">
+                        <p className="text-sm font-medium text-textSecondary">End Date</p>
+                        <p className="text-textMain">
                           {selectedRequest.endDate
                             ? new Date(selectedRequest.endDate).toLocaleDateString()
                             : 'N/A'}
@@ -2952,8 +3198,8 @@ const AdminPanel = () => {
                     </div>
                     {selectedRequest.message && (
                       <div className="mt-4">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Message</p>
-                        <p className="text-gray-700 whitespace-pre-wrap">{selectedRequest.message}</p>
+                        <p className="text-sm font-medium text-textSecondary mb-2">Message</p>
+                        <p className="text-textSecondary whitespace-pre-wrap">{selectedRequest.message}</p>
                       </div>
                     )}
                   </div>
@@ -2961,24 +3207,24 @@ const AdminPanel = () => {
 
                 {selectedRequest.requestType === 'Buy/Sell' && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Purchase Offer Details</h3>
+                    <h3 className="text-lg font-semibold text-textMain mb-4">Purchase Offer Details</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Property</p>
-                        <p className="text-gray-900">
+                        <p className="text-sm font-medium text-textSecondary">Property</p>
+                        <p className="text-textMain">
                           {propertyTitles[selectedRequest.propertyId] || 'Loading...'}
                         </p>
-                        <p className="text-xs text-gray-500">{selectedRequest.propertyId}</p>
+                        <p className="text-xs text-textSecondary">{selectedRequest.propertyId}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Offer Amount</p>
-                        <p className="text-gray-900">{formatPrice(selectedRequest.offerAmount)}</p>
+                        <p className="text-sm font-medium text-textSecondary">Offer Amount</p>
+                        <p className="text-textMain">{formatPrice(selectedRequest.offerAmount)}</p>
                       </div>
                     </div>
                     {selectedRequest.message && (
                       <div className="mt-4">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Message</p>
-                        <p className="text-gray-700 whitespace-pre-wrap">{selectedRequest.message}</p>
+                        <p className="text-sm font-medium text-textSecondary mb-2">Message</p>
+                        <p className="text-textSecondary whitespace-pre-wrap">{selectedRequest.message}</p>
                       </div>
                     )}
                   </div>
@@ -2987,29 +3233,29 @@ const AdminPanel = () => {
                 {(selectedRequest.requestType === 'Construction' ||
                   selectedRequest.requestType === 'Renovation') && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Details</h3>
+                    <h3 className="text-lg font-semibold text-textMain mb-4">Project Details</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Provider</p>
-                        <p className="text-gray-900">
+                        <p className="text-sm font-medium text-textSecondary">Provider</p>
+                        <p className="text-textMain">
                           {providerNames[selectedRequest.providerId] || 'Loading...'}
                         </p>
-                        <p className="text-xs text-gray-500">{selectedRequest.providerId}</p>
+                        <p className="text-xs text-textSecondary">{selectedRequest.providerId}</p>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Budget</p>
-                        <p className="text-gray-900">{formatPrice(selectedRequest.budget)}</p>
+                        <p className="text-sm font-medium text-textSecondary">Budget</p>
+                        <p className="text-textMain">{formatPrice(selectedRequest.budget)}</p>
                       </div>
                       {selectedRequest.timeline && (
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Timeline</p>
-                          <p className="text-gray-900">{selectedRequest.timeline}</p>
+                          <p className="text-sm font-medium text-textSecondary">Timeline</p>
+                          <p className="text-textMain">{selectedRequest.timeline}</p>
                         </div>
                       )}
                       {selectedRequest.preferredDate && (
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Preferred Date</p>
-                          <p className="text-gray-900">
+                          <p className="text-sm font-medium text-textSecondary">Preferred Date</p>
+                          <p className="text-textMain">
                             {new Date(selectedRequest.preferredDate).toLocaleDateString()}
                           </p>
                         </div>
@@ -3017,8 +3263,8 @@ const AdminPanel = () => {
                     </div>
                     {(selectedRequest.description || selectedRequest.detailedDescription) && (
                       <div className="mt-4">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Description</p>
-                        <p className="text-gray-700 whitespace-pre-wrap">
+                        <p className="text-sm font-medium text-textSecondary mb-2">Description</p>
+                        <p className="text-textSecondary whitespace-pre-wrap">
                           {selectedRequest.description || selectedRequest.detailedDescription}
                         </p>
                       </div>
@@ -3036,16 +3282,16 @@ const AdminPanel = () => {
     if (activeTab === 'support-messages') {
       return (
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Support Messages</h2>
+          <h2 className="text-2xl font-bold text-textMain mb-6">Support Messages</h2>
 
           {supportMessagesLoading ? (
             <div className="flex items-center justify-center py-12">
               <LoadingSpinner size="lg" />
             </div>
           ) : supportMessages.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No support messages found</p>
+            <div className="bg-surface rounded-lg shadow p-8 text-center">
+              <MessageSquare className="w-16 h-16 text-textSecondary mx-auto mb-4" />
+              <p className="text-textSecondary">No support messages found</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -3057,20 +3303,20 @@ const AdminPanel = () => {
                 return (
                   <div
                     key={message.id}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                    className="bg-surface rounded-lg shadow-sm border border-muted p-6"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{message.subject}</h3>
+                          <h3 className="text-lg font-semibold text-textMain">{message.subject}</h3>
                           {message.status && (
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 message.status === 'resolved' || message.status === 'closed'
-                                  ? 'bg-green-100 text-green-800'
+                                  ? 'bg-primary/20 text-primary'
                                   : message.status === 'in-progress'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-yellow-100 text-yellow-800'
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-accent text-accent'
                               }`}
                             >
                               {message.status}
@@ -3080,19 +3326,19 @@ const AdminPanel = () => {
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 message.priority === 'urgent'
-                                  ? 'bg-red-100 text-red-800'
+                                  ? 'bg-error text-error'
                                   : message.priority === 'high'
                                     ? 'bg-orange-100 text-orange-800'
                                     : message.priority === 'medium'
-                                      ? 'bg-yellow-100 text-yellow-800'
-                                      : 'bg-gray-100 text-gray-800'
+                                      ? 'bg-accent text-accent'
+                                      : 'bg-muted text-textMain'
                               }`}
                             >
                               {message.priority}
                             </span>
                           )}
                         </div>
-                        <div className="space-y-1 text-sm text-gray-600">
+                        <div className="space-y-1 text-sm text-textSecondary">
                           <div className="flex items-center gap-2">
                             <Mail className="w-4 h-4" />
                             <span>
@@ -3123,7 +3369,7 @@ const AdminPanel = () => {
                             setSelectedMessage(message);
                             setViewMessageModalOpen(true);
                           }}
-                          className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                          className="text-primary border-primary/30 hover:bg-primary/10"
                         >
                           <Eye className="w-4 h-4 mr-1" />
                           View
@@ -3135,7 +3381,7 @@ const AdminPanel = () => {
                             setSelectedMessage(message);
                             setReplyModalOpen(true);
                           }}
-                          className="text-green-600 border-green-300 hover:bg-green-50"
+                          className="text-primary border-primary/30 hover:bg-primary/10"
                         >
                           <MessageSquare className="w-4 h-4 mr-1" />
                           Reply
@@ -3147,7 +3393,7 @@ const AdminPanel = () => {
                             setMessageToDelete(message);
                             setDeleteMessageModalOpen(true);
                           }}
-                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          className="text-error border-error hover:bg-error"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -3155,33 +3401,33 @@ const AdminPanel = () => {
                     </div>
 
                     <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-500 mb-2">Message:</p>
-                      <p className="text-gray-700 whitespace-pre-wrap">{message.message}</p>
+                      <p className="text-sm font-medium text-textSecondary mb-2">Message:</p>
+                      <p className="text-textSecondary whitespace-pre-wrap">{message.message}</p>
                     </div>
 
                     {/* Reply History */}
                     {replies.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm font-medium text-gray-500 mb-3">
+                      <div className="mt-4 pt-4 border-t border-muted">
+                        <p className="text-sm font-medium text-textSecondary mb-3">
                           Replies ({replies.length})
                         </p>
                         <div className="space-y-3">
                           {replies.map((reply) => (
                             <div
                               key={reply.id}
-                              className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                              className="bg-background rounded-lg p-4 border border-muted"
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-gray-900">
+                                  <span className="text-sm font-medium text-textMain">
                                     {reply.adminName || 'Admin'}
                                   </span>
-                                  <span className="text-xs text-gray-500">
+                                  <span className="text-xs text-textSecondary">
                                     {formatDate(reply.createdAt)}
                                   </span>
                                 </div>
                               </div>
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                              <p className="text-sm text-textSecondary whitespace-pre-wrap">
                                 {reply.replyText || reply.message}
                               </p>
                             </div>
@@ -3209,28 +3455,28 @@ const AdminPanel = () => {
               <div className="space-y-6">
                 {/* Basic Info */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Message Information</h3>
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Message Information</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-500">From</p>
-                      <p className="text-gray-900">
+                      <p className="text-sm font-medium text-textSecondary">From</p>
+                      <p className="text-textMain">
                         {userNames[selectedMessage.userId] || 'Unknown'} (
                         {userEmails[selectedMessage.userId] || 'N/A'})
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Subject</p>
-                      <p className="text-gray-900">{selectedMessage.subject}</p>
+                      <p className="text-sm font-medium text-textSecondary">Subject</p>
+                      <p className="text-textMain">{selectedMessage.subject}</p>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Status</p>
+                      <p className="text-sm font-medium text-textSecondary">Status</p>
                       <span
                         className={`px-2 py-1 text-xs font-medium rounded-full ${
                           selectedMessage.status === 'resolved' || selectedMessage.status === 'closed'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-primary/20 text-primary'
                             : selectedMessage.status === 'in-progress'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-accent text-accent'
                         }`}
                       >
                         {selectedMessage.status || 'open'}
@@ -3238,16 +3484,16 @@ const AdminPanel = () => {
                     </div>
                     {selectedMessage.priority && (
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Priority</p>
+                        <p className="text-sm font-medium text-textSecondary">Priority</p>
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded-full ${
                             selectedMessage.priority === 'urgent'
-                              ? 'bg-red-100 text-red-800'
+                              ? 'bg-error text-error'
                               : selectedMessage.priority === 'high'
                                 ? 'bg-orange-100 text-orange-800'
                                 : selectedMessage.priority === 'medium'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-gray-100 text-gray-800'
+                                  ? 'bg-accent text-accent'
+                                  : 'bg-muted text-textMain'
                           }`}
                         >
                           {selectedMessage.priority}
@@ -3255,13 +3501,13 @@ const AdminPanel = () => {
                       </div>
                     )}
                     <div>
-                      <p className="text-sm font-medium text-gray-500">Created</p>
-                      <p className="text-gray-900">{formatDate(selectedMessage.createdAt)}</p>
+                      <p className="text-sm font-medium text-textSecondary">Created</p>
+                      <p className="text-textMain">{formatDate(selectedMessage.createdAt)}</p>
                     </div>
                     {selectedMessage.updatedAt && (
                       <div>
-                        <p className="text-sm font-medium text-gray-500">Updated</p>
-                        <p className="text-gray-900">{formatDate(selectedMessage.updatedAt)}</p>
+                        <p className="text-sm font-medium text-textSecondary">Updated</p>
+                        <p className="text-textMain">{formatDate(selectedMessage.updatedAt)}</p>
                       </div>
                     )}
                   </div>
@@ -3269,35 +3515,35 @@ const AdminPanel = () => {
 
                 {/* Message Content */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Message</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <p className="text-gray-700 whitespace-pre-wrap">{selectedMessage.message}</p>
+                  <h3 className="text-lg font-semibold text-textMain mb-2">Message</h3>
+                  <div className="bg-background rounded-lg p-4 border border-muted">
+                    <p className="text-textSecondary whitespace-pre-wrap">{selectedMessage.message}</p>
                   </div>
                 </div>
 
                 {/* Reply History */}
                 {messageReplies[selectedMessage.id] && messageReplies[selectedMessage.id].length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    <h3 className="text-lg font-semibold text-textMain mb-4">
                       Reply History ({messageReplies[selectedMessage.id].length})
                     </h3>
                     <div className="space-y-3">
                       {messageReplies[selectedMessage.id].map((reply) => (
                         <div
                           key={reply.id}
-                          className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                          className="bg-background rounded-lg p-4 border border-muted"
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-medium text-textMain">
                                 {reply.adminName || 'Admin'}
                               </span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-textSecondary">
                                 {formatDate(reply.createdAt)}
                               </span>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                          <p className="text-sm text-textSecondary whitespace-pre-wrap">
                             {reply.replyText || reply.message}
                           </p>
                         </div>
@@ -3335,22 +3581,22 @@ const AdminPanel = () => {
           >
             <div className="space-y-4">
               {selectedMessage && (
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <p className="text-sm font-medium text-gray-500 mb-2">Original Message:</p>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-3">
+                <div className="bg-background rounded-lg p-4 border border-muted">
+                  <p className="text-sm font-medium text-textSecondary mb-2">Original Message:</p>
+                  <p className="text-sm text-textSecondary whitespace-pre-wrap line-clamp-3">
                     {selectedMessage.message}
                   </p>
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   Your Reply
                 </label>
                 <textarea
                   value={replyText}
                   onChange={(e) => setReplyText(e.target.value)}
                   rows={6}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none"
                   placeholder="Enter your reply..."
                 />
               </div>
@@ -3388,12 +3634,12 @@ const AdminPanel = () => {
             size="md"
           >
             <div className="space-y-4">
-              <p className="text-gray-700">
+              <p className="text-textSecondary">
                 Are you sure you want to delete the support message{' '}
                 <strong>{messageToDelete?.subject || 'this message'}</strong>?
               </p>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-sm text-red-800">
+              <div className="bg-error border border-error rounded-lg p-4">
+                <p className="text-sm text-error">
                   <strong>Warning:</strong> This action cannot be undone. The message and all its
                   replies will be permanently deleted.
                 </p>
@@ -3428,14 +3674,14 @@ const AdminPanel = () => {
     if (activeTab === 'support-chats') {
       return (
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Support Chats</h2>
+          <h2 className="text-2xl font-bold text-textMain mb-6">Support Chats</h2>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Chat List */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900">Active Chats</h3>
+              <div className="bg-surface rounded-lg shadow-sm border border-muted">
+                <div className="p-4 border-b border-muted">
+                  <h3 className="text-lg font-semibold text-textMain">Active Chats</h3>
                 </div>
                 {supportChatsLoading ? (
                   <div className="flex items-center justify-center py-12">
@@ -3443,8 +3689,8 @@ const AdminPanel = () => {
                   </div>
                 ) : supportChats.length === 0 ? (
                   <div className="p-8 text-center">
-                    <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">No support chats found</p>
+                    <MessageCircle className="w-12 h-12 text-textSecondary mx-auto mb-4" />
+                    <p className="text-textSecondary">No support chats found</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
@@ -3459,26 +3705,26 @@ const AdminPanel = () => {
                         <button
                           key={chat.id}
                           onClick={() => setSelectedChat(chat)}
-                          className={`w-full p-4 text-left hover:bg-gray-50 transition-colors ${
-                            isSelected ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                          className={`w-full p-4 text-left hover:bg-background transition-colors ${
+                            isSelected ? 'bg-primary/10 border-l-4 border-primary' : ''
                           }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <p className="text-sm font-medium text-gray-900 truncate">
+                                <p className="text-sm font-medium text-textMain truncate">
                                   {userName}
                                 </p>
                                 {hasUnread && (
-                                  <span className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full"></span>
+                                  <span className="flex-shrink-0 w-2 h-2 bg-primary rounded-full"></span>
                                 )}
                               </div>
                               {chat.lastMessage && (
-                                <p className="text-xs text-gray-500 truncate">
+                                <p className="text-xs text-textSecondary truncate">
                                   {chat.lastMessage}
                                 </p>
                               )}
-                              <p className="text-xs text-gray-400 mt-1">
+                              <p className="text-xs text-textSecondary mt-1">
                                 {formatDate(chat.updatedAt || chat.createdAt)}
                               </p>
                             </div>
@@ -3486,10 +3732,10 @@ const AdminPanel = () => {
                               <span
                                 className={`ml-2 px-2 py-1 text-xs font-medium rounded-full flex-shrink-0 ${
                                   chat.status === 'active'
-                                    ? 'bg-green-100 text-green-800'
+                                    ? 'bg-primary/20 text-primary'
                                     : chat.status === 'resolved'
-                                      ? 'bg-gray-100 text-gray-800'
-                                      : 'bg-red-100 text-red-800'
+                                      ? 'bg-muted text-textMain'
+                                      : 'bg-error text-error'
                                 }`}
                               >
                                 {chat.status}
@@ -3507,15 +3753,15 @@ const AdminPanel = () => {
             {/* Chat Window */}
             <div className="lg:col-span-2">
               {selectedChat ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[600px]">
+                <div className="bg-surface rounded-lg shadow-sm border border-muted flex flex-col h-[600px]">
                   {/* Chat Header */}
-                  <div className="p-4 border-b border-gray-200">
+                  <div className="p-4 border-b border-muted">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
+                        <h3 className="text-lg font-semibold text-textMain">
                           {userNames[selectedChat.userId || selectedChat.id] || 'Unknown User'}
                         </h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-textSecondary">
                           {userEmails[selectedChat.userId || selectedChat.id] || selectedChat.userId || selectedChat.id}
                         </p>
                       </div>
@@ -3523,10 +3769,10 @@ const AdminPanel = () => {
                         <span
                           className={`px-3 py-1 text-xs font-medium rounded-full ${
                             selectedChat.status === 'active'
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-primary/20 text-primary'
                               : selectedChat.status === 'resolved'
-                                ? 'bg-gray-100 text-gray-800'
-                                : 'bg-red-100 text-red-800'
+                                ? 'bg-muted text-textMain'
+                                : 'bg-error text-error'
                           }`}
                         >
                           {selectedChat.status}
@@ -3539,7 +3785,7 @@ const AdminPanel = () => {
                   <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {chatMessages.length === 0 ? (
                       <div className="flex items-center justify-center h-full">
-                        <p className="text-gray-500">No messages yet. Start the conversation!</p>
+                        <p className="text-textSecondary">No messages yet. Start the conversation!</p>
                       </div>
                     ) : (
                       chatMessages.map((message) => {
@@ -3553,14 +3799,14 @@ const AdminPanel = () => {
                             <div
                               className={`max-w-[70%] rounded-lg p-3 ${
                                 isAdmin
-                                  ? 'bg-blue-500 text-white'
-                                  : 'bg-gray-100 text-gray-900'
+                                  ? 'bg-primary text-white'
+                                  : 'bg-muted text-textMain'
                               }`}
                             >
                               <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                               <p
                                 className={`text-xs mt-1 ${
-                                  isAdmin ? 'text-blue-100' : 'text-gray-500'
+                                  isAdmin ? 'text-white/80' : 'text-textSecondary'
                                 }`}
                               >
                                 {formatDate(message.createdAt)}
@@ -3573,7 +3819,7 @@ const AdminPanel = () => {
                   </div>
 
                   {/* Message Input */}
-                  <div className="p-4 border-t border-gray-200">
+                  <div className="p-4 border-t border-muted">
                     <div className="flex gap-2">
                       <textarea
                         value={newMessageText}
@@ -3585,7 +3831,7 @@ const AdminPanel = () => {
                           }
                         }}
                         rows={2}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                        className="flex-1 px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none"
                         placeholder="Type your message..."
                         disabled={processing}
                       />
@@ -3600,10 +3846,10 @@ const AdminPanel = () => {
                   </div>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[600px] flex items-center justify-center">
+                <div className="bg-surface rounded-lg shadow-sm border border-muted h-[600px] flex items-center justify-center">
                   <div className="text-center">
-                    <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Select a chat to start messaging</p>
+                    <MessageCircle className="w-16 h-16 text-textSecondary mx-auto mb-4" />
+                    <p className="text-textSecondary">Select a chat to start messaging</p>
                   </div>
                 </div>
               )}
@@ -3613,13 +3859,495 @@ const AdminPanel = () => {
       );
     }
 
+    // Manage Reviews tab
+    if (activeTab === 'reviews') {
+
+      const getFilteredReviews = () => {
+        let filtered = [...allReviews];
+        if (reviewFilters.targetType) {
+          filtered = filtered.filter((r) => r.targetType === reviewFilters.targetType);
+        }
+        if (reviewFilters.minRating) {
+          filtered = filtered.filter((r) => r.rating >= Number(reviewFilters.minRating));
+        }
+        return filtered;
+      };
+
+      const handleDeleteReview = async () => {
+        if (!reviewToDelete) return;
+        try {
+          setProcessing(true);
+          await reviewsService.delete(reviewToDelete.id);
+          setAllReviews((prev) => prev.filter((r) => r.id !== reviewToDelete.id));
+          toast.success('Review deleted successfully');
+          setDeleteReviewModalOpen(false);
+          setReviewToDelete(null);
+        } catch (error) {
+          console.error('Error deleting review:', error);
+          toast.error('Failed to delete review');
+        } finally {
+          setProcessing(false);
+        }
+      };
+
+      const formatDate = (timestamp) => {
+        if (!timestamp) return 'N/A';
+        try {
+          const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+          return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        } catch {
+          return 'N/A';
+        }
+      };
+
+      const filteredReviews = getFilteredReviews();
+
+      return (
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-textMain mb-6">Manage Reviews</h2>
+
+          {/* Filters */}
+            <div className="bg-surface rounded-lg shadow-sm border border-muted p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-textSecondary mb-2">
+                  <Filter className="w-4 h-4 inline mr-1" />
+                  Target Type
+                </label>
+                <select
+                  value={reviewFilters.targetType}
+                  onChange={(e) =>
+                    setReviewFilters((prev) => ({ ...prev, targetType: e.target.value }))
+                  }
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">All Types</option>
+                  <option value="property">Property</option>
+                  <option value="construction">Construction</option>
+                  <option value="renovation">Renovation</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-textSecondary mb-2">Minimum Rating</label>
+                <select
+                  value={reviewFilters.minRating}
+                  onChange={(e) =>
+                    setReviewFilters((prev) => ({ ...prev, minRating: e.target.value }))
+                  }
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">All Ratings</option>
+                  <option value="1">1+ Stars</option>
+                  <option value="2">2+ Stars</option>
+                  <option value="3">3+ Stars</option>
+                  <option value="4">4+ Stars</option>
+                  <option value="5">5 Stars</option>
+                </select>
+              </div>
+            </div>
+            {(reviewFilters.targetType || reviewFilters.minRating) && (
+              <div className="mt-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setReviewFilters({ targetType: '', minRating: '' })}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {reviewsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner size="lg" />
+            </div>
+          ) : filteredReviews.length === 0 ? (
+            <div className="bg-surface rounded-lg shadow p-8 text-center">
+              <Star className="w-16 h-16 text-textSecondary mx-auto mb-4" />
+              <p className="text-textSecondary">
+                {allReviews.length === 0
+                  ? 'No reviews found'
+                  : 'No reviews match your filter criteria'}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-surface rounded-lg shadow-sm border border-muted overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-muted">
+                  <thead className="bg-background">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Reviewer
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Target Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Rating
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Comment
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Created
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-surface divide-y divide-muted">
+                    {filteredReviews.map((review) => {
+                      const reviewerName = userNames[review.reviewerId] || 'Loading...';
+                      return (
+                        <tr key={review.id} className="hover:bg-background">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-textMain">{reviewerName}</div>
+                            <div className="text-xs text-textSecondary">{review.reviewerId?.substring(0, 8)}...</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                review.targetType === 'property'
+                                  ? 'bg-primary/10 text-primary'
+                                  : review.targetType === 'construction'
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : 'bg-pink-100 text-pink-800'
+                              }`}
+                            >
+                              {review.targetType}
+                            </span>
+                            <div className="text-xs text-textSecondary mt-1">
+                              ID: {review.targetId?.substring(0, 8)}...
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${
+                                    i < review.rating
+                                      ? 'text-accent fill-yellow-400'
+                                      : 'text-muted'
+                                  }`}
+                                />
+                              ))}
+                              <span className="ml-2 text-sm font-medium text-textMain">
+                                {review.rating}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-textMain max-w-xs truncate">
+                              {review.comment}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
+                            {formatDate(review.createdAt)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setReviewToDelete(review);
+                                setDeleteReviewModalOpen(true);
+                              }}
+                              className="text-error border-error hover:bg-error"
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Delete
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Review Modal */}
+          <Modal
+            isOpen={deleteReviewModalOpen}
+            onClose={() => {
+              setDeleteReviewModalOpen(false);
+              setReviewToDelete(null);
+            }}
+            title="Delete Review"
+            size="md"
+          >
+            <div className="space-y-4">
+              <p className="text-textSecondary">
+                Are you sure you want to delete this review? This action cannot be undone.
+              </p>
+              {reviewToDelete && (
+                <div className="bg-background p-4 rounded-lg">
+                  <p className="text-sm text-textSecondary mb-2">
+                    <strong>Rating:</strong> {reviewToDelete.rating} stars
+                  </p>
+                  <p className="text-sm text-textSecondary">
+                    <strong>Comment:</strong> {reviewToDelete.comment.substring(0, 100)}
+                    {reviewToDelete.comment.length > 100 ? '...' : ''}
+                  </p>
+                </div>
+              )}
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteReviewModalOpen(false);
+                    setReviewToDelete(null);
+                  }}
+                  disabled={processing}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleDeleteReview}
+                  loading={processing}
+                  disabled={processing}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Review
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        </div>
+      );
+    }
+
+    // Transactions tab
+    if (activeTab === 'transactions') {
+      const getFilteredTransactions = () => {
+        let filtered = [...allTransactions];
+        if (transactionFilters.status) {
+          filtered = filtered.filter((t) => t.status === transactionFilters.status);
+        }
+        if (transactionFilters.targetType) {
+          filtered = filtered.filter((t) => t.targetType === transactionFilters.targetType);
+        }
+        if (transactionFilters.userId) {
+          filtered = filtered.filter((t) => t.userId === transactionFilters.userId);
+        }
+        return filtered;
+      };
+
+      const formatDate = (timestamp) => {
+        if (!timestamp) return 'N/A';
+        try {
+          const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+          return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+        } catch {
+          return 'N/A';
+        }
+      };
+
+      const formatCurrency = (amount, currency = 'PKR') => {
+        return new Intl.NumberFormat('en-PK', {
+          style: 'currency',
+          currency: currency,
+        }).format(amount);
+      };
+
+      const filteredTransactions = getFilteredTransactions();
+
+      return (
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-textMain mb-6">Transaction Logs</h2>
+
+          {/* Filters */}
+            <div className="bg-surface rounded-lg shadow-sm border border-muted p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-textSecondary mb-2">
+                  <Filter className="w-4 h-4 inline mr-1" />
+                  Status
+                </label>
+                <select
+                  value={transactionFilters.status}
+                  onChange={(e) =>
+                    setTransactionFilters((prev) => ({ ...prev, status: e.target.value }))
+                  }
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="success">Success</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-textSecondary mb-2">Target Type</label>
+                <select
+                  value={transactionFilters.targetType}
+                  onChange={(e) =>
+                    setTransactionFilters((prev) => ({ ...prev, targetType: e.target.value }))
+                  }
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">All Types</option>
+                  <option value="construction">Construction</option>
+                  <option value="renovation">Renovation</option>
+                  <option value="rental">Rental</option>
+                  <option value="buySell">Buy/Sell</option>
+                  <option value="property">Property</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-textSecondary mb-2">User ID</label>
+                <Input
+                  type="text"
+                  value={transactionFilters.userId}
+                  onChange={(e) =>
+                    setTransactionFilters((prev) => ({ ...prev, userId: e.target.value }))
+                  }
+                  placeholder="Filter by user ID..."
+                  className="w-full"
+                />
+              </div>
+            </div>
+            {(transactionFilters.status ||
+              transactionFilters.targetType ||
+              transactionFilters.userId) && (
+              <div className="mt-3">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setTransactionFilters({ status: '', targetType: '', userId: '' })
+                  }
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {transactionsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner size="lg" />
+            </div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="bg-surface rounded-lg shadow p-8 text-center">
+              <CreditCard className="w-16 h-16 text-textSecondary mx-auto mb-4" />
+              <p className="text-textSecondary">
+                {allTransactions.length === 0
+                  ? 'No transactions found'
+                  : 'No transactions match your filter criteria'}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-surface rounded-lg shadow-sm border border-muted overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-muted">
+                  <thead className="bg-background">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Target
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
+                        Created
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-surface divide-y divide-muted">
+                    {filteredTransactions.map((transaction) => {
+                      const userName = userNames[transaction.userId] || 'Loading...';
+                      return (
+                        <tr key={transaction.id} className="hover:bg-background">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-textMain">{userName}</div>
+                            <div className="text-xs text-textSecondary">
+                              {transaction.userId?.substring(0, 8)}...
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                transaction.targetType === 'construction'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : transaction.targetType === 'renovation'
+                                    ? 'bg-pink-100 text-pink-800'
+                                    : transaction.targetType === 'rental'
+                                      ? 'bg-primary/10 text-primary'
+                                      : transaction.targetType === 'buySell'
+                                        ? 'bg-primary text-primary'
+                                        : 'bg-muted text-textMain'
+                              }`}
+                            >
+                              {transaction.targetType}
+                            </span>
+                            <div className="text-xs text-textSecondary mt-1">
+                              ID: {transaction.targetId?.substring(0, 8)}...
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-textMain">
+                              {formatCurrency(transaction.amount, transaction.currency)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                transaction.status === 'success'
+                                  ? 'bg-primary/20 text-primary'
+                                  : transaction.status === 'failed'
+                                    ? 'bg-error text-error'
+                                    : 'bg-accent text-accent'
+                              }`}
+                            >
+                              {transaction.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
+                            {formatDate(transaction.createdAt)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     // Notifications Sender tab
     if (activeTab === 'notifications') {
       return (
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Send Notifications</h2>
+          <h2 className="text-2xl font-bold text-textMain mb-6">Send Notifications</h2>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 max-w-2xl">
+          <div className="bg-surface rounded-lg shadow-sm border border-muted p-6 max-w-2xl">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -3628,7 +4356,7 @@ const AdminPanel = () => {
               className="space-y-6"
             >
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   Notification Title *
                 </label>
                 <Input
@@ -3643,7 +4371,7 @@ const AdminPanel = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   Message *
                 </label>
                 <textarea
@@ -3652,14 +4380,14 @@ const AdminPanel = () => {
                     setNotificationForm((prev) => ({ ...prev, message: e.target.value }))
                   }
                   rows={6}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none"
                   placeholder="Enter notification message..."
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   Target Audience *
                 </label>
                 <select
@@ -3667,7 +4395,7 @@ const AdminPanel = () => {
                   onChange={(e) =>
                     setNotificationForm((prev) => ({ ...prev, target: e.target.value }))
                   }
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
                   required
                 >
                   <option value="all-users">All Users</option>
@@ -3678,7 +4406,7 @@ const AdminPanel = () => {
 
               {notificationForm.target === 'single-uid' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
                     User UID *
                   </label>
                   <Input
@@ -3694,16 +4422,16 @@ const AdminPanel = () => {
               )}
 
               {sendingNotifications && notificationProgress.total > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-blue-900">Sending notifications...</span>
-                    <span className="text-sm text-blue-700">
+                    <span className="text-sm font-medium text-primary">Sending notifications...</span>
+                    <span className="text-sm text-primary">
                       {notificationProgress.sent} / {notificationProgress.total}
                     </span>
                   </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div className="w-full bg-primary/20 rounded-full h-2">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
                       style={{
                         width: `${(notificationProgress.sent / notificationProgress.total) * 100}%`,
                       }}
@@ -3741,21 +4469,21 @@ const AdminPanel = () => {
     // Fallback for unknown tabs
     return (
       <div className="p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Page Not Found</h2>
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-600">This tab is not yet implemented.</p>
+        <h2 className="text-2xl font-bold text-textMain mb-4">Page Not Found</h2>
+        <div className="bg-surface rounded-lg shadow p-8 text-center">
+          <p className="text-textSecondary">This tab is not yet implemented.</p>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-surface shadow-sm border-b border-muted">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
-          <p className="text-sm text-gray-600 mt-1">Manage your platform</p>
+          <h1 className="text-2xl font-bold text-textMain">Admin Panel</h1>
+          <p className="text-sm text-textSecondary mt-1">Manage your platform</p>
         </div>
       </div>
 
@@ -3764,7 +4492,7 @@ const AdminPanel = () => {
         <div className="flex gap-6">
           {/* Left Sidebar */}
           <aside className="w-64 flex-shrink-0">
-            <nav className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+            <nav className="bg-surface rounded-lg shadow-sm border border-muted p-2">
               <ul className="space-y-1">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
@@ -3775,11 +4503,11 @@ const AdminPanel = () => {
                         onClick={() => setActiveTab(tab.key)}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
                           isActive
-                            ? 'bg-blue-50 text-blue-700 font-medium'
-                            : 'text-gray-700 hover:bg-gray-50'
+                            ? 'bg-primary/10 text-primary font-medium'
+                            : 'text-textSecondary hover:bg-background'
                         }`}
                       >
-                        <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-gray-500'}`} />
+                        <Icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-textSecondary'}`} />
                         <span>{tab.label}</span>
                       </button>
                     </li>
@@ -3791,7 +4519,7 @@ const AdminPanel = () => {
 
           {/* Right Content Area */}
           <main className="flex-1 min-w-0">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="bg-surface rounded-lg shadow-sm border border-muted">
               {renderTabContent()}
             </div>
           </main>

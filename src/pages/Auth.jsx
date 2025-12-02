@@ -150,13 +150,13 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="text-center">
-          <h2 className="text-3xl font-display font-bold text-gray-900">
+          <h2 className="text-3xl font-display font-bold text-textMain">
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-textSecondary">
             {isLogin
               ? 'Enter your credentials to access your account'
               : 'Join Aptify and start your property journey'}
@@ -165,9 +165,9 @@ const Auth = () => {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl rounded-lg sm:px-10">
+        <div className="bg-surface py-8 px-4 shadow-md rounded-base sm:px-10">
           {/* Tabs */}
-          <div className="flex mb-6 border-b border-gray-200">
+          <div className="flex mb-6 border-b border-muted">
             <button
               type="button"
               onClick={() => {
@@ -183,8 +183,8 @@ const Auth = () => {
               }}
               className={`flex-1 py-2 text-center font-medium transition-colors ${
                 isLogin
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-textSecondary hover:text-textMain'
               }`}
             >
               Login
@@ -204,8 +204,8 @@ const Auth = () => {
               }}
               className={`flex-1 py-2 text-center font-medium transition-colors ${
                 !isLogin
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-primary border-b-2 border-primary'
+                  : 'text-textSecondary hover:text-textMain'
               }`}
             >
               Register
@@ -261,7 +261,7 @@ const Auth = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-textSecondary hover:text-textMain"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -292,17 +292,17 @@ const Auth = () => {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-muted" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+                <span className="px-2 bg-surface text-textSecondary">Or continue with</span>
               </div>
             </div>
 
             <button
               type="button"
               onClick={handleGoogleLogin}
-              className="mt-4 w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-700 font-medium hover:bg-gray-50 transition-colors shadow-sm"
+              className="mt-4 w-full flex items-center justify-center gap-3 px-4 py-3 border border-muted rounded-base bg-surface text-textMain font-medium hover:bg-background transition-colors shadow-sm"
             >
               <FcGoogle className="w-5 h-5" />
               <span>Continue with Google</span>

@@ -168,11 +168,11 @@ const OwnerDashboard = () => {
 
   const getStatusBadge = (status) => {
     const badges = {
-      Pending: 'bg-yellow-100 text-yellow-800',
-      Accepted: 'bg-green-100 text-green-800',
-      Rejected: 'bg-red-100 text-red-800',
+      Pending: 'bg-accent text-accent',
+      Accepted: 'bg-primary/20 text-primary',
+      Rejected: 'bg-error/20 text-error',
     };
-    return badges[status] || 'bg-gray-100 text-gray-800';
+    return badges[status] || 'bg-muted text-textMain';
   };
 
   if (loading) {
@@ -186,21 +186,21 @@ const OwnerDashboard = () => {
   const currentRequests = activeTab === 'rental' ? rentalRequests : buySellRequests;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Owner Dashboard</h1>
-          <p className="text-gray-600">Manage rental and purchase requests for your properties</p>
+          <h1 className="text-3xl font-bold text-textMain mb-2">Owner Dashboard</h1>
+          <p className="text-textSecondary">Manage rental and purchase requests for your properties</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 mb-6">
+        <div className="flex border-b border-muted mb-6">
           <button
             onClick={() => setActiveTab('rental')}
             className={`px-6 py-3 font-medium text-sm ${
               activeTab === 'rental'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-textSecondary hover:text-textMain'
             }`}
           >
             <Calendar className="w-4 h-4 inline mr-2" />
@@ -210,8 +210,8 @@ const OwnerDashboard = () => {
             onClick={() => setActiveTab('buySell')}
             className={`px-6 py-3 font-medium text-sm ${
               activeTab === 'buySell'
-                ? 'border-b-2 border-green-600 text-green-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'border-b-2 border-primary text-primary'
+                : 'text-textSecondary hover:text-textMain'
             }`}
           >
             <DollarSign className="w-4 h-4 inline mr-2" />
@@ -221,25 +221,25 @@ const OwnerDashboard = () => {
 
         {/* Requests List */}
         {currentRequests.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No {activeTab === 'rental' ? 'rental' : 'purchase'} requests</h3>
-            <p className="text-gray-600">
+          <div className="bg-surface rounded-base shadow p-12 text-center">
+            <Home className="w-16 h-16 text-muted mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-textMain mb-2">No {activeTab === 'rental' ? 'rental' : 'purchase'} requests</h3>
+            <p className="text-textSecondary">
               You don't have any {activeTab === 'rental' ? 'rental' : 'purchase'} requests yet.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {currentRequests.map((request) => (
-              <div key={request.id} className="bg-white rounded-lg shadow-md p-6">
+              <div key={request.id} className="bg-surface rounded-base shadow-md p-6">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
+                        <h3 className="text-lg font-semibold text-textMain">
                           {request.property?.title || 'Property Not Found'}
                         </h3>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-textSecondary">
                           Request ID: {request.id.substring(0, 8)}...
                         </p>
                       </div>
@@ -254,7 +254,7 @@ const OwnerDashboard = () => {
 
                     {activeTab === 'rental' ? (
                       <div className="space-y-2 mt-4">
-                        <div className="flex items-center text-sm text-gray-600">
+                        <div className="flex items-center text-sm text-textSecondary">
                           <Calendar className="w-4 h-4 mr-2" />
                           <span>
                             {formatDate(request.startDate)} - {formatDate(request.endDate)}
@@ -263,7 +263,7 @@ const OwnerDashboard = () => {
                       </div>
                     ) : (
                       <div className="mt-4">
-                        <div className="flex items-center text-lg font-semibold text-green-600">
+                        <div className="flex items-center text-lg font-semibold text-primary">
                           <DollarSign className="w-5 h-5 mr-2" />
                           {formatPrice(request.offerAmount)}
                         </div>
@@ -271,12 +271,12 @@ const OwnerDashboard = () => {
                     )}
 
                     {request.message && (
-                      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                        <p className="text-sm text-gray-700">{request.message}</p>
+                      <div className="mt-4 p-3 bg-background rounded-lg">
+                        <p className="text-sm text-textMain">{request.message}</p>
                       </div>
                     )}
 
-                    <div className="mt-4 text-xs text-gray-500">
+                    <div className="mt-4 text-xs text-textSecondary">
                       Requested on: {formatDate(request.createdAt?.toDate?.() || request.createdAt)}
                     </div>
                   </div>
@@ -285,7 +285,7 @@ const OwnerDashboard = () => {
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        className="bg-green-50 text-green-700 border-green-300 hover:bg-green-100"
+                        className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
                         onClick={() => handleAction(request, 'accept')}
                       >
                         <CheckCircle className="w-4 h-4 mr-2" />
@@ -293,7 +293,7 @@ const OwnerDashboard = () => {
                       </Button>
                       <Button
                         variant="outline"
-                        className="bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
+                        className="bg-error/10 text-error border-error/30 hover:bg-error/20"
                         onClick={() => handleAction(request, 'reject')}
                       >
                         <XCircle className="w-4 h-4 mr-2" />
@@ -319,7 +319,7 @@ const OwnerDashboard = () => {
         size="md"
       >
         <div className="space-y-4">
-          <p className="text-gray-700">
+          <p className="text-textMain">
             Are you sure you want to {actionType} this {activeTab === 'rental' ? 'rental' : 'purchase'} request?
             {actionType === 'accept' && ' The user will be notified.'}
           </p>
@@ -337,8 +337,8 @@ const OwnerDashboard = () => {
             <Button
               className={
                 actionType === 'accept'
-                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-red-600 hover:bg-red-700 text-white'
+                  ? 'bg-primary hover:bg-primary/90 text-white'
+                  : 'bg-error hover:bg-error text-white'
               }
               onClick={confirmAction}
               loading={processing}

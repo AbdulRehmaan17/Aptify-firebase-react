@@ -51,7 +51,7 @@ const Collections = () => {
         <h1 className="text-4xl sm:text-5xl font-display font-bold text-charcoal mb-8 text-center">
           Our Collections
         </h1>
-        <p className="text-lg text-gray-600 font-inter mb-12 text-center">
+        <p className="text-lg text-textSecondary font-inter mb-12 text-center">
           Explore curated collections from the finest watchmakers
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -62,15 +62,15 @@ const Collections = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}
-                className="bg-white rounded-xl shadow-lg p-6 hover:bg-gradient-to-br hover:from-luxury-gold hover:to-yellow-600 hover:text-charcoal transition-all duration-300"
+                className="bg-surface rounded-lg shadow-lg p-6 hover:bg-gradient-to-br hover:from-luxury-gold hover:to-yellow-600 hover:text-charcoal transition-all duration-300"
               >
                 <h2 className="text-xl font-display font-bold text-charcoal mb-2">
                   {collection.name}
                 </h2>
-                <p className="text-gray-600 font-inter text-sm mb-2">
+                <p className="text-textSecondary font-inter text-sm mb-2">
                   {getBrandName(collection.brandId)}
                 </p>
-                <p className="text-gray-600 font-inter text-sm line-clamp-2">
+                <p className="text-textSecondary font-inter text-sm line-clamp-2">
                   {collection.description || 'No description available.'}
                 </p>
               </motion.div>

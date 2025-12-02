@@ -202,20 +202,20 @@ const RenovationList = () => {
       <div className="flex items-center gap-1">
         {[...Array(5)].map((_, index) => {
           if (index < fullStars) {
-            return <Star key={index} className="w-4 h-4 fill-yellow-400 text-yellow-400" />;
+            return <Star key={index} className="w-4 h-4 fill-accent text-accent" />;
           } else if (index === fullStars && hasHalfStar) {
             return (
               <Star
                 key={index}
-                className="w-4 h-4 fill-yellow-400 text-yellow-400"
+                className="w-4 h-4 fill-accent text-accent"
                 style={{ clipPath: 'inset(0 50% 0 0)' }}
               />
             );
           } else {
-            return <Star key={index} className="w-4 h-4 text-gray-300" />;
+            return <Star key={index} className="w-4 h-4 text-muted" />;
           }
         })}
-        <span className="ml-1 text-sm font-medium text-gray-700">{ratingValue.toFixed(1)}</span>
+        <span className="ml-1 text-sm font-medium text-textSecondary">{ratingValue.toFixed(1)}</span>
       </div>
     );
   };
@@ -223,10 +223,10 @@ const RenovationList = () => {
   // Loading state (including seeding state)
   if (loading || seeding) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          {seeding && <p className="mt-4 text-gray-600">Setting up default renovators...</p>}
+          {seeding && <p className="mt-4 text-textSecondary">Setting up default renovators...</p>}
         </div>
       </div>
     );
@@ -235,13 +235,13 @@ const RenovationList = () => {
   // Error state
   if (error && providers.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto px-4">
           <div className="mb-4">
-            <AlertCircle className="w-16 h-16 mx-auto text-red-500" />
+            <AlertCircle className="w-16 h-16 mx-auto text-error" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Providers</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <h2 className="text-2xl font-bold text-textMain mb-2">Error Loading Providers</h2>
+          <p className="text-textSecondary mb-6">{error}</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button onClick={() => window.location.reload()} variant="primary">
               Try Again
@@ -258,16 +258,16 @@ const RenovationList = () => {
   // Empty state - no providers available
   if (providers.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen bg-background py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center py-16">
             <div className="mb-6">
-              <Wrench className="w-16 h-16 mx-auto text-gray-400" />
+              <Wrench className="w-16 h-16 mx-auto text-muted" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl font-bold text-textMain mb-4">
               No Renovators Currently Available
             </h2>
-            <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+            <p className="text-lg text-textSecondary mb-8 max-w-2xl mx-auto">
               No renovators are currently available. You can still submit a renovation request, and
               a provider will be assigned automatically.
             </p>
@@ -281,14 +281,14 @@ const RenovationList = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-display font-bold text-textMain mb-2">
             Renovation Service Providers
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-textSecondary">
             Browse our trusted renovation service providers and request a quote for your project.
           </p>
         </div>
@@ -298,13 +298,13 @@ const RenovationList = () => {
           {providers.map((provider) => (
             <div
               key={provider.id}
-              className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
+              className="bg-surface rounded-base shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
             >
               {/* Card Content */}
               <div className="p-6">
                 {/* Provider Name - Clickable to view details */}
                 <Link to={`/renovation-provider/${provider.id}`} className="block mb-3 group">
-                  <h3 className="text-xl font-semibold text-gray-900 group-hover:text-teal-600 transition-colors">
+                  <h3 className="text-xl font-semibold text-textMain group-hover:text-primary transition-colors">
                     {provider.name || 'Unnamed Provider'}
                   </h3>
                 </Link>
@@ -317,30 +317,30 @@ const RenovationList = () => {
                 {/* Expertise */}
                 {provider.expertise && (
                   <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Expertise:</h4>
-                    <p className="text-sm text-gray-600">{formatExpertise(provider.expertise)}</p>
+                    <h4 className="text-sm font-medium text-textSecondary mb-2">Expertise:</h4>
+                    <p className="text-sm text-textSecondary">{formatExpertise(provider.expertise)}</p>
                   </div>
                 )}
 
                 {/* Bio */}
                 {provider.bio && (
                   <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">About:</h4>
-                    <p className="text-sm text-gray-600 leading-relaxed">{provider.bio}</p>
+                    <h4 className="text-sm font-medium text-textSecondary mb-2">About:</h4>
+                    <p className="text-sm text-textSecondary leading-relaxed">{provider.bio}</p>
                   </div>
                 )}
 
                 {/* Contact Information */}
                 <div className="space-y-2 mb-6">
                   {provider.phone && (
-                    <div className="flex items-center text-sm text-gray-600">
+                    <div className="flex items-center text-sm text-textSecondary">
                       <Phone className="w-4 h-4 mr-2 flex-shrink-0" />
                       <span className="truncate">{provider.phone}</span>
                     </div>
                   )}
 
                   {provider.email && (
-                    <div className="flex items-center text-sm text-gray-600">
+                    <div className="flex items-center text-sm text-textSecondary">
                       <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
                       <span className="truncate">{provider.email}</span>
                     </div>
@@ -360,7 +360,7 @@ const RenovationList = () => {
                     <Button
                       variant="outline"
                       fullWidth
-                      className="border-teal-500 text-teal-600 hover:bg-teal-50"
+                      className="border-accent text-accent hover:bg-accent"
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       View Details

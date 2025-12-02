@@ -27,7 +27,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label 
             htmlFor={inputId} 
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-textSecondary mb-1"
           >
             {label}
           </label>
@@ -35,7 +35,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <div className="relative">
           {leftIcon && (
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <div className="text-gray-400 text-sm">
+              <div className="text-textSecondary text-sm">
                 {leftIcon}
               </div>
             </div>
@@ -44,29 +44,29 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-transparent transition-colors duration-200',
+              'w-full px-3 py-2 border border-muted rounded-base focus:border-primary focus:ring-primary transition-colors duration-200',
               leftIcon && 'pl-10',
               rightIcon && 'pr-10',
-              error && 'border-red-500 focus:ring-red-500',
+              error && 'border-error focus:ring-error',
               className
             )}
             {...props}
           />
           {rightIcon && (
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <div className="text-gray-400 text-sm">
+              <div className="text-textSecondary text-sm">
                 {rightIcon}
               </div>
             </div>
           )}
         </div>
         {error && (
-          <p className="mt-1 text-sm text-red-600">
+          <p className="mt-1 text-sm text-error">
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-textSecondary">
             {helperText}
           </p>
         )}

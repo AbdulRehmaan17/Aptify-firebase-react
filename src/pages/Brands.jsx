@@ -44,7 +44,7 @@ const Brands = () => {
         <h1 className="text-4xl sm:text-5xl font-display font-bold text-charcoal mb-8 text-center">
           Our Brands
         </h1>
-        <p className="text-lg text-gray-600 font-inter mb-12 text-center">
+        <p className="text-lg text-textSecondary font-inter mb-12 text-center">
           Discover the world’s finest luxury watch brands
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -55,7 +55,7 @@ const Brands = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 whileHover={{ scale: 1.05, boxShadow: '0 10px 20px rgba(0,0,0,0.1)' }}
-                className="bg-white rounded-xl shadow-lg overflow-hidden hover:bg-gradient-to-br hover:from-luxury-gold hover:to-yellow-600 hover:text-charcoal transition-all duration-300"
+                className="bg-surface rounded-lg shadow-lg overflow-hidden hover:bg-gradient-to-br hover:from-luxury-gold hover:to-yellow-600 hover:text-charcoal transition-all duration-300"
               >
                 {brand.logoUrl && (
                   <img
@@ -68,7 +68,7 @@ const Brands = () => {
                   <h2 className="text-xl font-display font-bold text-charcoal mb-2">
                     {brand.name}
                   </h2>
-                  <p className="text-gray-600 font-inter text-sm line-clamp-2">
+                  <p className="text-textSecondary font-inter text-sm line-clamp-2">
                     {brand.description || 'No description available.'}
                   </p>
                 </div>

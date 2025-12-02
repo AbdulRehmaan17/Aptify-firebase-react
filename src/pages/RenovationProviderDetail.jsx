@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Star, Phone, Mail, MapPin, ArrowLeft, Wrench, AlertCircle } from 'lucide-react';
+import { Star, Phone, Mail, MapPin, ArrowLeft, Wrench, AlertCircle, MessageSquare } from 'lucide-react';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ReviewsAndRatings from './ReviewsAndRatings';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { formatAddress } from '../utils/safeRender';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * RenovationProviderDetail Component
@@ -19,6 +20,7 @@ import { formatAddress } from '../utils/safeRender';
 const RenovationProviderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [provider, setProvider] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -81,20 +83,20 @@ const RenovationProviderDetail = () => {
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((index) => {
           if (index <= fullStars) {
-            return <Star key={index} className="w-5 h-5 fill-yellow-400 text-yellow-400" />;
+            return <Star key={index} className="w-5 h-5 fill-accent text-accent" />;
           } else if (index === fullStars + 1 && hasHalfStar) {
             return (
               <Star
                 key={index}
-                className="w-5 h-5 fill-yellow-400 text-yellow-400"
+                className="w-5 h-5 fill-accent text-accent"
                 style={{ clipPath: 'inset(0 50% 0 0)' }}
               />
             );
           } else {
-            return <Star key={index} className="w-5 h-5 text-gray-300" />;
+            return <Star key={index} className="w-5 h-5 text-muted" />;
           }
         })}
-        <span className="ml-2 text-sm font-medium text-gray-700">{ratingValue.toFixed(1)}</span>
+        <span className="ml-2 text-sm font-medium text-textSecondary">{ratingValue.toFixed(1)}</span>
       </div>
     );
   };
@@ -121,7 +123,7 @@ const RenovationProviderDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -129,14 +131,14 @@ const RenovationProviderDetail = () => {
 
   if (error || !provider) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center max-w-md mx-auto px-4"
         >
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 mb-4 font-inter text-lg">{error || 'Provider not found'}</p>
+          <AlertCircle className="w-16 h-16 text-error mx-auto mb-4" />
+          <p className="text-error mb-4 font-inter text-lg">{error || 'Provider not found'}</p>
           <Button onClick={() => navigate(-1)} variant="primary">
             Go Back
           </Button>
@@ -146,23 +148,23 @@ const RenovationProviderDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Breadcrumbs */}
-        <nav className="text-sm text-gray-600 mb-6">
-          <Link to="/" className="hover:text-yellow-600">
+        <nav className="text-sm text-textSecondary mb-6">
+          <Link to="/" className="hover:text-primary">
             Home
           </Link>
           <span className="mx-2">/</span>
-          <Link to="/services" className="hover:text-yellow-600">
+          <Link to="/services" className="hover:text-primary">
             Renovation Services
           </Link>
           <span className="mx-2">/</span>
-          <Link to="/renovation-list" className="hover:text-yellow-600">
+          <Link to="/renovation-list" className="hover:text-primary">
             Providers
           </Link>
           <span className="mx-2">/</span>
-          <span className="text-gray-900">{provider.name}</span>
+          <span className="text-textMain">{provider.name}</span>
         </nav>
 
         {/* Back Button */}
@@ -175,13 +177,13 @@ const RenovationProviderDetail = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-xl shadow-lg overflow-hidden"
+          className="bg-surface rounded-base shadow-lg overflow-hidden"
         >
           {/* Provider Header */}
-          <div className="bg-gradient-to-r from-teal-600 to-teal-700 p-8 text-white">
+          <div className="bg-gradient-to-r from-primary to-primaryDark p-8 text-white">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="flex items-start gap-4">
-                <div className="bg-white/20 rounded-full p-4 backdrop-blur-sm">
+                <div className="bg-surface/20 rounded-full p-4 backdrop-blur-sm">
                   <Wrench className="w-8 h-8" />
                 </div>
                 <div>
@@ -195,7 +197,7 @@ const RenovationProviderDetail = () => {
               </div>
               <Button
                 onClick={handleRequestService}
-                className="bg-white text-teal-600 hover:bg-teal-50 border-white"
+                className="bg-surface text-primary hover:bg-primary/10 border-card"
                 size="lg"
               >
                 Request Service
@@ -211,8 +213,8 @@ const RenovationProviderDetail = () => {
                 {/* Expertise */}
                 {provider.expertise && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Expertise</h3>
-                    <p className="text-gray-700 leading-relaxed">
+                    <h3 className="text-lg font-semibold text-textMain mb-3">Expertise</h3>
+                    <p className="text-textSecondary leading-relaxed">
                       {formatExpertise(provider.expertise)}
                     </p>
                   </div>
@@ -221,16 +223,16 @@ const RenovationProviderDetail = () => {
                 {/* Bio */}
                 {provider.bio && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">About</h3>
-                    <p className="text-gray-700 leading-relaxed">{provider.bio}</p>
+                    <h3 className="text-lg font-semibold text-textMain mb-3">About</h3>
+                    <p className="text-textSecondary leading-relaxed">{provider.bio}</p>
                   </div>
                 )}
 
                 {/* Experience */}
                 {provider.experienceYears && (
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Experience</h3>
-                    <p className="text-gray-700">{provider.experienceYears} years of experience</p>
+                    <h3 className="text-lg font-semibold text-textMain mb-3">Experience</h3>
+                    <p className="text-textSecondary">{provider.experienceYears} years of experience</p>
                   </div>
                 )}
               </div>
@@ -238,16 +240,16 @@ const RenovationProviderDetail = () => {
               {/* Right Column - Contact Information */}
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Contact Information</h3>
                   <div className="space-y-4">
                     {provider.phone && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <Phone className="w-5 h-5 text-yellow-600" />
+                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                        <Phone className="w-5 h-5 text-primary" />
                         <div>
-                          <p className="text-sm text-gray-500">Phone</p>
+                          <p className="text-sm text-textSecondary">Phone</p>
                           <a
                             href={`tel:${provider.phone}`}
-                            className="text-gray-900 hover:text-yellow-600 font-medium"
+                            className="text-textMain hover:text-primary font-medium"
                           >
                             {provider.phone}
                           </a>
@@ -256,13 +258,13 @@ const RenovationProviderDetail = () => {
                     )}
 
                     {provider.email && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <Mail className="w-5 h-5 text-yellow-600" />
+                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                        <Mail className="w-5 h-5 text-primary" />
                         <div>
-                          <p className="text-sm text-gray-500">Email</p>
+                          <p className="text-sm text-textSecondary">Email</p>
                           <a
                             href={`mailto:${provider.email}`}
-                            className="text-gray-900 hover:text-yellow-600 font-medium"
+                            className="text-textMain hover:text-primary font-medium"
                           >
                             {provider.email}
                           </a>
@@ -271,11 +273,11 @@ const RenovationProviderDetail = () => {
                     )}
 
                     {provider.address && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                        <MapPin className="w-5 h-5 text-yellow-600" />
+                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                        <MapPin className="w-5 h-5 text-primary" />
                         <div>
-                          <p className="text-sm text-gray-500">Address</p>
-                          <p className="text-gray-900 font-medium">
+                          <p className="text-sm text-textSecondary">Address</p>
+                          <p className="text-textMain font-medium">
                             {formatAddress(provider.address)}
                           </p>
                         </div>
@@ -283,6 +285,28 @@ const RenovationProviderDetail = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Contact Provider Button */}
+                {user && provider.userId && user.uid !== provider.userId && (
+                  <div className="mt-6">
+                    <Button
+                      className="w-full bg-primary hover:bg-primaryDark text-white"
+                      onClick={async () => {
+                        try {
+                          const { getOrCreateChat } = await import('../utils/chatHelpers');
+                          const chatId = await getOrCreateChat(user.uid, provider.userId);
+                          navigate(`/chats?chatId=${chatId}`);
+                        } catch (error) {
+                          console.error('Error creating chat:', error);
+                          toast.error('Failed to start chat. Please try again.');
+                        }
+                      }}
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Contact Provider
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

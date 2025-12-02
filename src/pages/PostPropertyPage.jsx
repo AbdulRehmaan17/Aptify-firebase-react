@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import propertyService from '../services/propertyService';
 import notificationService from '../services/notificationService';
+import useSubmitForm from '../hooks/useSubmitForm';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -13,15 +14,78 @@ const PostPropertyPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdPropertyId, setCreatedPropertyId] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadingProperty, setLoadingProperty] = useState(false);
 
+  // Use standardized submit hook (only for create mode, edit mode uses direct update)
+  const {
+    handleSubmit: handleSubmitForm,
+    confirmSubmit,
+    cancelSubmit,
+    loading,
+    showConfirm,
+    setShowConfirm,
+    showSuccess,
+    setShowSuccess,
+  } = useSubmitForm(null, {
+    submitFunction: async (data, user) => {
+      // Extract images from data if present
+      const { images: formImages, ...formDataWithoutImages } = data;
+      const imagesToUse = formImages || images;
+
+      const propertyData = {
+        ...formDataWithoutImages,
+        listingType: formDataWithoutImages.type,
+        ownerId: user.uid,
+        ownerName: user.displayName || user.email,
+        ownerPhone: user.phoneNumber || null,
+        price: Number(formDataWithoutImages.price),
+        bedrooms: Number(formDataWithoutImages.bedrooms),
+        bathrooms: Number(formDataWithoutImages.bathrooms),
+        areaSqFt: Number(formDataWithoutImages.areaSqFt),
+      };
+
+      const propertyId = await propertyService.create(propertyData, imagesToUse);
+
+      // Notify admin about new property
+      try {
+        await notificationService.notifyAdminNewProperty(
+          propertyId,
+          propertyData.title,
+          user.uid
+        );
+      } catch (notifError) {
+        console.error('Error creating notification:', notifError);
+      }
+
+      // Notify user (confirmation)
+      try {
+        await notificationService.sendNotification(
+          user.uid,
+          'Property Listed Successfully',
+          `Your property "${propertyData.title}" has been submitted and is pending admin approval.`,
+          'status-update',
+          `/properties/${propertyId}`
+        );
+      } catch (notifError) {
+        console.error('Error sending user notification:', notifError);
+      }
+
+      setCreatedPropertyId(propertyId);
+      return propertyId;
+    },
+    successMessage: 'Property submitted successfully!',
+    notificationTitle: 'Property Listed Successfully',
+    notificationMessage: 'Your property has been submitted and is pending admin approval.',
+    notificationType: 'status-update',
+    redirectPath: '/account',
+  });
+
   // Get type from query params, default to 'sale'
   const typeFromQuery = searchParams.get('type') || 'sale';
   const isRentalMode = typeFromQuery === 'rent';
+  const isBuySellMode = typeFromQuery === 'sale' || !searchParams.get('type'); // Buy/sell mode when type=sale or no type param
   const editId = searchParams.get('edit');
 
   const [formData, setFormData] = useState({
@@ -45,6 +109,13 @@ const PostPropertyPage = () => {
   });
   const [images, setImages] = useState([]);
   const [errors, setErrors] = useState({});
+
+  // Ensure type is 'sale' when in buy/sell mode
+  useEffect(() => {
+    if (isBuySellMode && formData.type !== 'sale') {
+      setFormData((prev) => ({ ...prev, type: 'sale' }));
+    }
+  }, [isBuySellMode, formData.type]);
 
   // Load property data if in edit mode
   useEffect(() => {
@@ -195,71 +266,42 @@ const PostPropertyPage = () => {
       return;
     }
 
-    try {
-      setLoading(true);
+    // Handle edit mode separately (no confirmation modal for edits)
+    if (isEditMode && editId) {
+      try {
+        const propertyData = {
+          ...formData,
+          listingType: formData.type,
+          ownerId: user.uid,
+          ownerName: user.displayName || user.email,
+          ownerPhone: user.phoneNumber || null,
+          price: Number(formData.price),
+          bedrooms: Number(formData.bedrooms),
+          bathrooms: Number(formData.bathrooms),
+          areaSqFt: Number(formData.areaSqFt),
+        };
 
-      const propertyData = {
-        ...formData,
-        listingType: formData.type, // Add listingType field for filtering (matches type)
-        ownerId: user.uid,
-        ownerName: user.displayName || user.email,
-        ownerPhone: user.phoneNumber || null,
-        price: Number(formData.price),
-        bedrooms: Number(formData.bedrooms),
-        bathrooms: Number(formData.bathrooms),
-        areaSqFt: Number(formData.areaSqFt),
-      };
-
-      // Log property data for debugging
-      console.log('Creating property with data:', {
-        type: propertyData.type,
-        listingType: propertyData.listingType,
-        title: propertyData.title,
-        status: propertyData.status || 'pending',
-      });
-
-      let propertyId;
-
-      if (isEditMode && editId) {
-        // Update existing property
         await propertyService.update(editId, propertyData, images);
-        propertyId = editId;
         toast.success('Property updated successfully!');
-      } else {
-        // Create new property
-        propertyId = await propertyService.create(propertyData, images);
-        console.log('Property created successfully with ID:', propertyId);
-
-        // Notify admin about new property
-        try {
-          await notificationService.notifyAdminNewProperty(
-            propertyId,
-            propertyData.title,
-            user.uid
-          );
-        } catch (notifError) {
-          console.error('Error creating notification:', notifError);
-          // Don't fail the property creation if notification fails
-        }
+        navigate('/account');
+      } catch (error) {
+        console.error('Error updating property:', error);
+        toast.error(error.message || 'Failed to update property. Please try again.');
       }
-
-      setCreatedPropertyId(propertyId);
-      setShowSuccessModal(true);
-    } catch (error) {
-      console.error('Error creating property:', error);
-      toast.error(error.message || 'Failed to create property. Please try again.');
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    // For new properties, use the hook with confirmation
+    handleSubmitForm({ ...formData, images }, e);
   };
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto px-4">
-          <Home className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
-          <p className="text-gray-600 mb-6">Please log in to post a property.</p>
+          <Home className="w-16 h-16 mx-auto text-muted mb-4" />
+          <h2 className="text-2xl font-bold text-textMain mb-2">Authentication Required</h2>
+          <p className="text-textSecondary mb-6">Please log in to post a property.</p>
           <Button onClick={() => navigate('/auth')} variant="primary">
             Log In
           </Button>
@@ -269,21 +311,25 @@ const PostPropertyPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Simple Header Section */}
-      <section className="bg-white shadow-sm py-8">
+      <section className="bg-surface shadow-sm py-8 border-b border-muted">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-display font-bold mb-3 text-gray-900">
+            <h1 className="text-3xl md:text-4xl font-display font-bold mb-3 text-textMain">
               {isEditMode
                 ? 'Edit Property'
                 : isRentalMode
                   ? 'List Your Property for Rent'
-                  : 'List Your Property'}
+                  : isBuySellMode
+                    ? 'List Your Property for Sale'
+                    : 'List Your Property'}
             </h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-textSecondary max-w-2xl mx-auto">
               {isRentalMode
                 ? 'Reach thousands of potential renters. List your rental property today!'
+                : isBuySellMode
+                  ? 'Reach thousands of potential buyers. List your property for sale today!'
                 : 'Reach thousands of potential buyers and renters. List your property today!'}
             </p>
           </div>
@@ -306,92 +352,97 @@ const PostPropertyPage = () => {
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
           <form
             onSubmit={handleSubmit}
-            className="bg-white/95 backdrop-blur-sm rounded-xl shadow-2xl p-6 sm:p-8 space-y-8 border border-gray-200"
+            className="bg-surface/95 backdrop-blur-sm rounded-base shadow-lg p-6 sm:p-8 space-y-8 border border-muted"
           >
             {/* Basic Information */}
-            <div className="space-y-6 border-b border-gray-200 pb-8">
+            <div className="space-y-6 border-b border-muted pb-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Home className="w-6 h-6 text-yellow-600" />
+                <div className="p-2 bg-accent/10 rounded-base">
+                  <Home className="w-6 h-6 text-accent" />
                 </div>
-                <h2 className="text-2xl font-display font-bold text-gray-900">Basic Information</h2>
+                <h2 className="text-2xl font-display font-bold text-textMain">Basic Information</h2>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Property Title <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-textSecondary mb-2">
+                  Property Title <span className="text-error">*</span>
                 </label>
                 <input
                   type="text"
                   name="title"
                   value={formData.title}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors ${
-                    errors.title ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                    errors.title ? 'border-error' : 'border-muted'
                   }`}
                   placeholder="e.g., Modern 2BR Apartment in Lahore"
                 />
-                {errors.title && <p className="text-red-500 text-sm mt-1">{errors.title}</p>}
+                {errors.title && <p className="text-error text-sm mt-1">{errors.title}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-textSecondary mb-2">
+                  Description <span className="text-error">*</span>
                 </label>
                 <textarea
                   name="description"
                   value={formData.description}
                   onChange={handleChange}
                   rows={5}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors resize-none ${
-                    errors.description ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors resize-none ${
+                    errors.description ? 'border-error' : 'border-muted'
                   }`}
                   placeholder="Describe your property in detail..."
                 />
                 {errors.description && (
-                  <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+                  <p className="text-error text-sm mt-1">{errors.description}</p>
                 )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
                     <DollarSign className="w-4 h-4 inline mr-1" />
-                    Price (PKR) <span className="text-red-500">*</span>
+                    Price (PKR) <span className="text-error">*</span>
                   </label>
                   <input
                     type="number"
                     name="price"
                     value={formData.price}
                     onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors ${
-                      errors.price ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                      errors.price ? 'border-error' : 'border-muted'
                     }`}
                     placeholder="5000000"
                   />
-                  {errors.price && <p className="text-red-500 text-sm mt-1">{errors.price}</p>}
+                  {errors.price && <p className="text-error text-sm mt-1">{errors.price}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Property Type <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
+                    Property Type <span className="text-error">*</span>
                   </label>
                   <select
                     name="type"
                     value={formData.type}
                     onChange={handleChange}
-                    disabled={isRentalMode} // Lock to rent if coming from rental services
-                    className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors ${
-                      isRentalMode ? 'bg-gray-100 cursor-not-allowed' : ''
+                    disabled={isRentalMode || isBuySellMode} // Lock to rent if coming from rental services, or to sale if coming from buy/sell
+                    className={`w-full px-4 py-3 border border-muted rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                      isRentalMode || isBuySellMode ? 'bg-muted cursor-not-allowed' : ''
                     }`}
                   >
                     <option value="sale">For Sale</option>
-                    <option value="rent">For Rent</option>
-                    <option value="renovation">Renovation Service</option>
+                    {!isBuySellMode && <option value="rent">For Rent</option>}
+                    {!isBuySellMode && <option value="renovation">Renovation Service</option>}
                   </select>
                   {isRentalMode && (
-                    <p className="mt-1 text-sm text-blue-600">
+                    <p className="mt-1 text-sm text-primary">
                       Listing type is set to "For Rent" for rental properties
+                    </p>
+                  )}
+                  {isBuySellMode && !isRentalMode && (
+                    <p className="mt-1 text-sm text-primary">
+                      Listing type is set to "For Sale" for buy/sell properties
                     </p>
                   )}
                 </div>
@@ -399,61 +450,61 @@ const PostPropertyPage = () => {
             </div>
 
             {/* Address */}
-            <div className="space-y-6 border-b border-gray-200 pb-8">
+            <div className="space-y-6 border-b border-muted pb-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <MapPin className="w-6 h-6 text-yellow-600" />
+                <div className="p-2 bg-accent rounded-lg">
+                  <MapPin className="w-6 h-6 text-accent" />
                 </div>
-                <h2 className="text-2xl font-display font-bold text-gray-900">Address</h2>
+                <h2 className="text-2xl font-display font-bold text-textMain">Address</h2>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Street Address <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-textSecondary mb-2">
+                  Street Address <span className="text-error">*</span>
                 </label>
                 <input
                   type="text"
                   name="address.line1"
                   value={formData.address.line1}
                   onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors ${
-                    errors['address.line1'] ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                    errors['address.line1'] ? 'border-error' : 'border-muted'
                   }`}
                   placeholder="123 Main Street"
                 />
                 {errors['address.line1'] && (
-                  <p className="text-red-500 text-sm mt-1">{errors['address.line1']}</p>
+                  <p className="text-error text-sm mt-1">{errors['address.line1']}</p>
                 )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    City <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
+                    City <span className="text-error">*</span>
                   </label>
                   <input
                     type="text"
                     name="address.city"
                     value={formData.address.city}
                     onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors ${
-                      errors['address.city'] ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                      errors['address.city'] ? 'border-error' : 'border-muted'
                     }`}
                     placeholder="Lahore"
                   />
                   {errors['address.city'] && (
-                    <p className="text-red-500 text-sm mt-1">{errors['address.city']}</p>
+                    <p className="text-error text-sm mt-1">{errors['address.city']}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                  <label className="block text-sm font-medium text-textSecondary mb-2">State</label>
                   <input
                     type="text"
                     name="address.state"
                     value={formData.address.state}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors"
+                    className="w-full px-4 py-3 border border-muted rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors"
                     placeholder="Punjab"
                   />
                 </div>
@@ -461,19 +512,19 @@ const PostPropertyPage = () => {
             </div>
 
             {/* Property Details */}
-            <div className="space-y-6 border-b border-gray-200 pb-8">
+            <div className="space-y-6 border-b border-muted pb-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Square className="w-6 h-6 text-yellow-600" />
+                <div className="p-2 bg-accent rounded-lg">
+                  <Square className="w-6 h-6 text-accent" />
                 </div>
-                <h2 className="text-2xl font-display font-bold text-gray-900">Property Details</h2>
+                <h2 className="text-2xl font-display font-bold text-textMain">Property Details</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
                     <Bed className="w-4 h-4 inline mr-1" />
-                    Bedrooms <span className="text-red-500">*</span>
+                    Bedrooms <span className="text-error">*</span>
                   </label>
                   <input
                     type="number"
@@ -481,19 +532,19 @@ const PostPropertyPage = () => {
                     value={formData.bedrooms}
                     onChange={handleChange}
                     min="0"
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors ${
-                      errors.bedrooms ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                      errors.bedrooms ? 'border-error' : 'border-muted'
                     }`}
                   />
                   {errors.bedrooms && (
-                    <p className="text-red-500 text-sm mt-1">{errors.bedrooms}</p>
+                    <p className="text-error text-sm mt-1">{errors.bedrooms}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
                     <Bath className="w-4 h-4 inline mr-1" />
-                    Bathrooms <span className="text-red-500">*</span>
+                    Bathrooms <span className="text-error">*</span>
                   </label>
                   <input
                     type="number"
@@ -501,19 +552,19 @@ const PostPropertyPage = () => {
                     value={formData.bathrooms}
                     onChange={handleChange}
                     min="0"
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors ${
-                      errors.bathrooms ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                      errors.bathrooms ? 'border-error' : 'border-muted'
                     }`}
                   />
                   {errors.bathrooms && (
-                    <p className="text-red-500 text-sm mt-1">{errors.bathrooms}</p>
+                    <p className="text-error text-sm mt-1">{errors.bathrooms}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
                     <Square className="w-4 h-4 inline mr-1" />
-                    Area (sqft) <span className="text-red-500">*</span>
+                    Area (sqft) <span className="text-error">*</span>
                   </label>
                   <input
                     type="number"
@@ -521,26 +572,26 @@ const PostPropertyPage = () => {
                     value={formData.areaSqFt}
                     onChange={handleChange}
                     min="0"
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors ${
-                      errors.areaSqFt ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                      errors.areaSqFt ? 'border-error' : 'border-muted'
                     }`}
                   />
                   {errors.areaSqFt && (
-                    <p className="text-red-500 text-sm mt-1">{errors.areaSqFt}</p>
+                    <p className="text-error text-sm mt-1">{errors.areaSqFt}</p>
                   )}
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-6 p-4 bg-gray-50 rounded-lg">
+              <div className="flex flex-wrap gap-6 p-4 bg-background rounded-lg">
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="checkbox"
                     name="furnished"
                     checked={formData.furnished}
                     onChange={handleChange}
-                    className="w-5 h-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                    className="w-5 h-5 text-accent focus:ring-accent border-muted rounded"
                   />
-                  <span className="text-sm font-medium text-gray-700">Furnished</span>
+                  <span className="text-sm font-medium text-textSecondary">Furnished</span>
                 </label>
 
                 <label className="flex items-center space-x-2 cursor-pointer">
@@ -549,15 +600,15 @@ const PostPropertyPage = () => {
                     name="parking"
                     checked={formData.parking}
                     onChange={handleChange}
-                    className="w-5 h-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                    className="w-5 h-5 text-accent focus:ring-accent border-muted rounded"
                   />
-                  <span className="text-sm font-medium text-gray-700">Parking Available</span>
+                  <span className="text-sm font-medium text-textSecondary">Parking Available</span>
                 </label>
               </div>
 
               {/* Amenities */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">Amenities</label>
+                <label className="block text-sm font-medium text-textSecondary mb-3">Amenities</label>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     'AC',
@@ -571,7 +622,7 @@ const PostPropertyPage = () => {
                   ].map((amenity) => (
                     <label
                       key={amenity}
-                      className="flex items-center space-x-2 p-2 bg-gray-50 rounded-lg hover:bg-yellow-50 cursor-pointer transition-colors"
+                      className="flex items-center space-x-2 p-2 bg-background rounded-base hover:bg-accent/10 cursor-pointer transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -579,9 +630,9 @@ const PostPropertyPage = () => {
                         value={amenity}
                         checked={formData.amenities.includes(amenity)}
                         onChange={handleChange}
-                        className="w-4 h-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                        className="w-4 h-4 text-accent focus:ring-accent border-muted rounded"
                       />
-                      <span className="text-sm text-gray-700">{amenity}</span>
+                      <span className="text-sm text-textSecondary">{amenity}</span>
                     </label>
                   ))}
                 </div>
@@ -589,27 +640,27 @@ const PostPropertyPage = () => {
             </div>
 
             {/* Images */}
-            <div className="space-y-4 border-b border-gray-200 pb-8">
+            <div className="space-y-4 border-b border-muted pb-8">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <Upload className="w-6 h-6 text-yellow-600" />
+                <div className="p-2 bg-accent rounded-lg">
+                  <Upload className="w-6 h-6 text-accent" />
                 </div>
-                <h2 className="text-2xl font-display font-bold text-gray-900">Property Images</h2>
+                <h2 className="text-2xl font-display font-bold text-textMain">Property Images</h2>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-textSecondary mb-2">
                   Upload Images (Max 10)
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-yellow-400 transition-colors">
+                <div className="border-2 border-dashed border-muted rounded-lg p-6 hover:border-accent transition-colors">
                   <input
                     type="file"
                     accept="image/*"
                     multiple
                     onChange={handleImageChange}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100 cursor-pointer"
+                    className="w-full text-sm text-textSecondary file:mr-4 file:py-2 file:px-4 file:rounded-base file:border-0 file:text-sm file:font-semibold file:bg-accent/10 file:text-accent hover:file:bg-accent/20 cursor-pointer"
                   />
                   {images.length > 0 && (
-                    <div className="mt-4 flex items-center gap-2 text-sm text-yellow-600">
+                      <div className="mt-4 flex items-center gap-2 text-sm text-accent">
                       <CheckCircle className="w-5 h-5" />
                       <span className="font-medium">{images.length} image(s) selected</span>
                     </div>
@@ -623,7 +674,7 @@ const PostPropertyPage = () => {
               <Button
                 type="submit"
                 disabled={loading || loadingProperty}
-                className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500 py-3 text-lg font-semibold"
+                className="flex-1 bg-primary hover:bg-primaryDark text-white border-primary py-3 text-lg font-semibold"
                 loading={loading || loadingProperty}
               >
                 {loading || loadingProperty
@@ -645,7 +696,7 @@ const PostPropertyPage = () => {
                     navigate('/properties');
                   }
                 }}
-                className="border-yellow-500 text-yellow-600 hover:bg-yellow-50 py-3"
+                className="border-primary text-primary hover:bg-primary/10 py-3"
               >
                 Cancel
               </Button>
@@ -654,48 +705,61 @@ const PostPropertyPage = () => {
         </div>
       </section>
 
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={showConfirm}
+        onClose={cancelSubmit}
+        title="Confirm Property Submission"
+        size="md"
+      >
+        <div className="space-y-4">
+          <p className="text-textSecondary">
+            Are you sure you want to submit this property? It will be reviewed by our admin team before being published.
+          </p>
+          <div className="bg-background p-4 rounded-lg">
+            <p className="text-sm text-textSecondary">
+              <strong>Title:</strong> {formData.title}
+            </p>
+            <p className="text-sm text-textSecondary">
+              <strong>Type:</strong> {formData.type}
+            </p>
+            <p className="text-sm text-textSecondary">
+              <strong>Price:</strong> {new Intl.NumberFormat('en-PK', {
+                style: 'currency',
+                currency: 'PKR',
+              }).format(formData.price)}
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={cancelSubmit} disabled={loading}>
+              Cancel
+            </Button>
+            <Button onClick={confirmSubmit} loading={loading} disabled={loading}>
+              Confirm & Submit
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Success Modal */}
       <Modal
-        isOpen={showSuccessModal}
-        onClose={() => {
-          setShowSuccessModal(false);
-          navigate('/properties');
-        }}
-        title={isEditMode ? 'Property Updated!' : 'Property Submitted!'}
+        isOpen={showSuccess}
+        onClose={() => {}}
+        title="Property Submitted!"
         size="md"
       >
         <div className="space-y-4 text-center">
           <div className="flex justify-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-10 h-10 text-green-600" />
+            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center">
+              <CheckCircle className="w-10 h-10 text-primary" />
             </div>
           </div>
-          <p className="text-gray-700">
-            {isEditMode
-              ? 'Your property has been updated successfully!'
-              : 'Your property has been submitted and is pending admin approval. You will be notified once it is approved.'}
+          <p className="text-textSecondary">
+            Your property has been submitted and is pending admin approval. You will be notified once it is approved.
           </p>
-          <div className="flex gap-3 justify-center">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowSuccessModal(false);
-                navigate('/properties');
-              }}
-            >
-              View All Properties
-            </Button>
-            {createdPropertyId && (
-              <Button
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  navigate(`/properties/${createdPropertyId}`);
-                }}
-              >
-                View Property
-              </Button>
-            )}
-          </div>
+          <p className="text-sm text-textSecondary">
+            Redirecting to your account...
+          </p>
         </div>
       </Modal>
     </div>

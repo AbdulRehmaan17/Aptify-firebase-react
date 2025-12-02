@@ -79,13 +79,13 @@ const OrderHistory = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case 'pending':
-        return <Clock className="w-5 h-5 text-yellow-600" />;
+        return <Clock className="w-5 h-5 text-accent" />;
       case 'shipped':
-        return <Truck className="w-5 h-5 text-blue-600" />;
+        return <Truck className="w-5 h-5 text-primary" />;
       case 'delivered':
         return <CheckCircle className="w-5 h-5 text-emerald-600" />;
       case 'cancelled':
-        return <XCircle className="w-5 h-5 text-red-600" />;
+        return <XCircle className="w-5 h-5 text-error" />;
       default:
         return null;
     }
@@ -136,13 +136,13 @@ const OrderHistory = () => {
         {/* Search and Filter Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
           <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-textSecondary" />
             <input
               type="text"
               placeholder="Search by order ID or date..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg font-inter text-sm text-charcoal focus:ring-luxury-gold focus:border-luxury-gold"
+              className="w-full pl-10 pr-4 py-2 border border-muted rounded-lg font-inter text-sm text-charcoal focus:ring-luxury-gold focus:border-luxury-gold"
             />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -153,7 +153,7 @@ const OrderHistory = () => {
                 className={`px-4 py-2 text-sm font-inter ${
                   statusFilter === filter.id
                     ? 'bg-gradient-to-r from-luxury-gold to-yellow-600 text-charcoal'
-                    : 'bg-white text-charcoal border-gray-300 hover:bg-gray-100'
+                    : 'bg-surface text-charcoal border-muted hover:bg-muted'
                 }`}
                 onClick={() => setStatusFilter(filter.id)}
               >
@@ -167,10 +167,10 @@ const OrderHistory = () => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-16 bg-white rounded-xl shadow-xl"
+            className="text-center py-16 bg-surface rounded-lg shadow-xl"
           >
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-xl text-gray-600 font-inter mb-6">
+            <Package className="w-16 h-16 text-textSecondary mx-auto mb-4" />
+            <p className="text-xl text-textSecondary font-inter mb-6">
               {searchQuery || statusFilter !== 'all'
                 ? 'No orders match your search or filter.'
                 : "You haven't placed any orders yet."}
@@ -191,7 +191,7 @@ const OrderHistory = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 whileHover={{ scale: 1.02 }}
-                className="bg-white rounded-xl shadow-xl p-6 hover:shadow-2xl transition-shadow duration-300 border border-gray-100"
+                className="bg-surface rounded-lg shadow-xl p-6 hover:shadow-2xl transition-shadow duration-300 border border-muted"
               >
                 <div
                   className="flex flex-col sm:flex-row justify-between items-start sm:items-center cursor-pointer"
@@ -205,7 +205,7 @@ const OrderHistory = () => {
                       <h2 className="text-lg font-display font-semibold text-charcoal">
                         Order #{order.id.slice(0, 8)}...
                       </h2>
-                      <p className="text-sm text-gray-500 font-inter">
+                      <p className="text-sm text-textSecondary font-inter">
                         Placed on {new Date(order.createdAt.seconds * 1000).toLocaleDateString()}
                       </p>
                     </div>
@@ -238,7 +238,7 @@ const OrderHistory = () => {
                       animate={{ opacity: 1, height: 'auto' }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="mt-4 border-t border-gray-200 pt-4"
+                      className="mt-4 border-t border-muted pt-4"
                     >
                       <h3 className="text-md font-display font-semibold text-charcoal mb-4">
                         Order Details
@@ -259,7 +259,7 @@ const OrderHistory = () => {
                                 <p className="text-sm font-inter font-medium text-charcoal">
                                   {item.name}
                                 </p>
-                                <p className="text-sm text-gray-500 font-inter">
+                                <p className="text-sm text-textSecondary font-inter">
                                   Quantity: {item.quantity} | ${item.price.toFixed(2)} each
                                 </p>
                               </div>
@@ -270,7 +270,7 @@ const OrderHistory = () => {
                           </div>
                         ))}
                       </div>
-                      <div className="flex justify-between mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex justify-between mt-4 pt-4 border-t border-muted">
                         <span className="text-md font-display font-bold text-charcoal">Total</span>
                         <span className="text-md font-display font-bold text-charcoal">
                           ${order.total.toFixed(2)}

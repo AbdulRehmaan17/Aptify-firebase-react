@@ -64,27 +64,27 @@ const Modal: React.FC<ModalProps> = ({
       />
       <div 
         className={cn(
-          'relative bg-white rounded-xl shadow-2xl w-full animate-scale-in',
+          'relative bg-surface rounded-base shadow-2xl w-full animate-scale-in',
           sizeClasses[size]
         )}
       >
         {title && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+          <div className="flex items-center justify-between p-6 border-b border-muted">
+            <h2 className="text-xl font-semibold text-textMain">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-1 hover:bg-muted rounded-full transition-colors"
             >
-              <X className="w-5 h-5 text-gray-500" />
+              <X className="w-5 h-5 text-textSecondary" />
             </button>
           </div>
         )}
         {!title && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-full transition-colors z-10"
+            className="absolute top-4 right-4 p-1 hover:bg-muted rounded-full transition-colors z-10"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-textSecondary" />
           </button>
         )}
         <div className={cn('p-6', !title && 'pt-12')}>

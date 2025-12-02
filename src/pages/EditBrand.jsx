@@ -102,7 +102,7 @@ const EditBrandForm = () => {
       transition={{ duration: 0.8 }}
       className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-ivory"
     >
-      <div className="bg-white shadow-xl rounded-xl p-8">
+      <div className="bg-surface shadow-xl rounded-lg p-8">
         <h1 className="text-3xl font-display font-bold text-charcoal mb-6">Edit Brand</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -114,7 +114,7 @@ const EditBrandForm = () => {
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
               placeholder="e.g., Rolex"
               required
             />
@@ -127,7 +127,7 @@ const EditBrandForm = () => {
               name="description"
               value={formData.description}
               onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-luxury-gold font-inter"
               placeholder="Describe the brand..."
               rows="4"
             />
@@ -147,20 +147,20 @@ const EditBrandForm = () => {
               type="file"
               accept="image/*"
               onChange={handleImageChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg font-inter"
+              className="w-full px-4 py-2 border border-muted rounded-lg font-inter"
             />
           </div>
           <div className="flex space-x-4">
             <Button
               type="submit"
-              className="bg-luxury-gold text-charcoal hover:bg-yellow-600 flex-1"
+              className="bg-luxury-gold text-charcoal hover:bg-accent flex-1"
               disabled={loading}
             >
               {loading ? 'Saving...' : 'Update Brand'}
             </Button>
             <Button
               type="button"
-              className="bg-gray-200 text-charcoal hover:bg-gray-300 flex-1"
+              className="bg-muted text-charcoal hover:bg-muted flex-1"
               onClick={() => navigate('/admin/brands')}
             >
               Cancel

@@ -102,7 +102,7 @@ const ProductDetail = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <p className="text-red-600 mb-4 font-inter text-lg">{error}</p>
+          <p className="text-error mb-4 font-inter text-lg">{error}</p>
           {error.includes('log in') && (
             <Button onClick={() => navigate('/login')} variant="primary">
               Log In
@@ -134,7 +134,7 @@ const ProductDetail = () => {
           <motion.img
             src={product.imageUrl}
             alt={product.name}
-            className="w-full h-[500px] sm:h-[600px] object-cover rounded-xl shadow-2xl transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-[500px] sm:h-[600px] object-cover rounded-lg shadow-2xl transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
             whileHover={{ scale: 1.1 }}
           />
@@ -177,27 +177,27 @@ const ProductDetail = () => {
             <h1 className="text-4xl sm:text-5xl font-display font-bold text-charcoal mb-3 tracking-tight">
               {product.name}
             </h1>
-            <p className="text-xl text-gray-500 font-inter mb-6 uppercase tracking-wider">
+            <p className="text-xl text-textSecondary font-inter mb-6 uppercase tracking-wider">
               {product.brand}
             </p>
             <div className="flex items-center mb-6">
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className={`w-6 h-6 ${i < Math.round(product.rating) ? 'text-luxury-gold fill-current' : 'text-gray-300'}`}
+                  className={`w-6 h-6 ${i < Math.round(product.rating) ? 'text-accent fill-current' : 'text-muted'}`}
                 />
               ))}
-              <span className="ml-3 text-sm text-gray-500 font-inter">
+              <span className="ml-3 text-sm text-textSecondary font-inter">
                 ({product.rating.toFixed(1)} • {reviews.length} reviews)
               </span>
             </div>
             <p className="text-3xl font-bold text-charcoal mb-6 font-inter">
               ${product.price.toFixed(2)}
             </p>
-            <p className="text-gray-600 mb-8 font-inter leading-relaxed">{product.description}</p>
+            <p className="text-textSecondary mb-8 font-inter leading-relaxed">{product.description}</p>
             <div className="flex items-center space-x-4 mb-8">
               <span
-                className={`text-sm font-medium ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}
+                className={`text-sm font-medium ${product.stock > 0 ? 'text-emerald-600' : 'text-error'}`}
               >
                 {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
               </span>
@@ -225,7 +225,7 @@ const ProductDetail = () => {
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.4 }}
-        className="mt-16 bg-white rounded-xl shadow-xl p-8"
+        className="mt-16 bg-surface rounded-lg shadow-xl p-8"
       >
         <h2 className="text-3xl font-display font-bold text-charcoal mb-8">Customer Reviews</h2>
         <div className="flex items-center mb-8">
@@ -235,11 +235,11 @@ const ProductDetail = () => {
               {[...Array(5)].map((_, i) => (
                 <Star
                   key={i}
-                  className={`w-5 h-5 ${i < Math.round(averageRating) ? 'text-luxury-gold fill-current' : 'text-gray-300'}`}
+                  className={`w-5 h-5 ${i < Math.round(averageRating) ? 'text-accent fill-current' : 'text-muted'}`}
                 />
               ))}
             </div>
-            <span className="text-sm text-gray-500 font-inter">
+            <span className="text-sm text-textSecondary font-inter">
               Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -252,18 +252,18 @@ const ProductDetail = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="border-b border-gray-200 pb-6"
+                className="border-b border-muted pb-6"
               >
                 <div className="flex items-center mb-3">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
-                      className={`w-4 h-4 ${i < review.rating ? 'text-luxury-gold fill-current' : 'text-gray-300'}`}
+                      className={`w-4 h-4 ${i < review.rating ? 'text-accent fill-current' : 'text-muted'}`}
                     />
                   ))}
                 </div>
-                <p className="text-gray-600 mb-3 font-inter leading-relaxed">{review.comment}</p>
-                <p className="text-sm text-gray-500 font-inter">
+                <p className="text-textSecondary mb-3 font-inter leading-relaxed">{review.comment}</p>
+                <p className="text-sm text-textSecondary font-inter">
                   By {review.userName || 'Anonymous'} •{' '}
                   {new Date(review.createdAt).toLocaleDateString()}
                 </p>
@@ -271,7 +271,7 @@ const ProductDetail = () => {
             ))}
           </div>
         ) : (
-          <p className="text-gray-600 font-inter">No reviews yet.</p>
+          <p className="text-textSecondary font-inter">No reviews yet.</p>
         )}
         <div className="mt-8">
           {user ? (
@@ -283,9 +283,9 @@ const ProductDetail = () => {
               Write a Review
             </Button>
           ) : (
-            <p className="text-gray-600 font-inter">
+            <p className="text-textSecondary font-inter">
               <button
-                className="text-luxury-gold hover:underline font-medium"
+                className="text-accent hover:underline font-medium"
                 onClick={() => navigate('/login')}
               >
                 Log in

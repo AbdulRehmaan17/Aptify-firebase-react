@@ -409,7 +409,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
             <Star
               key={star}
               className={`${size} ${
-                isFilled ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-300 text-gray-300'
+                isFilled ? 'fill-accent text-accent' : 'fill-muted text-muted'
               } ${interactive && !hasReviewed ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
               onClick={() => interactive && handleRatingClick(star)}
               onMouseEnter={() => interactive && setHoveredRating(star)}
@@ -437,7 +437,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
       <div className="py-8">
         <div className="flex items-center justify-center">
           <LoadingSpinner size="lg" />
-          <span className="ml-3 text-gray-600">Loading reviews...</span>
+          <span className="ml-3 text-textSecondary">Loading reviews...</span>
         </div>
       </div>
     );
@@ -447,9 +447,9 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
   if (error && reviews.length === 0) {
     return (
       <div className="py-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-          <p className="text-red-700">{error}</p>
+        <div className="bg-error/10 border border-error/30 rounded-base p-6 text-center">
+          <AlertCircle className="w-8 h-8 text-error mx-auto mb-2" />
+          <p className="text-error">{error}</p>
         </div>
       </div>
     );
@@ -458,20 +458,20 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
   return (
     <div className="py-8">
       {/* Average Rating Section */}
-      <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-xl p-6 mb-8 border border-yellow-200">
+      <div className="bg-gradient-to-r from-accent/10 to-accent/5 rounded-base p-6 mb-8 border border-muted">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="bg-yellow-500 rounded-full p-4">
+            <div className="bg-accent rounded-full p-4">
               <Star className="w-8 h-8 text-white fill-white" />
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-3xl font-bold text-gray-900">{averageRating}</span>
+                <span className="text-3xl font-bold text-textMain">{averageRating}</span>
                 <div className="flex items-center">
                   {renderStars(parseFloat(averageRating), false, 'w-6 h-6')}
                 </div>
               </div>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-textSecondary">
                 Based on {reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}
               </p>
             </div>
@@ -479,7 +479,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
           {reviews.length === 0 && currentUser && !hasReviewed && (
             <Button
               onClick={scrollToForm}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
+              className="bg-accent hover:bg-accent text-white border-accent"
             >
               Be the First to Review
             </Button>
@@ -494,29 +494,29 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-gray-200"
+          className="card-base p-6 mb-8"
         >
           <div className="flex items-center gap-3 mb-6">
-            <MessageSquare className="w-6 h-6 text-yellow-600" />
-            <h3 className="text-xl font-display font-bold text-gray-900">Write a Review</h3>
+            <MessageSquare className="w-6 h-6 text-primary" />
+            <h3 className="text-xl font-display font-bold text-textMain">Write a Review</h3>
           </div>
 
           {checkingReview ? (
             <div className="flex items-center justify-center py-8">
               <LoadingSpinner size="sm" />
-              <span className="ml-2 text-gray-600">Checking...</span>
+              <span className="ml-2 text-textSecondary">Checking...</span>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Rating Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Your Rating (1-5 stars) <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-textMain mb-3">
+                  Your Rating (1-5 stars) <span className="text-error">*</span>
                 </label>
                 <div className="flex items-center gap-2">
                   {renderStars(0, true, 'w-8 h-8')}
                   {formData.rating > 0 && (
-                    <span className="text-sm text-gray-600 ml-2">
+                    <span className="text-sm text-textSecondary ml-2">
                       {formData.rating} {formData.rating === 1 ? 'star' : 'stars'}
                     </span>
                   )}
@@ -525,19 +525,19 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
 
               {/* Comment Textarea */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Review <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-textMain mb-2">
+                  Your Review <span className="text-error">*</span>
                 </label>
                 <textarea
                   name="comment"
                   value={formData.comment}
                   onChange={handleChange}
                   rows={5}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-colors resize-none"
+                  className="w-full px-4 py-3 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
                   placeholder="Share your experience..."
                   disabled={submitting}
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-textSecondary">
                   {formData.comment.length} / 10 characters minimum
                 </p>
               </div>
@@ -548,7 +548,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                 disabled={
                   submitting || formData.rating === 0 || formData.comment.trim().length < 10
                 }
-                className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
+                className="bg-primary hover:bg-primaryDark text-white border-primary"
                 loading={submitting}
               >
                 {submitting ? 'Submitting...' : 'Submit Review'}
@@ -560,11 +560,11 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
 
       {/* Already Reviewed Message */}
       {currentUser && hasReviewed && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8 flex items-start">
-          <CheckCircle className="w-5 h-5 text-yellow-600 mr-3 flex-shrink-0 mt-0.5" />
+        <div className="bg-accent border border-accent rounded-lg p-4 mb-8 flex items-start">
+          <CheckCircle className="w-5 h-5 text-accent mr-3 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-semibold text-yellow-800 mb-1">You've already reviewed this item</p>
-            <p className="text-sm text-yellow-700">
+            <p className="font-semibold text-accent mb-1">You've already reviewed this item</p>
+            <p className="text-sm text-accent">
               Thank you for your feedback! You can only submit one review per {targetType}.
             </p>
           </div>
@@ -573,11 +573,11 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
 
       {/* Not Logged In Message */}
       {!currentUser && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8 text-center">
-          <p className="text-gray-600 mb-3">Please log in to write a review</p>
+        <div className="bg-muted/30 border border-muted rounded-base p-4 mb-8 text-center">
+          <p className="text-textSecondary mb-3">Please log in to write a review</p>
           <Button
             onClick={() => (window.location.href = '/auth')}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
+            className="bg-primary hover:bg-primaryDark text-white border-primary"
           >
             Log In
           </Button>
@@ -586,7 +586,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
 
       {/* Reviews List Section */}
       <div>
-        <h3 className="text-2xl font-display font-bold text-gray-900 mb-6">
+        <h3 className="text-2xl font-display font-bold text-textMain mb-6">
           Reviews ({reviews.length})
         </h3>
 
@@ -595,15 +595,15 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="bg-gray-50 border border-gray-200 rounded-xl p-12 text-center"
+            className="bg-muted/30 border border-muted rounded-base p-12 text-center"
           >
-            <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h4 className="text-xl font-semibold text-gray-900 mb-2">No reviews yet</h4>
-            <p className="text-gray-600 mb-6">Be the first to share your experience!</p>
+            <MessageSquare className="w-16 h-16 text-muted mx-auto mb-4" />
+            <h4 className="text-xl font-semibold text-textMain mb-2">No reviews yet</h4>
+            <p className="text-textSecondary mb-6">Be the first to share your experience!</p>
             {currentUser && !hasReviewed && (
               <Button
                 onClick={scrollToForm}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500"
+                className="bg-primary hover:bg-primaryDark text-white border-primary"
               >
                 Write a Review
               </Button>
@@ -617,27 +617,27 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="bg-white rounded-xl shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow"
+                className="bg-surface rounded-base shadow-md p-6 border border-muted hover:shadow-lg transition-shadow"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 flex-1">
-                    <div className="bg-yellow-100 rounded-full p-2">
-                      <User className="w-5 h-5 text-yellow-600" />
+                    <div className="bg-accent/10 rounded-full p-2">
+                      <User className="w-5 h-5 text-accent" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-900">
+                      <p className="font-semibold text-textMain">
                         {review.reviewerName || 'Anonymous User'}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         {renderStars(review.rating || 0, false, 'w-4 h-4')}
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-textSecondary">
                           {review.rating || 0} {review.rating === 1 ? 'star' : 'stars'}
                         </span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 text-sm text-textSecondary">
                       <Calendar className="w-4 h-4" />
                       <span>{formatDate(review.createdAt)}</span>
                     </div>
@@ -646,7 +646,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                       <button
                         onClick={() => handleDeleteClick(review)}
                         disabled={deletingReviewId === review.id}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        className="p-2 text-error hover:bg-error/10 rounded-base transition-colors disabled:opacity-50"
                         title="Delete review (Admin only)"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -654,7 +654,7 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                     )}
                   </div>
                 </div>
-                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{review.comment}</p>
+                <p className="text-textMain leading-relaxed whitespace-pre-wrap">{review.comment}</p>
               </motion.div>
             ))}
           </div>
@@ -672,15 +672,15 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
         size="md"
       >
         <div className="space-y-4">
-          <p className="text-gray-700">
+          <p className="text-textMain">
             Are you sure you want to delete this review? This action cannot be undone.
           </p>
           {reviewToDelete && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">
+            <div className="bg-muted/30 p-4 rounded-base">
+              <p className="text-sm text-textSecondary mb-2">
                 <strong>Rating:</strong> {reviewToDelete.rating} stars
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-textSecondary">
                 <strong>Review:</strong> {reviewToDelete.comment.substring(0, 100)}
                 {reviewToDelete.comment.length > 100 ? '...' : ''}
               </p>

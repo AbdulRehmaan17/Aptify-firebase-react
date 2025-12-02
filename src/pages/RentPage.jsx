@@ -50,22 +50,22 @@ const RentPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center mb-4">
-            <Home className="w-8 h-8 text-blue-600 mr-3" />
-            <h1 className="text-4xl font-display font-bold text-gray-900">Rental Properties</h1>
+            <Home className="w-8 h-8 text-primary mr-3" />
+            <h1 className="text-4xl font-display font-bold text-textMain">Rental Properties</h1>
           </div>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-textSecondary">
             Find your perfect rental property from our curated selection
           </p>
         </div>
@@ -88,7 +88,7 @@ const RentPage = () => {
               name="search"
               defaultValue={searchTerm}
               placeholder="Search by location, city, or address..."
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-4 py-3 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary"
             />
             <Button type="submit" variant="primary">
               Search
@@ -99,7 +99,7 @@ const RentPage = () => {
         {/* Properties Grid */}
         {properties.length > 0 ? (
           <>
-            <div className="mb-4 text-gray-600">
+            <div className="mb-4 text-textSecondary">
               Found {properties.length} rental {properties.length === 1 ? 'property' : 'properties'}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -109,12 +109,12 @@ const RentPage = () => {
             </div>
           </>
         ) : (
-          <div className="text-center py-16 bg-white rounded-xl shadow-lg">
-            <Home className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-2xl font-semibold text-gray-900 mb-2">
+          <div className="text-center py-16 bg-surface rounded-lg shadow-lg">
+            <Home className="w-16 h-16 mx-auto text-textSecondary mb-4" />
+            <h3 className="text-2xl font-semibold text-textMain mb-2">
               No Rental Properties Found
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-textSecondary mb-6">
               {searchTerm
                 ? 'Try adjusting your search criteria'
                 : 'Check back soon for new rental listings'}

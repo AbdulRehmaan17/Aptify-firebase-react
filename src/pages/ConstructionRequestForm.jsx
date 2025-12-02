@@ -3,6 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import notificationService from '../services/notificationService';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -40,6 +41,9 @@ const ConstructionRequestForm = () => {
   const [loading, setLoading] = useState(false);
   const [fetchingProperties, setFetchingProperties] = useState(true);
   const [errors, setErrors] = useState({});
+  
+  // Check if "New Construction" is selected
+  const isNewConstruction = formData.projectType === 'New Construction';
 
   // Project type options
   const projectTypes = [
@@ -125,16 +129,34 @@ const ConstructionRequestForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => {
+      const updated = {
+        ...prev,
+        [name]: value,
+      };
+      
+      // If switching to "New Construction", clear propertyId
+      if (name === 'projectType' && value === 'New Construction') {
+        updated.propertyId = '';
+      }
+      
+      return updated;
+    });
 
     // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[name];
+        return newErrors;
+      });
+    }
+
+    // Clear propertyId error when switching to New Construction
+    if (name === 'projectType' && value === 'New Construction' && errors.propertyId) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors.propertyId;
         return newErrors;
       });
     }
@@ -162,8 +184,8 @@ const ConstructionRequestForm = () => {
       newErrors.projectType = 'Project type is required';
     }
 
-    // Property validation
-    if (!formData.propertyId.trim()) {
+    // Property validation - only required if NOT "New Construction"
+    if (!isNewConstruction && !formData.propertyId.trim()) {
       newErrors.propertyId = 'Please select a property';
     }
 
@@ -232,7 +254,7 @@ const ConstructionRequestForm = () => {
       // Build project data object according to Firestore structure
       const projectData = {
         userId: currentUser.uid,
-        propertyId: formData.propertyId,
+        propertyId: isNewConstruction ? null : formData.propertyId,
         projectType: formData.projectType,
         description: formData.description.trim(),
         budget: Number(formData.budget),
@@ -253,6 +275,55 @@ const ConstructionRequestForm = () => {
 
       console.log('Construction project created with ID:', docRef.id);
       console.log('Project data:', projectData);
+
+      // Send notifications
+      try {
+        // Notify user (confirmation)
+        await notificationService.sendNotification(
+          currentUser.uid,
+          'Construction Request Submitted',
+          `Your ${formData.projectType} request has been submitted successfully. We'll notify you when a provider responds.`,
+          'service-request',
+          '/construction-dashboard'
+        );
+
+        // Notify provider if one was selected
+        if (formData.providerId && formData.providerId.trim()) {
+          await notificationService.sendNotification(
+            formData.providerId,
+            'New Construction Request',
+            `You have received a new ${formData.projectType} request. Check your dashboard for details.`,
+            'service-request',
+            '/constructor-dashboard'
+          );
+        } else {
+          // Notify all approved construction providers
+          const providersQuery = query(
+            collection(db, 'constructionProviders'),
+            where('isApproved', '==', true)
+          );
+          const providersSnapshot = await getDocs(providersQuery);
+          
+          const notificationPromises = providersSnapshot.docs.map((providerDoc) => {
+            const providerData = providerDoc.data();
+            if (providerData.userId) {
+              return notificationService.sendNotification(
+                providerData.userId,
+                'New Construction Request Available',
+                `A new ${formData.projectType} request is available. Check available projects.`,
+                'service-request',
+                '/constructor-dashboard'
+              );
+            }
+            return Promise.resolve();
+          });
+          
+          await Promise.allSettled(notificationPromises);
+        }
+      } catch (notifError) {
+        console.error('Error sending notifications:', notifError);
+        // Don't fail the request if notifications fail
+      }
 
       toast.success('Construction request submitted successfully!');
 
@@ -275,7 +346,7 @@ const ConstructionRequestForm = () => {
   // Show loading spinner while checking auth or fetching properties
   if (authLoading || fetchingProperties) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -284,71 +355,47 @@ const ConstructionRequestForm = () => {
   // Redirect to login if not authenticated
   if (!currentUser || !currentUser.uid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-gray-600 mb-4">Please log in to submit a construction request.</p>
+          <p className="text-textSecondary mb-4">Please log in to submit a construction request.</p>
           <Button onClick={() => navigate('/auth')}>Log In</Button>
         </div>
       </div>
     );
   }
 
-  // Empty state - no properties available
-  if (properties.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-12">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <h1 className="text-4xl font-display font-bold text-gray-900 mb-4">
-              Submit Construction Request
-            </h1>
-            <div className="mb-6">
-              <p className="text-lg text-gray-600 mb-4">
-                You don't have any properties yet. Please add a property before submitting a
-                construction request.
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="primary" onClick={() => navigate('/post-property')}>
-                Add Property
-              </Button>
-              <Button variant="outline" onClick={() => navigate('/properties')}>
-                Browse Properties
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Empty state - no properties available (only show if NOT "New Construction")
+  // Note: This check is now conditional - users can submit "New Construction" without properties
+  // But we'll still show this message if they select other types and have no properties
+  // We'll handle this in the form itself with conditional rendering
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-gray-50 min-h-screen">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-background min-h-screen">
       {/* Page Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
+        <h1 className="text-4xl font-display font-bold text-textMain mb-2">
           Submit Construction Request
         </h1>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg text-textSecondary">
           Fill out the form below to request construction services for your property.
         </p>
       </div>
 
       {/* Form Container */}
-      <div className="bg-white rounded-xl shadow-xl p-6 sm:p-8">
+      <div className="bg-surface rounded-base shadow-xl p-6 sm:p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Project Type Field */}
           <div>
-            <label htmlFor="projectType" className="block text-sm font-medium text-gray-700 mb-2">
-              Project Type <span className="text-red-500">*</span>
+            <label htmlFor="projectType" className="block text-sm font-medium text-textMain mb-2">
+              Project Type <span className="text-error">*</span>
             </label>
             <select
               id="projectType"
               name="projectType"
               value={formData.projectType}
               onChange={handleChange}
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors ${
-                errors.projectType ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-muted transition-colors ${
+                errors.projectType ? 'border-error' : 'border-muted'
               }`}
             >
               <option value="">Select project type</option>
@@ -359,50 +406,87 @@ const ConstructionRequestForm = () => {
               ))}
             </select>
             {errors.projectType && (
-              <p className="mt-1 text-sm text-red-600">{errors.projectType}</p>
+              <p className="mt-1 text-sm text-error">{errors.projectType}</p>
             )}
           </div>
 
-          {/* Property Field */}
-          <div>
-            <label htmlFor="propertyId" className="block text-sm font-medium text-gray-700 mb-2">
-              Property <span className="text-red-500">*</span>
-            </label>
-            {fetchingProperties ? (
-              <div className="flex items-center space-x-2">
-                <LoadingSpinner size="sm" />
-                <span className="text-sm text-gray-600">Loading properties...</span>
-              </div>
-            ) : (
-              <>
-                <select
-                  id="propertyId"
-                  name="propertyId"
-                  value={formData.propertyId}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors ${
-                    errors.propertyId ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Select a property</option>
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.title || 'Untitled Property'} -{' '}
-                      {property.address?.city || 'No city'}
-                    </option>
-                  ))}
-                </select>
-                {errors.propertyId && (
-                  <p className="mt-1 text-sm text-red-600">{errors.propertyId}</p>
-                )}
-              </>
-            )}
-          </div>
+          {/* Property Field - Only show if NOT "New Construction" */}
+          {!isNewConstruction && (
+            <div>
+              <label htmlFor="propertyId" className="block text-sm font-medium text-textMain mb-2">
+                Property <span className="text-error">*</span>
+              </label>
+              {fetchingProperties ? (
+                <div className="flex items-center space-x-2">
+                  <LoadingSpinner size="sm" />
+                  <span className="text-sm text-textSecondary">Loading properties...</span>
+                </div>
+              ) : properties.length === 0 ? (
+                <div className="p-4 bg-accent/10 border border-accent/20 rounded-base">
+                  <p className="text-sm text-textMain mb-3">
+                    You don't have any properties yet. Please add a property before submitting a
+                    construction request for {formData.projectType || 'this project type'}.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => navigate('/post-property')}
+                    >
+                      Add Property
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/properties')}
+                    >
+                      Browse Properties
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <select
+                    id="propertyId"
+                    name="propertyId"
+                    value={formData.propertyId}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-muted transition-colors ${
+                      errors.propertyId ? 'border-error' : 'border-muted'
+                    }`}
+                  >
+                    <option value="">Select a property</option>
+                    {properties.map((property) => (
+                      <option key={property.id} value={property.id}>
+                        {property.title || 'Untitled Property'} -{' '}
+                        {property.address?.city || 'No city'}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.propertyId && (
+                    <p className="mt-1 text-sm text-error">{errors.propertyId}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Info message for New Construction */}
+          {isNewConstruction && (
+            <div className="p-4 bg-primary border border-primary rounded-lg">
+              <p className="text-sm text-primary">
+                <strong>New Construction:</strong> No existing property selection is required for new
+                construction projects.
+              </p>
+            </div>
+          )}
 
           {/* Description Field */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              Description <span className="text-red-500">*</span>
+            <label htmlFor="description" className="block text-sm font-medium text-textMain mb-2">
+              Description <span className="text-error">*</span>
             </label>
             <textarea
               id="description"
@@ -411,22 +495,22 @@ const ConstructionRequestForm = () => {
               onChange={handleChange}
               rows={5}
               placeholder="Describe your construction project in detail (minimum 20 characters)..."
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors resize-none ${
-                errors.description ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-muted transition-colors resize-none ${
+                errors.description ? 'border-error' : 'border-muted'
               }`}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-textSecondary">
               {formData.description.length} / 20 characters minimum
             </p>
             {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description}</p>
+              <p className="mt-1 text-sm text-error">{errors.description}</p>
             )}
           </div>
 
           {/* Budget Field */}
           <div>
-            <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-2">
-              Budget (PKR) <span className="text-red-500">*</span>
+            <label htmlFor="budget" className="block text-sm font-medium text-textMain mb-2">
+              Budget (PKR) <span className="text-error">*</span>
             </label>
             <input
               type="number"
@@ -437,19 +521,19 @@ const ConstructionRequestForm = () => {
               min="0"
               step="0.01"
               placeholder="Enter your budget"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors ${
-                errors.budget ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-muted transition-colors ${
+                errors.budget ? 'border-error' : 'border-muted'
               }`}
             />
-            {errors.budget && <p className="mt-1 text-sm text-red-600">{errors.budget}</p>}
+            {errors.budget && <p className="mt-1 text-sm text-error">{errors.budget}</p>}
           </div>
 
           {/* Date Fields Container */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {/* Start Date Field */}
             <div>
-              <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-2">
-                Start Date <span className="text-red-500">*</span>
+              <label htmlFor="startDate" className="block text-sm font-medium text-textMain mb-2">
+                Start Date <span className="text-error">*</span>
               </label>
               <input
                 type="date"
@@ -458,17 +542,17 @@ const ConstructionRequestForm = () => {
                 value={formData.startDate}
                 onChange={handleChange}
                 min={new Date().toISOString().split('T')[0]} // Prevent past dates
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors ${
-                  errors.startDate ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-muted transition-colors ${
+                  errors.startDate ? 'border-error' : 'border-muted'
                 }`}
               />
-              {errors.startDate && <p className="mt-1 text-sm text-red-600">{errors.startDate}</p>}
+              {errors.startDate && <p className="mt-1 text-sm text-error">{errors.startDate}</p>}
             </div>
 
             {/* End Date Field */}
             <div>
-              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-2">
-                End Date <span className="text-red-500">*</span>
+              <label htmlFor="endDate" className="block text-sm font-medium text-textMain mb-2">
+                End Date <span className="text-error">*</span>
               </label>
               <input
                 type="date"
@@ -477,18 +561,18 @@ const ConstructionRequestForm = () => {
                 value={formData.endDate}
                 onChange={handleChange}
                 min={formData.startDate || new Date().toISOString().split('T')[0]} // Must be >= start date
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-slate-500 transition-colors ${
-                  errors.endDate ? 'border-red-500' : 'border-gray-300'
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-muted transition-colors ${
+                  errors.endDate ? 'border-error' : 'border-muted'
                 }`}
               />
-              {errors.endDate && <p className="mt-1 text-sm text-red-600">{errors.endDate}</p>}
+              {errors.endDate && <p className="mt-1 text-sm text-error">{errors.endDate}</p>}
             </div>
           </div>
 
           {/* Provider ID Info (if provided) */}
           {formData.providerId && (
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-              <p className="text-sm text-slate-800">
+            <div className="p-4 bg-muted border border-muted rounded-lg">
+              <p className="text-sm text-textSecondary">
                 <strong>Provider Selected:</strong> A provider has been pre-selected for this
                 request.
               </p>

@@ -4,10 +4,12 @@ import {
   where,
   addDoc,
   getDocs,
+  getDoc,
   deleteDoc,
   doc,
   orderBy,
   serverTimestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -56,6 +58,10 @@ class ReviewsService {
       };
 
       const docRef = await addDoc(collection(db, 'reviews'), reviewData);
+      
+      // Recalculate and update average rating for the target
+      await this.updateAverageRating(targetId, targetType);
+      
       return docRef.id;
     } catch (error) {
       console.error('Error creating review:', error);
@@ -161,10 +167,73 @@ class ReviewsService {
         throw new Error('Review ID is required');
       }
 
-      await deleteDoc(doc(db, 'reviews', reviewId));
+      // Get review data before deleting to know which target to update
+      const reviewRef = doc(db, 'reviews', reviewId);
+      const reviewDoc = await getDoc(reviewRef);
+      let targetId = null;
+      let targetType = null;
+
+      if (reviewDoc.exists()) {
+        const reviewData = reviewDoc.data();
+        targetId = reviewData.targetId;
+        targetType = reviewData.targetType;
+      }
+
+      await deleteDoc(reviewRef);
+
+      // Recalculate and update average rating for the target
+      if (targetId && targetType) {
+        await this.updateAverageRating(targetId, targetType);
+      }
     } catch (error) {
       console.error('Error deleting review:', error);
       throw new Error(error.message || 'Failed to delete review');
+    }
+  }
+
+  /**
+   * Update a review
+   * @param {string} reviewId - Review document ID
+   * @param {number} rating - Updated rating (1-5)
+   * @param {string} comment - Updated comment
+   * @returns {Promise<void>}
+   */
+  async update(reviewId, rating, comment) {
+    try {
+      if (!reviewId) {
+        throw new Error('Review ID is required');
+      }
+
+      if (rating < 1 || rating > 5) {
+        throw new Error('Rating must be between 1 and 5');
+      }
+
+      if (comment.trim().length < 10) {
+        throw new Error('Comment must be at least 10 characters');
+      }
+
+      const reviewRef = doc(db, 'reviews', reviewId);
+      const reviewDoc = await getDoc(reviewRef);
+      
+      if (!reviewDoc.exists()) {
+        throw new Error('Review not found');
+      }
+
+      const reviewData = reviewDoc.data();
+      const targetId = reviewData.targetId;
+      const targetType = reviewData.targetType;
+
+      await updateDoc(reviewRef, {
+        rating: Number(rating),
+        comment: comment.trim(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Recalculate and update average rating for the target
+      await this.updateAverageRating(targetId, targetType);
+    } catch (error) {
+      console.error('Error updating review:', error);
+      throw new Error(error.message || 'Failed to update review');
     }
   }
 
@@ -191,6 +260,43 @@ class ReviewsService {
     } catch (error) {
       console.error('Error calculating average rating:', error);
       return { average: 0, count: 0 };
+    }
+  }
+
+  /**
+   * Update average rating for a target (property or service provider)
+   * @param {string} targetId - ID of property or service provider
+   * @param {string} targetType - 'property', 'construction', or 'renovation'
+   * @returns {Promise<void>}
+   */
+  async updateAverageRating(targetId, targetType) {
+    try {
+      if (!targetId || !targetType) {
+        throw new Error('targetId and targetType are required');
+      }
+
+      // Calculate average rating
+      const { average, count } = await this.getAverageRating(targetId, targetType);
+
+      // Update the target document based on type
+      if (targetType === 'property') {
+        const propertyRef = doc(db, 'properties', targetId);
+        await updateDoc(propertyRef, {
+          averageRating: average,
+          reviewCount: count,
+          updatedAt: serverTimestamp(),
+        });
+      } else if (targetType === 'construction' || targetType === 'renovation') {
+        const providerRef = doc(db, 'serviceProviders', targetId);
+        await updateDoc(providerRef, {
+          rating: average,
+          reviewCount: count,
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error('Error updating average rating:', error);
+      // Don't throw error - this is a background update
     }
   }
 }

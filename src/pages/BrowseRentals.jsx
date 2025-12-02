@@ -210,10 +210,10 @@ const BrowseRentals = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-display font-bold text-gray-900 mb-4">
+        <h1 className="text-3xl font-display font-bold text-textMain mb-4">
           Browse Rental Properties
         </h1>
-        <p className="text-lg text-gray-600">Find your perfect rental property</p>
+        <p className="text-lg text-textSecondary">Find your perfect rental property</p>
       </div>
 
       {/* Search Bar */}
@@ -224,7 +224,7 @@ const BrowseRentals = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by location, property type..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary"
           />
           <Button type="submit">Search</Button>
         </form>
@@ -248,7 +248,7 @@ const BrowseRentals = () => {
           {/* Toolbar */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-textSecondary">
                 {properties.length} rental propert{properties.length !== 1 ? 'ies' : 'y'} found
               </span>
             </div>
@@ -256,11 +256,11 @@ const BrowseRentals = () => {
             <div className="flex items-center space-x-4">
               {/* Sort Dropdown */}
               <div className="flex items-center space-x-2">
-                <SortAsc className="w-4 h-4 text-gray-500" />
+                <SortAsc className="w-4 h-4 text-textSecondary" />
                 <select
                   value={sortBy}
                   onChange={(e) => handleSortChange(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="border border-muted rounded-base px-3 py-1 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   <option value="newest">Newest</option>
                   <option value="oldest">Oldest</option>
@@ -270,13 +270,13 @@ const BrowseRentals = () => {
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+              <div className="flex items-center border border-muted rounded-base overflow-hidden">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`p-2 ${
                     viewMode === 'grid'
-                      ? 'bg-blue-500 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-primary text-white'
+                      : 'text-textSecondary hover:bg-muted'
                   }`}
                 >
                   <Grid className="w-4 h-4" />
@@ -285,8 +285,8 @@ const BrowseRentals = () => {
                   onClick={() => setViewMode('list')}
                   className={`p-2 ${
                     viewMode === 'list'
-                      ? 'bg-blue-500 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      ? 'bg-primary text-white'
+                      : 'text-textSecondary hover:bg-muted'
                   }`}
                 >
                   <List className="w-4 h-4" />
@@ -298,8 +298,8 @@ const BrowseRentals = () => {
           {/* Properties Grid/List */}
           {properties.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500 text-lg mb-4">No rental properties found</p>
-              <p className="text-gray-400 mb-6">Try adjusting your filters or search terms</p>
+              <p className="text-textSecondary text-lg mb-4">No rental properties found</p>
+              <p className="text-textSecondary mb-6">Try adjusting your filters or search terms</p>
               <Button
                 onClick={() => {
                   setFilters({

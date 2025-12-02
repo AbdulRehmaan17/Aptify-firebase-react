@@ -60,50 +60,50 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white shadow-lg sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="bg-surface shadow-sm border-b border-muted sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto px-6">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <Home className="w-8 h-8 text-luxury-gold" />
-            <span className="text-2xl font-display font-bold text-luxury-black">Aptify</span>
+            <Home className="w-8 h-8 text-primary" />
+            <span className="text-2xl font-bold text-textMain">Aptify</span>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex items-center space-x-8">
             <Link
               to="/buy-sell"
-              className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
+              className="text-textMain hover:text-primary font-medium transition-colors"
             >
               Buy/Sell
             </Link>
             <Link
               to="/services"
-              className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
+              className="text-textMain hover:text-primary font-medium transition-colors"
             >
               Renovation Services
             </Link>
             <Link
               to="/construction-services"
-              className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
+              className="text-textMain hover:text-primary font-medium transition-colors"
             >
               Construction Service
             </Link>
             <Link
               to="/rental-services"
-              className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
+              className="text-textMain hover:text-primary font-medium transition-colors"
             >
               Rental Services
             </Link>
             <Link
               to="/about"
-              className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
+              className="text-textMain hover:text-primary font-medium transition-colors"
             >
               About
             </Link>
             <Link
               to="/contact"
-              className="text-gray-700 hover:text-luxury-gold transition-colors font-medium"
+              className="text-textMain hover:text-primary font-medium transition-colors"
             >
               Contact
             </Link>
@@ -112,7 +112,7 @@ const Navbar = () => {
           {/* Right Section */}
           <div className="flex items-center space-x-4">
             {/* Mobile Search */}
-            <button className="lg:hidden p-2 text-gray-600 hover:text-gray-900">
+            <button className="lg:hidden p-2 text-textSecondary hover:text-primary transition-colors">
               <Search className="w-5 h-5" />
             </button>
 
@@ -124,57 +124,57 @@ const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center space-x-2 p-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  className="flex items-center space-x-2 p-2 text-textSecondary hover:text-primary transition-colors"
                 >
                   <User className="w-5 h-5" />
-                  <span className="hidden sm:block text-sm font-medium">
+                  <span className="hidden sm:block text-sm font-medium text-textMain">
                     {userProfile?.displayName || user.email}
                   </span>
                 </button>
 
                 {isUserMenuOpen && !isProfileLoading && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
+                  <div className="absolute right-0 mt-2 w-48 bg-surface rounded-lg shadow-lg border border-muted py-2 z-50">
                     <Link
                       to="/account"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
-                      <User className="w-4 h-4 mr-2" />
+                      <User className="w-4 h-4 mr-2 text-primary" />
                       My Account
                     </Link>
                     <Link
                       to="/notifications"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
-                      <Bell className="w-4 h-4 mr-2" />
+                      <Bell className="w-4 h-4 mr-2 text-primary" />
                       All Notifications
                     </Link>
                     <Link
-                      to="/chat"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      to="/chats"
+                      className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
                       onClick={() => setIsUserMenuOpen(false)}
                     >
-                      <MessageSquare className="w-4 h-4 mr-2" />
+                      <MessageSquare className="w-4 h-4 mr-2 text-primary" />
                       Chat
                     </Link>
                     {currentUserRole === 'admin' && (
                       <Link
                         to="/admin"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
-                        <Home className="w-4 h-4 mr-2" />
+                        <Home className="w-4 h-4 mr-2 text-primary" />
                         Admin Panel
                       </Link>
                     )}
-                    <hr className="my-2" />
+                    <hr className="my-2 border-muted" />
                     <button
                       onClick={() => {
                         handleLogout();
                         setIsUserMenuOpen(false);
                       }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="block w-full text-left px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
                     >
                       Logout
                     </button>
@@ -195,7 +195,7 @@ const Navbar = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="lg:hidden p-2 text-gray-600 hover:text-gray-900"
+              className="lg:hidden p-2 text-textSecondary hover:text-primary transition-colors"
             >
               {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -204,7 +204,7 @@ const Navbar = () => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="lg:hidden border-t border-gray-200">
+          <div className="lg:hidden border-t border-muted bg-surface">
             <div className="px-2 pt-2 pb-3 space-y-1">
               <form onSubmit={handleSearch} className="mb-4">
                 <div className="relative">
@@ -213,50 +213,50 @@ const Navbar = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search properties..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-luxury-gold focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary bg-surface text-textMain"
                   />
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-textSecondary w-4 h-4" />
                 </div>
               </form>
 
               <Link
                 to="/buy-sell"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                className="block px-3 py-2 text-base font-medium text-textSecondary hover:text-primary hover:bg-muted rounded-base transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Buy/Sell
               </Link>
               <Link
                 to="/services"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                className="block px-3 py-2 text-base font-medium text-textSecondary hover:text-primary hover:bg-muted rounded-base transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Renovation Services
               </Link>
               <Link
                 to="/construction-services"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                className="block px-3 py-2 text-base font-medium text-textSecondary hover:text-primary hover:bg-muted rounded-base transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Construction Service
               </Link>
               <Link
                 to="/rental-services"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                className="block px-3 py-2 text-base font-medium text-textSecondary hover:text-primary hover:bg-muted rounded-base transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Rental Services
               </Link>
               <Link
                 to="/about"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                className="block px-3 py-2 text-base font-medium text-textSecondary hover:text-primary hover:bg-muted rounded-base transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 About
               </Link>
               <Link
                 to="/contact"
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                className="block px-3 py-2 text-base font-medium text-textSecondary hover:text-primary hover:bg-muted rounded-base transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Contact

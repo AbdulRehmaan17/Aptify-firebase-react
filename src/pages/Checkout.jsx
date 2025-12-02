@@ -115,7 +115,7 @@ const Checkout = () => {
             animate={{ opacity: 1 }}
             className="text-center py-16"
           >
-            <ShoppingCart className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <ShoppingCart className="w-16 h-16 text-textSecondary mx-auto mb-4" />
             <p className="text-xl text-ivory font-inter mb-6">
               Your cart is empty, please add items to continue.
             </p>
@@ -131,7 +131,7 @@ const Checkout = () => {
             {/* Cart Items */}
             <div className="lg:col-span-2">
               <motion.div
-                className="bg-charcoal rounded-xl shadow-xl p-6"
+                className="bg-charcoal rounded-lg shadow-xl p-6"
                 initial={{ opacity: 0, x: -50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
@@ -146,7 +146,7 @@ const Checkout = () => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: index * 0.1 }}
-                      className="flex items-center border-b border-gray-700 pb-6"
+                      className="flex items-center border-b border-textMain pb-6"
                     >
                       <img
                         src={item.imageUrl}
@@ -157,7 +157,7 @@ const Checkout = () => {
                         <h3 className="text-lg font-display font-semibold text-ivory">
                           {item.name}
                         </h3>
-                        <p className="text-sm text-gray-400 font-inter">
+                        <p className="text-sm text-textSecondary font-inter">
                           ${item.price.toFixed(2)} each
                         </p>
                         <div className="flex items-center mt-2">
@@ -170,7 +170,7 @@ const Checkout = () => {
                             onChange={(e) =>
                               handleQuantityChange(item.id, parseInt(e.target.value))
                             }
-                            className="border border-gray-700 rounded-md text-ivory bg-charcoal font-inter text-sm px-2 py-1 focus:ring-luxury-gold focus:border-luxury-gold"
+                            className="border border-textMain rounded-md text-ivory bg-charcoal font-inter text-sm px-2 py-1 focus:ring-luxury-gold focus:border-luxury-gold"
                           >
                             {[...Array(10).keys()].map((n) => (
                               <option key={n + 1} value={n + 1}>
@@ -180,7 +180,7 @@ const Checkout = () => {
                           </select>
                           <button
                             onClick={() => removeFromCart(item.id)}
-                            className="ml-4 text-red-400 hover:text-red-600 transition-colors duration-300"
+                            className="ml-4 text-error hover:text-error transition-colors duration-300"
                             aria-label={`Remove ${item.name} from cart`}
                           >
                             <Trash2 className="w-5 h-5" />
@@ -199,7 +199,7 @@ const Checkout = () => {
             {/* Cart Summary */}
             <div className="lg:col-span-1">
               <motion.div
-                className="bg-charcoal rounded-xl shadow-xl p-6 sticky top-24"
+                className="bg-charcoal rounded-lg shadow-xl p-6 sticky top-24"
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8, delay: 0.4 }}
@@ -207,14 +207,14 @@ const Checkout = () => {
                 <h2 className="text-2xl font-display font-bold text-ivory mb-6">Order Summary</h2>
                 <div className="space-y-4">
                   <div className="flex justify-between">
-                    <span className="text-gray-400 font-inter">Subtotal</span>
+                    <span className="text-textSecondary font-inter">Subtotal</span>
                     <span className="text-ivory font-inter font-medium">${total.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400 font-inter">Shipping</span>
+                    <span className="text-textSecondary font-inter">Shipping</span>
                     <span className="text-ivory font-inter font-medium">TBD</span>
                   </div>
-                  <div className="border-t border-gray-700 pt-4">
+                  <div className="border-t border-textMain pt-4">
                     <div className="flex justify-between">
                       <span className="text-lg font-display font-bold text-ivory">Total</span>
                       <span className="text-lg font-display font-bold text-ivory">

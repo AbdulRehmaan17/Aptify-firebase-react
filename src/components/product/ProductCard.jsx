@@ -57,10 +57,10 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
     : 0;
 
   return (
-    <div className="group relative bg-white rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
+    <div className="group relative card-base shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
       {/* Product Image */}
       <Link to={`/products/${product.id}`} className="block relative">
-        <div className="aspect-square overflow-hidden bg-gray-100">
+        <div className="aspect-square overflow-hidden bg-muted">
           <img
             src={product.imageUrl}
             alt={product.name}
@@ -71,22 +71,22 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-col space-y-2">
           {product.isNew && (
-            <span className="bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-full">
+            <span className="bg-primary text-white text-xs font-medium px-2 py-1 rounded-full">
               New
             </span>
           )}
           {product.isSale && discountPercentage > 0 && (
-            <span className="bg-red-500 text-white text-xs font-medium px-2 py-1 rounded-full">
+            <span className="bg-error text-white text-xs font-medium px-2 py-1 rounded-full">
               -{discountPercentage}%
             </span>
           )}
           {product.stock <= 5 && product.stock > 0 && (
-            <span className="bg-orange-500 text-white text-xs font-medium px-2 py-1 rounded-full">
+            <span className="bg-accent text-white text-xs font-medium px-2 py-1 rounded-full">
               Low Stock
             </span>
           )}
           {product.stock === 0 && (
-            <span className="bg-gray-500 text-white text-xs font-medium px-2 py-1 rounded-full">
+            <span className="bg-textSecondary text-white text-xs font-medium px-2 py-1 rounded-full">
               Out of Stock
             </span>
           )}
@@ -95,10 +95,10 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
         {/* Wishlist Button */}
         <button
           onClick={handleWishlistToggle}
-          className="absolute top-3 right-3 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-all duration-200 opacity-0 group-hover:opacity-100"
+          className="absolute top-3 right-3 p-2 bg-surface/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-surface transition-all duration-200 opacity-0 group-hover:opacity-100"
         >
           <Heart
-            className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'}`}
+            className={`w-4 h-4 ${isWishlisted ? 'fill-error text-error' : 'text-textSecondary'}`}
           />
         </button>
       </Link>
@@ -106,9 +106,9 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
       {/* Product Info */}
       <div className="p-4">
         <div className="mb-2">
-          <p className="text-sm text-gray-500 font-medium">{product.brand}</p>
+          <p className="text-sm text-textSecondary font-medium">{product.brand}</p>
           <Link to={`/products/${product.id}`}>
-            <h3 className="text-lg font-semibold text-gray-900 hover:text-luxury-gold transition-colors line-clamp-2">
+            <h3 className="text-lg font-semibold text-textMain hover:text-primary transition-colors line-clamp-2">
               {product.name}
             </h3>
           </Link>
@@ -123,21 +123,21 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
                   key={i}
                   className={`w-4 h-4 ${
                     i < Math.floor(product.rating)
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'text-gray-300'
+                      ? 'fill-accent text-accent'
+                      : 'text-muted'
                   }`}
                 />
               ))}
             </div>
-            <span className="text-sm text-gray-500">({product.reviewCount})</span>
+            <span className="text-sm text-textSecondary">({product.reviewCount})</span>
           </div>
         )}
 
         {/* Price */}
         <div className="flex items-center space-x-2 mb-4">
-          <span className="text-xl font-bold text-gray-900">${product.price.toLocaleString()}</span>
+          <span className="text-xl font-bold text-textMain">${product.price.toLocaleString()}</span>
           {product.originalPrice && product.originalPrice > product.price && (
-            <span className="text-sm text-gray-500 line-through">
+            <span className="text-sm text-textSecondary line-through">
               ${product.originalPrice.toLocaleString()}
             </span>
           )}

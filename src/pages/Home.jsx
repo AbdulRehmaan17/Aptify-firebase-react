@@ -106,8 +106,8 @@ const Home = () => {
         setLoading(true);
         // Fetch featured properties (properties with featured: true)
         const featured = await propertyService.getAll(
-          { featured: true, status: 'published' },
-          { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }
+            { featured: true, status: 'published' },
+            { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }
         );
 
         // If no featured properties, fallback to latest published properties
@@ -177,9 +177,9 @@ const Home = () => {
         <div className="relative z-10 text-center text-white max-w-4xl mx-auto px-4">
           <h1 className="text-5xl md:text-7xl font-display font-bold mb-6 animate-fade-in">
             Find Your
-            <span className="text-luxury-gold block">Dream Property</span>
+            <span className="text-primary block">Dream Property</span>
           </h1>
-          <p className="text-xl md:text-2xl mb-8 text-gray-200 animate-slide-up">
+          <p className="text-xl md:text-2xl mb-8 text-white/90 animate-slide-up">
             Discover the perfect rental or purchase property, with expert renovation services
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up">
@@ -199,10 +199,10 @@ const Home = () => {
       {/* Featured Products */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-display font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl md:text-4xl font-display font-bold text-textMain mb-4">
             Featured Properties
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-textSecondary max-w-2xl mx-auto">
             Hand-selected properties that represent the best in real estate, available for rent or
             purchase
           </p>
@@ -210,17 +210,17 @@ const Home = () => {
 
         {featuredProducts.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-600 mb-4">No featured properties available at the moment.</p>
+            <p className="text-textSecondary mb-4">No featured properties available at the moment.</p>
             <Button variant="outline" asChild>
               <Link to="/properties">Browse All Properties</Link>
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {featuredProducts.map((property) => (
               <PropertyCard key={property.id} property={property} />
-            ))}
-          </div>
+          ))}
+        </div>
         )}
 
         <div className="text-center">
@@ -234,19 +234,19 @@ const Home = () => {
       </section>
 
       {/* Brand Story */}
-      <section className="bg-luxury-cream py-16">
+      <section className="bg-background py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-3xl md:text-4xl font-display font-bold text-gray-900 mb-6">
+              <h2 className="text-3xl md:text-4xl font-display font-bold text-textMain mb-6">
                 Your Trusted Real Estate Partner
               </h2>
-              <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+              <p className="text-lg text-textSecondary mb-6 leading-relaxed">
                 Aptify has been connecting property seekers with their perfect homes and rental
                 properties. Our platform features verified listings from trusted owners, with
                 detailed information and high-quality images to help you make informed decisions.
               </p>
-              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+              <p className="text-lg text-textSecondary mb-8 leading-relaxed">
                 Every property on our platform is verified by our team, and we also offer
                 professional renovation services to transform your property into your dream space.
               </p>
@@ -258,14 +258,14 @@ const Home = () => {
               <img
                 src="https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=600"
                 alt="Property renovation"
-                className="rounded-lg shadow-2xl"
+                className="rounded-base shadow-lg"
               />
-              <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-lg shadow-lg">
+              <div className="absolute -bottom-6 -left-6 bg-surface p-6 rounded-base shadow-md border border-muted">
                 <div className="flex items-center space-x-3">
-                  <Clock className="w-8 h-8 text-luxury-gold" />
+                  <Clock className="w-8 h-8 text-primary" />
                   <div>
-                    <p className="font-semibold text-gray-900">1000+</p>
-                    <p className="text-sm text-gray-600">Properties Listed</p>
+                    <p className="font-semibold text-textMain">1000+</p>
+                    <p className="text-sm text-textSecondary">Properties Listed</p>
                   </div>
                 </div>
               </div>
@@ -277,86 +277,86 @@ const Home = () => {
       {/* New Arrivals */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-display font-bold text-gray-900 mb-4">
+          <h2 className="text-3xl md:text-4xl font-display font-bold text-textMain mb-4">
             Latest Listings
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-lg text-textSecondary max-w-2xl mx-auto">
             The newest properties added to our platform
           </p>
         </div>
 
         {newArrivals.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-600">No properties available at the moment.</p>
+            <p className="text-textSecondary">No properties available at the moment.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {newArrivals.map((property) => (
               <PropertyCard key={property.id} property={property} />
-            ))}
-          </div>
+          ))}
+        </div>
         )}
       </section>
 
       {/* Features */}
-      <section className="bg-gray-50 py-16">
+      <section className="bg-background py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-display font-bold text-textMain mb-4">
               The Aptify Promise
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-textSecondary max-w-2xl mx-auto">
               Your property journey, simplified and trusted
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="text-center group">
-              <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
-                <Shield className="w-8 h-8 text-luxury-gold" />
+              <div className="bg-surface rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
+                <Shield className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Verified Properties</h3>
-              <p className="text-gray-600">Every property is verified by our expert team</p>
+              <h3 className="text-lg font-semibold text-textMain mb-2">Verified Properties</h3>
+              <p className="text-textSecondary">Every property is verified by our expert team</p>
             </div>
 
             <div className="text-center group">
-              <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
-                <Truck className="w-8 h-8 text-luxury-gold" />
+              <div className="bg-surface rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
+                <Truck className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Renovation Services</h3>
-              <p className="text-gray-600">
+              <h3 className="text-lg font-semibold text-textMain mb-2">Renovation Services</h3>
+              <p className="text-textSecondary">
                 Professional renovation services for all property types
               </p>
             </div>
 
             <div className="text-center group">
-              <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
-                <HeadphonesIcon className="w-8 h-8 text-luxury-gold" />
+              <div className="bg-surface rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
+                <HeadphonesIcon className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Expert Support</h3>
-              <p className="text-gray-600">
+              <h3 className="text-lg font-semibold text-textMain mb-2">Expert Support</h3>
+              <p className="text-textSecondary">
                 Dedicated support team to help with your property needs
               </p>
             </div>
 
             <div className="text-center group">
-              <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
-                <Star className="w-8 h-8 text-luxury-gold" />
+              <div className="bg-surface rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
+                <Star className="w-8 h-8 text-accent" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Secure Transactions</h3>
-              <p className="text-gray-600">Safe and secure property transactions</p>
+              <h3 className="text-lg font-semibold text-textMain mb-2">Secure Transactions</h3>
+              <p className="text-textSecondary">Safe and secure property transactions</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Newsletter */}
-      <section className="bg-luxury-black py-16">
+      <section className="bg-primaryDark py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-display font-bold text-white mb-4">
             Stay Updated
           </h2>
-          <p className="text-lg text-gray-300 mb-8">
+          <p className="text-lg text-white/90 mb-8">
             Subscribe to receive updates on new property listings, renovation service offers, and
             real estate insights
           </p>
@@ -365,9 +365,9 @@ const Home = () => {
             <input
               type="email"
               placeholder="Enter your email"
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-600 bg-gray-800 text-white placeholder-gray-400 focus:ring-2 focus:ring-luxury-gold focus:border-transparent"
+              className="flex-1 px-4 py-3 rounded-base border border-white/20 bg-surface/10 text-white placeholder-white/60 focus:ring-2 focus:ring-white focus:border-white"
             />
-            <Button type="submit" size="lg">
+            <Button type="submit" size="lg" variant="secondary">
               Subscribe
             </Button>
           </form>

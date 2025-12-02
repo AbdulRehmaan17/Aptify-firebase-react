@@ -319,17 +319,17 @@ const RenovationDashboard = () => {
 
     switch (status?.toLowerCase()) {
       case 'pending':
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+        return `${baseClasses} bg-accent/20 text-accent`;
       case 'in progress':
       case 'inprogress':
-        return `${baseClasses} bg-teal-100 text-teal-800`;
+        return `${baseClasses} bg-primary/20 text-primary`;
       case 'completed':
-        return `${baseClasses} bg-green-100 text-green-800`;
+        return `${baseClasses} bg-primary/20 text-primary`;
       case 'cancelled':
       case 'canceled':
-        return `${baseClasses} bg-red-100 text-red-800`;
+        return `${baseClasses} bg-error/20 text-error`;
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return `${baseClasses} bg-muted text-textMain`;
     }
   };
 
@@ -378,7 +378,7 @@ const RenovationDashboard = () => {
   // Show loading spinner while checking auth or initial load
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
@@ -387,11 +387,11 @@ const RenovationDashboard = () => {
   // Redirect to login if not authenticated
   if (!currentUser || !currentUser.uid) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto px-4">
-          <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Authentication Required</h2>
-          <p className="text-gray-600 mb-6">Please log in to view your renovation projects.</p>
+          <AlertCircle className="w-16 h-16 mx-auto text-error mb-4" />
+          <h2 className="text-2xl font-bold text-textMain mb-2">Authentication Required</h2>
+          <p className="text-textSecondary mb-6">Please log in to view your renovation projects.</p>
           <Button onClick={() => navigate('/auth')} variant="primary">
             Log In
           </Button>
@@ -403,11 +403,11 @@ const RenovationDashboard = () => {
   // Error state (only show if there's an actual error, not just empty collection)
   if (error && projects.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto px-4">
-          <AlertCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Projects</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <AlertCircle className="w-16 h-16 mx-auto text-error mb-4" />
+          <h2 className="text-2xl font-bold text-textMain mb-2">Error Loading Projects</h2>
+          <p className="text-textSecondary mb-6">{error}</p>
           <Button onClick={() => window.location.reload()} variant="primary">
             Try Again
           </Button>
@@ -417,24 +417,24 @@ const RenovationDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-display font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-display font-bold text-textMain mb-2">
             Renovation Dashboard
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-textSecondary">
             View and manage your renovation projects in real-time.
           </p>
         </div>
 
         {/* Empty State */}
         {projects.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <Wrench className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">No Renovation Projects</h2>
-            <p className="text-gray-600 mb-6">
+          <div className="bg-surface rounded-base shadow-lg p-12 text-center">
+            <Wrench className="w-16 h-16 mx-auto text-muted mb-4" />
+            <h2 className="text-2xl font-bold text-textMain mb-2">No Renovation Projects</h2>
+            <p className="text-textSecondary mb-6">
               You have not requested any renovation services yet.
             </p>
             <Button onClick={() => navigate('/renovation-request')} variant="primary">
@@ -462,7 +462,7 @@ const RenovationDashboard = () => {
               return (
                 <div
                   key={project.id}
-                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+                  className="bg-surface rounded-base shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
                 >
                   {/* Project Card Header */}
                   <div className="p-6">
@@ -476,7 +476,7 @@ const RenovationDashboard = () => {
                               <img
                                 src={firstPhoto}
                                 alt="Project thumbnail"
-                                className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                                className="w-20 h-20 object-cover rounded-lg border border-muted"
                                 onError={(e) => {
                                   e.target.src = 'https://via.placeholder.com/80x80?text=No+Image';
                                 }}
@@ -487,7 +487,7 @@ const RenovationDashboard = () => {
                           {/* Project Details */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-xl font-semibold text-gray-900">
+                              <h3 className="text-xl font-semibold text-textMain">
                                 {project.serviceCategory || 'Renovation Project'}
                               </h3>
                               <span className={getStatusBadgeClasses(project.status)}>
@@ -495,7 +495,7 @@ const RenovationDashboard = () => {
                               </span>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-textSecondary">
                               <div className="flex items-center">
                                 <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
                                 <span className="truncate">{propertyName}</span>
@@ -564,15 +564,15 @@ const RenovationDashboard = () => {
 
                   {/* Expanded Details Section */}
                   {isExpanded && (
-                    <div className="border-t border-gray-200 p-6 bg-gray-50">
+                    <div className="border-t border-muted p-6 bg-background">
                       <div className="space-y-4">
                         {/* Detailed Description */}
                         {project.detailedDescription && (
                           <div>
-                            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                            <h4 className="text-sm font-semibold text-textMain mb-2">
                               Description
                             </h4>
-                            <p className="text-sm text-gray-600 leading-relaxed">
+                            <p className="text-sm text-textSecondary leading-relaxed">
                               {project.detailedDescription}
                             </p>
                           </div>
@@ -581,10 +581,10 @@ const RenovationDashboard = () => {
                         {/* Provider Info */}
                         {providerName && (
                           <div>
-                            <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                            <h4 className="text-sm font-semibold text-textMain mb-2">
                               Assigned Provider
                             </h4>
-                            <div className="flex items-center text-sm text-gray-600">
+                            <div className="flex items-center text-sm text-textSecondary">
                               <User className="w-4 h-4 mr-2 flex-shrink-0" />
                               <span>{providerName}</span>
                             </div>
@@ -596,14 +596,14 @@ const RenovationDashboard = () => {
                           Array.isArray(project.photos) &&
                           project.photos.length > 0 && (
                             <div>
-                              <h4 className="text-sm font-semibold text-gray-700 mb-3">Photos</h4>
+                              <h4 className="text-sm font-semibold text-textMain mb-3">Photos</h4>
                               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 {project.photos.map((photoUrl, index) => (
                                   <div key={index} className="relative group">
                                     <img
                                       src={photoUrl}
                                       alt={`Project photo ${index + 1}`}
-                                      className="w-full h-32 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                      className="w-full h-32 object-cover rounded-lg border border-muted cursor-pointer hover:opacity-90 transition-opacity"
                                       onClick={() => window.open(photoUrl, '_blank')}
                                       onError={(e) => {
                                         e.target.src =
@@ -617,28 +617,28 @@ const RenovationDashboard = () => {
                           )}
 
                         {/* Additional Info */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-muted">
                           <div>
-                            <p className="text-xs text-gray-500 mb-1">Service Category</p>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-xs text-textSecondary mb-1">Service Category</p>
+                            <p className="text-sm font-medium text-textMain">
                               {project.serviceCategory || 'Not specified'}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500 mb-1">Status</p>
+                            <p className="text-xs text-textSecondary mb-1">Status</p>
                             <span className={getStatusBadgeClasses(project.status)}>
                               {project.status || 'Unknown'}
                             </span>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500 mb-1">Budget</p>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-xs text-textSecondary mb-1">Budget</p>
+                            <p className="text-sm font-medium text-textMain">
                               {formatBudget(project.budget)}
                             </p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500 mb-1">Preferred Date</p>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-xs text-textSecondary mb-1">Preferred Date</p>
+                            <p className="text-sm font-medium text-textMain">
                               {formatDate(project.preferredDate)}
                             </p>
                           </div>
