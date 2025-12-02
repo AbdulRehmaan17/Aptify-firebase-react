@@ -20,16 +20,16 @@ import { db } from '../firebase/firebase';
 class ReviewsService {
   /**
    * Create a review
-   * @param {string} reviewerId - User ID of reviewer
+   * @param {string} authorId - User ID of reviewer (author)
    * @param {string} targetId - ID of property or service provider
-   * @param {string} targetType - 'property', 'construction', or 'renovation'
+   * @param {string} targetType - 'property' or 'provider' (maps 'construction'/'renovation' to 'provider')
    * @param {number} rating - Rating from 1-5
    * @param {string} comment - Review text
    * @returns {Promise<string>} - Review document ID
    */
-  async create(reviewerId, targetId, targetType, rating, comment) {
+  async create(authorId, targetId, targetType, rating, comment) {
     try {
-      if (!reviewerId || !targetId || !targetType || !rating || !comment) {
+      if (!authorId || !targetId || !targetType || !rating || !comment) {
         throw new Error('All fields are required');
       }
 
@@ -41,26 +41,29 @@ class ReviewsService {
         throw new Error('Comment must be at least 10 characters');
       }
 
-      // Check for duplicate review
-      const existingReview = await this.getUserReview(reviewerId, targetId, targetType);
+      // Map construction/renovation to provider for reviews collection
+      const normalizedTargetType = targetType === 'construction' || targetType === 'renovation' ? 'provider' : targetType;
+
+      // Check for duplicate review - if exists, update it instead
+      const existingReview = await this.getUserReview(authorId, targetId, normalizedTargetType);
       if (existingReview) {
-        throw new Error('You have already reviewed this item');
+        // Update existing review instead of creating new one
+        return await this.update(existingReview.id, rating, comment);
       }
 
       const reviewData = {
-        reviewerId,
+        authorId,
         targetId,
-        targetType,
+        targetType: normalizedTargetType,
         rating: Number(rating),
         comment: comment.trim(),
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       };
 
       const docRef = await addDoc(collection(db, 'reviews'), reviewData);
       
       // Recalculate and update average rating for the target
-      await this.updateAverageRating(targetId, targetType);
+      await this.updateAverageRating(targetId, normalizedTargetType);
       
       return docRef.id;
     } catch (error) {
@@ -72,7 +75,7 @@ class ReviewsService {
   /**
    * Get all reviews for a target
    * @param {string} targetId - ID of property or service provider
-   * @param {string} targetType - 'property', 'construction', or 'renovation'
+   * @param {string} targetType - 'property', 'provider', 'construction', or 'renovation' (maps to 'provider')
    * @returns {Promise<Array>} - Array of review documents
    */
   async getByTarget(targetId, targetType) {
@@ -81,10 +84,13 @@ class ReviewsService {
         throw new Error('targetId and targetType are required');
       }
 
+      // Map construction/renovation to provider for reviews collection
+      const normalizedTargetType = targetType === 'construction' || targetType === 'renovation' ? 'provider' : targetType;
+
       const reviewsQuery = query(
         collection(db, 'reviews'),
         where('targetId', '==', targetId),
-        where('targetType', '==', targetType),
+        where('targetType', '==', normalizedTargetType),
         orderBy('createdAt', 'desc')
       );
 
@@ -97,10 +103,13 @@ class ReviewsService {
       // If index error, try without orderBy
       if (error.code === 'failed-precondition' || error.message?.includes('index')) {
         try {
+          // Map construction/renovation to provider for reviews collection
+          const normalizedTargetType = targetType === 'construction' || targetType === 'renovation' ? 'provider' : targetType;
+
           const reviewsQuery = query(
             collection(db, 'reviews'),
             where('targetId', '==', targetId),
-            where('targetType', '==', targetType)
+            where('targetType', '==', normalizedTargetType)
           );
 
           const snapshot = await getDocs(reviewsQuery);
@@ -129,18 +138,21 @@ class ReviewsService {
 
   /**
    * Get user's review for a target
-   * @param {string} reviewerId - User ID
+   * @param {string} authorId - User ID (author)
    * @param {string} targetId - ID of property or service provider
-   * @param {string} targetType - 'property', 'construction', or 'renovation'
+   * @param {string} targetType - 'property', 'provider', 'construction', or 'renovation' (maps to 'provider')
    * @returns {Promise<Object|null>} - Review document or null
    */
-  async getUserReview(reviewerId, targetId, targetType) {
+  async getUserReview(authorId, targetId, targetType) {
     try {
+      // Map construction/renovation to provider for reviews collection
+      const normalizedTargetType = targetType === 'construction' || targetType === 'renovation' ? 'provider' : targetType;
+
       const reviewsQuery = query(
         collection(db, 'reviews'),
-        where('reviewerId', '==', reviewerId),
+        where('authorId', '==', authorId),
         where('targetId', '==', targetId),
-        where('targetType', '==', targetType)
+        where('targetType', '==', normalizedTargetType)
       );
 
       const snapshot = await getDocs(reviewsQuery);
@@ -221,7 +233,7 @@ class ReviewsService {
 
       const reviewData = reviewDoc.data();
       const targetId = reviewData.targetId;
-      const targetType = reviewData.targetType;
+      const targetType = reviewData.targetType; // Already normalized in collection
 
       await updateDoc(reviewRef, {
         rating: Number(rating),
@@ -240,7 +252,7 @@ class ReviewsService {
   /**
    * Calculate average rating for a target
    * @param {string} targetId - ID of property or service provider
-   * @param {string} targetType - 'property', 'construction', or 'renovation'
+   * @param {string} targetType - 'property', 'provider', 'construction', or 'renovation' (maps to 'provider')
    * @returns {Promise<Object>} - { average: number, count: number }
    */
   async getAverageRating(targetId, targetType) {
@@ -266,7 +278,7 @@ class ReviewsService {
   /**
    * Update average rating for a target (property or service provider)
    * @param {string} targetId - ID of property or service provider
-   * @param {string} targetType - 'property', 'construction', or 'renovation'
+   * @param {string} targetType - 'property' or 'provider' (normalized)
    * @returns {Promise<void>}
    */
   async updateAverageRating(targetId, targetType) {
@@ -275,7 +287,7 @@ class ReviewsService {
         throw new Error('targetId and targetType are required');
       }
 
-      // Calculate average rating
+      // Calculate average rating (using normalized targetType)
       const { average, count } = await this.getAverageRating(targetId, targetType);
 
       // Update the target document based on type
@@ -283,14 +295,14 @@ class ReviewsService {
         const propertyRef = doc(db, 'properties', targetId);
         await updateDoc(propertyRef, {
           averageRating: average,
-          reviewCount: count,
+          totalReviews: count,
           updatedAt: serverTimestamp(),
         });
-      } else if (targetType === 'construction' || targetType === 'renovation') {
+      } else if (targetType === 'provider') {
         const providerRef = doc(db, 'serviceProviders', targetId);
         await updateDoc(providerRef, {
-          rating: average,
-          reviewCount: count,
+          averageRating: average,
+          totalReviews: count,
           updatedAt: serverTimestamp(),
         });
       }

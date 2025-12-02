@@ -5,6 +5,7 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'fire
 import { db } from '../../firebase/firebase';
 import notificationService from '../../services/notificationService';
 import { uploadMultipleImages } from '../../firebase/storageFunctions';
+import { useSubmitSuccess } from '../../hooks/useNotifyAndRedirect';
 import { Hammer, MapPin, DollarSign, Calendar, FileText, Upload, X, Building2 } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -14,6 +15,11 @@ import toast from 'react-hot-toast';
 const RequestConstruction = () => {
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
+  const handleSuccess = useSubmitSuccess(
+    'Construction request submitted successfully!',
+    '/account',
+    2000
+  );
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -171,6 +177,21 @@ const RequestConstruction = () => {
       const docRef = await addDoc(collection(db, 'constructionProjects'), projectData);
       const projectId = docRef.id;
 
+      // Add initial update log
+      try {
+        const { addProjectUpdate } = await import('../../utils/projectUpdates');
+        await addProjectUpdate(
+          'constructionProjects',
+          projectId,
+          'Pending',
+          currentUser.uid,
+          'Request submitted'
+        );
+      } catch (updateError) {
+        console.error('Error adding initial update log:', updateError);
+        // Don't fail the request if update log fails
+      }
+
       // Notify all construction providers
       try {
         const providersQuery = query(
@@ -209,8 +230,8 @@ const RequestConstruction = () => {
         console.error('Error sending user notification:', notifError);
       }
 
-      toast.success('Construction request submitted successfully!');
-      navigate(`/construction/my-requests`);
+      // Use standardized success handler
+      handleSuccess();
     } catch (error) {
       console.error('Error submitting construction request:', error);
       toast.error(error.message || 'Failed to submit construction request');
@@ -414,7 +435,7 @@ const RequestConstruction = () => {
               >
                 Cancel
               </Button>
-              <Button type="submit" loading={loading} size="lg">
+              <Button type="submit" loading={loading} disabled={loading} size="lg">
                 Submit Request
               </Button>
             </div>

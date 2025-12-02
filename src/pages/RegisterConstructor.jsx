@@ -105,10 +105,11 @@ const RegisterConstructor = () => {
         setCheckingRegistration(true);
         console.log('Checking if user is already registered as constructor:', currentUser.uid);
 
-        // Query constructionProviders collection filtered by userId
+        // Query serviceProviders collection filtered by userId
         const providersQuery = query(
-          collection(db, 'constructionProviders'),
-          where('userId', '==', currentUser.uid)
+          collection(db, 'serviceProviders'),
+          where('userId', '==', currentUser.uid),
+          where('serviceType', '==', 'construction')
         );
 
         const snapshot = await getDocs(providersQuery);
@@ -433,8 +434,9 @@ const RegisterConstructor = () => {
 
       // Check again if user is already registered (race condition protection)
       const providersQuery = query(
-        collection(db, 'constructionProviders'),
-        where('userId', '==', currentUser.uid)
+        collection(db, 'serviceProviders'),
+        where('userId', '==', currentUser.uid),
+        where('serviceType', '==', 'construction')
       );
       const snapshot = await getDocs(providersQuery);
 
@@ -456,34 +458,47 @@ const RegisterConstructor = () => {
         .map((link) => link.trim())
         .filter((link) => link.length > 0 && (link.startsWith('http://') || link.startsWith('https://')));
 
+      // Prepare documents object
+      const documents = {};
+      if (uploads.cnicUrl) {
+        documents.cnicUrl = uploads.cnicUrl;
+      }
+      if (uploads.licenseFiles && uploads.licenseFiles.length > 0) {
+        documents.licenseFiles = uploads.licenseFiles;
+      }
+
       const providerData = {
         userId: currentUser.uid,
         name: formData.name.trim(),
-        companyName: formData.companyName.trim(),
-        cnic: formData.cnic.trim(),
         phone: formData.phone.trim(),
-        email: formData.email.trim(),
-        experience: Number(formData.experience),
-        skills: formData.skills,
+        serviceType: 'construction',
+        specialization: formData.skills, // Use skills as specialization
+        portfolio: portfolioLinksArray,
+        documents: documents,
         city: formData.city.trim(),
-        address: formData.address.trim(),
-        portfolioLinks: portfolioLinksArray,
+        isApproved: false,
         createdAt: serverTimestamp(),
       };
 
-      // Add file URLs if uploaded
-      if (uploads.cnicUrl) {
-        providerData.cnicUrl = uploads.cnicUrl;
+      // Add optional fields
+      if (formData.companyName) {
+        providerData.companyName = formData.companyName.trim();
+      }
+      if (formData.cnic) {
+        providerData.cnic = formData.cnic.trim();
+      }
+      if (formData.email) {
+        providerData.email = formData.email.trim();
+      }
+      if (formData.address) {
+        providerData.address = formData.address.trim();
       }
       if (uploads.profileImageUrl) {
         providerData.profileImageUrl = uploads.profileImageUrl;
       }
-      if (uploads.licenseFiles && uploads.licenseFiles.length > 0) {
-        providerData.licenseFiles = uploads.licenseFiles;
-      }
 
-      // Add document to Firestore - use constructionProviders collection
-      const docRef = await addDoc(collection(db, 'constructionProviders'), providerData);
+      // Add document to Firestore - use serviceProviders collection
+      const docRef = await addDoc(collection(db, 'serviceProviders'), providerData);
       console.log('Constructor registered with ID:', docRef.id);
       console.log('Provider data:', providerData);
 

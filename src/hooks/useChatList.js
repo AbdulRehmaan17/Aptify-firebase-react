@@ -76,7 +76,7 @@ export default function useChatList() {
               ...chat,
               otherParticipantId: otherUid,
               otherParticipantName: userNames[otherUid] || 'Unknown',
-              unreadCount: chat.unreadFor?.[user.uid] ? 1 : 0,
+              unreadCount: chat.unreadFor?.[user.uid] === true ? 1 : 0,
             };
           });
 
@@ -140,7 +140,7 @@ export default function useChatList() {
                     ...chat,
                     otherParticipantId: otherUid,
                     otherParticipantName: userNames[otherUid] || 'Unknown',
-                    unreadCount: chat.unreadFor?.[user.uid] ? 1 : 0,
+                    unreadCount: chat.unreadFor?.[user.uid] === true ? 1 : 0,
                   };
                 });
 

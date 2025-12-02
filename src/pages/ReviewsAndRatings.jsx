@@ -144,11 +144,12 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                 const reviewData = { id: docSnap.id, ...docSnap.data() };
 
                 // Fetch user name if not cached
-                if (!userNames[reviewData.reviewerId]) {
-                  const userName = await fetchUserName(reviewData.reviewerId);
+                const authorId = reviewData.authorId || reviewData.reviewerId; // Support both for backward compatibility
+                if (!userNames[authorId]) {
+                  const userName = await fetchUserName(authorId);
                   reviewData.reviewerName = userName;
                 } else {
-                  reviewData.reviewerName = userNames[reviewData.reviewerId];
+                  reviewData.reviewerName = userNames[authorId];
                 }
 
                 reviewsData.push(reviewData);
@@ -202,11 +203,12 @@ const ReviewsAndRatings = ({ targetId, targetType = 'property' }) => {
                     for (const docSnap of snapshot.docs) {
                       const reviewData = { id: docSnap.id, ...docSnap.data() };
 
-                      if (!userNames[reviewData.reviewerId]) {
-                        const userName = await fetchUserName(reviewData.reviewerId);
+                      const authorId = reviewData.authorId || reviewData.reviewerId; // Support both for backward compatibility
+                      if (!userNames[authorId]) {
+                        const userName = await fetchUserName(authorId);
                         reviewData.reviewerName = userName;
                       } else {
-                        reviewData.reviewerName = userNames[reviewData.reviewerId];
+                        reviewData.reviewerName = userNames[authorId];
                       }
 
                       reviewsData.push(reviewData);

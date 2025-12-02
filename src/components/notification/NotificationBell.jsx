@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
+import { db } from '../../firebase/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { Bell, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,10 +13,9 @@ import notificationService from '../../services/notificationService';
  * Displays notification bell with unread count and dropdown
  */
 const NotificationBell = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, unreadCount: contextUnreadCount } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef(null);
@@ -72,10 +71,6 @@ const NotificationBell = () => {
           });
 
           setNotifications(notifs);
-
-          // Calculate unread count
-          const unread = notifs.filter((n) => !n.read).length;
-          setUnreadCount(unread);
 
           // Show toast for new notifications
           if (notifs.length > 0) {
@@ -147,8 +142,6 @@ const NotificationBell = () => {
                 });
 
                 setNotifications(notifs);
-                const unread = notifs.filter((n) => !n.read).length;
-                setUnreadCount(unread);
                 setLoading(false);
               },
               (fallbackError) => {
@@ -238,18 +231,25 @@ const NotificationBell = () => {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (isOpen) {
+            setIsOpen(false);
+          } else {
+            setIsOpen(true);
+          }
+        }}
+        onDoubleClick={() => navigate('/notifications')}
         className="relative p-2 text-textSecondary hover:text-primary transition-colors"
         aria-label="Notifications"
       >
         <Bell className="w-6 h-6" />
-        {unreadCount > 0 && (
+        {contextUnreadCount > 0 && (
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             className="absolute top-0 right-0 bg-error text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
           >
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {contextUnreadCount > 9 ? '9+' : contextUnreadCount}
           </motion.span>
         )}
       </button>
@@ -334,17 +334,17 @@ const NotificationBell = () => {
             </div>
 
             {/* Footer */}
-            {recentNotifications.length > 0 && (
-              <div className="p-3 border-t border-muted">
-                <Link
-                  to="/notifications"
-                  onClick={() => setIsOpen(false)}
-                  className="block text-center text-sm text-primary hover:text-primaryDark font-medium"
-                >
-                  View all notifications
-                </Link>
-              </div>
-            )}
+            <div className="p-3 border-t border-muted">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  navigate('/notifications');
+                }}
+                className="block w-full text-center text-sm text-primary hover:text-primaryDark font-medium"
+              >
+                View all notifications
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

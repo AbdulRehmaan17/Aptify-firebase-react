@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { uploadMultipleImages } from '../../firebase/storageFunctions';
 import propertyService from '../../services/propertyService';
+import { sendNotification } from '../../utils/notificationHelpers';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase/firebase';
 import { MapPin, DollarSign, Home, FileText, Image as ImageIcon, X, Upload } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -281,6 +284,42 @@ const AddRental = () => {
 
         // Create property (images will be uploaded by propertyService)
         const propertyId = await propertyService.create(propertyData, images);
+        
+        // Notify admin about new property
+        try {
+          const adminQuery = query(
+            collection(db, 'users'),
+            where('role', '==', 'admin')
+          );
+          const adminSnapshot = await getDocs(adminQuery);
+          
+          const notificationPromises = adminSnapshot.docs.map((adminDoc) => {
+            return sendNotification({
+              userId: adminDoc.id,
+              title: 'Property Posted',
+              message: `A user posted a rental property: ${formData.title.trim()}`,
+              type: 'system',
+              meta: { propertyId, propertyTitle: formData.title.trim() }
+            });
+          });
+          
+          await Promise.all(notificationPromises);
+        } catch (notifError) {
+          console.error('Error notifying admin:', notifError);
+        }
+        
+        // Notify user (confirmation)
+        try {
+          await sendNotification({
+            userId: currentUser.uid,
+            title: 'Rental Property Added',
+            message: `Your rental property "${formData.title.trim()}" has been added successfully.`,
+            type: 'success',
+            meta: { propertyId }
+          });
+        } catch (notifError) {
+          console.error('Error sending user notification:', notifError);
+        }
         
         toast.success('Rental property added successfully!');
         navigate(`/rental/${propertyId}`);

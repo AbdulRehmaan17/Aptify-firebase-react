@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
 import useSubmitForm from '../hooks/useSubmitForm';
+import { useSubmitSuccess } from '../hooks/useNotifyAndRedirect';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
@@ -24,6 +25,13 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
     message: '',
   });
   const [errors, setErrors] = useState({});
+
+  // Standardized success handler
+  const handleSubmitSuccess = useSubmitSuccess(
+    'Rental request submitted successfully!',
+    '/account',
+    2000
+  );
 
   // Use standardized submit hook
   const {
@@ -76,7 +84,7 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
     notificationTitle: 'Rental Request Submitted',
     notificationMessage: `Your rental request for "${propertyTitle || 'the property'}" has been submitted. The owner will review it soon.`,
     notificationType: 'service-request',
-    redirectPath: '/account',
+    redirectPath: null, // Handled by useSubmitSuccess
     createNotification: async (userId, docId, data) => {
       await notificationService.sendNotification(
         userId,
@@ -86,7 +94,25 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
         '/account'
       );
     },
-    onSuccess: () => {
+    onSuccess: async (docId, data) => {
+      // Add initial update log
+      try {
+        const { addProjectUpdate } = await import('../utils/projectUpdates');
+        await addProjectUpdate(
+          'rentalRequests',
+          docId,
+          'Pending',
+          user.uid,
+          'Rental request submitted'
+        );
+      } catch (updateError) {
+        console.error('Error adding initial update log:', updateError);
+        // Don't fail the request if update log fails
+      }
+      
+      // Use standardized success handler
+      handleSubmitSuccess();
+      
       if (onSuccess) {
         onSuccess();
       }

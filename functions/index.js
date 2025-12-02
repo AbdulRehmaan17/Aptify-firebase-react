@@ -144,7 +144,7 @@ exports.onConstructionProjectCreated = functions.firestore
       // Notify all approved construction providers if no specific provider assigned
       try {
         const providersSnapshot = await db.collection('serviceProviders')
-          .where('serviceType', '==', 'Construction')
+          .where('serviceType', '==', 'construction')
           .where('isApproved', '==', true)
           .get();
 
@@ -227,7 +227,7 @@ exports.onRenovationProjectCreated = functions.firestore
       // Notify all approved renovation providers if no specific provider assigned
       try {
         const providersSnapshot = await db.collection('serviceProviders')
-          .where('serviceType', '==', 'Renovation')
+          .where('serviceType', '==', 'renovation')
           .where('isApproved', '==', true)
           .get();
 
@@ -380,8 +380,8 @@ exports.onReviewCreated = functions.firestore
 
     console.log(`New review created: ${reviewId}`);
 
-    // Only notify if review is for a provider (construction or renovation)
-    if (review.targetType !== 'construction' && review.targetType !== 'renovation') {
+    // Only notify if review is for a provider
+    if (review.targetType !== 'provider') {
       return;
     }
 
@@ -408,28 +408,34 @@ exports.onReviewCreated = functions.firestore
         return;
       }
 
-      // Get reviewer name
+      // Get reviewer name (using authorId)
+      const authorId = review.authorId || review.reviewerId; // Support both for backward compatibility
       let reviewerName = 'A user';
-      try {
-        const reviewerDoc = await db.collection('users').doc(review.reviewerId).get();
-        if (reviewerDoc.exists) {
-          const reviewerData = reviewerDoc.data();
-          reviewerName = reviewerData.name || reviewerData.displayName || 'A user';
+      if (authorId) {
+        try {
+          const reviewerDoc = await db.collection('users').doc(authorId).get();
+          if (reviewerDoc.exists) {
+            const reviewerData = reviewerDoc.data();
+            reviewerName = reviewerData.name || reviewerData.displayName || 'A user';
+          }
+        } catch (error) {
+          console.error('Error fetching reviewer name:', error);
         }
-      } catch (error) {
-        console.error('Error fetching reviewer name:', error);
       }
 
+      // Determine service type from provider data
+      const serviceType = providerData.serviceType === 'construction' ? 'Construction' : 'Renovation';
+      const dashboardLink = providerData.serviceType === 'construction' 
+        ? `/constructor-dashboard` 
+        : `/renovator-dashboard`;
+
       // Notify provider
-      const serviceType = review.targetType === 'construction' ? 'Construction' : 'Renovation';
       await createNotification(
         providerUserId,
         'New Review Received',
         `${reviewerName} left a ${review.rating}-star review for your ${serviceType.toLowerCase()} service.`,
         'info',
-        review.targetType === 'construction' 
-          ? `/constructor-dashboard` 
-          : `/renovator-dashboard`
+        dashboardLink
       );
 
       console.log(`Notified provider ${providerUserId} about new review`);
@@ -552,20 +558,11 @@ exports.onChatMessageCreated = functions.firestore
     console.log(`New chat message created: ${messageId} in chat ${chatId}`);
 
     try {
-      // Get chat document to find participants
-      const chatDoc = await db.collection('chats').doc(chatId).get();
-      if (!chatDoc.exists) {
-        console.error(`Chat ${chatId} not found`);
-        return;
-      }
-
-      const chatData = chatDoc.data();
-      const participants = chatData.participants || [];
       const senderId = message.senderId;
-      const receiverId = participants.find((uid) => uid !== senderId);
+      const receiverId = message.receiverId;
 
-      if (!receiverId) {
-        console.error(`Receiver not found for chat ${chatId}`);
+      if (!senderId || !receiverId) {
+        console.error(`Missing senderId or receiverId in message ${messageId}`);
         return;
       }
 

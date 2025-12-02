@@ -1,4 +1,11 @@
-import {
+import { getFirestore } from 'firebase/firestore';
+import { app } from './config';
+
+// Initialize Firestore
+export const db = app ? getFirestore(app) : null;
+
+// Re-export Firestore functions
+export {
   collection,
   doc,
   getDocs,
@@ -15,8 +22,8 @@ import {
   serverTimestamp,
   increment,
   arrayUnion,
+  onSnapshot,
 } from 'firebase/firestore';
-import { db } from './firebase';
 
 // Product operations
 export const getProducts = async (filters = {}, sortBy = 'createdAt', limitCount = 20) => {

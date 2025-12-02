@@ -25,6 +25,7 @@ import rentalRequestService from '../services/rentalRequestService';
 import buySellRequestService from '../services/buySellRequestService';
 import reviewsService from '../services/reviewsService';
 import notificationService from '../services/notificationService';
+import { getOrCreateChat } from '../utils/chatHelpers';
 import {
   collection,
   query,
@@ -33,6 +34,7 @@ import {
   orderBy,
   doc,
   getDoc,
+  getDocs,
   deleteDoc,
   updateDoc,
 } from 'firebase/firestore';
@@ -70,6 +72,7 @@ const MyAccount = () => {
   const [propertiesLoading, setPropertiesLoading] = useState(false);
   const [allRequests, setAllRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestUpdatesMap, setRequestUpdatesMap] = useState({}); // Map of type-id -> updates array
   const [activeChats, setActiveChats] = useState([]);
   const [chatsLoading, setChatsLoading] = useState(false);
   const [myReviews, setMyReviews] = useState([]);
@@ -486,7 +489,43 @@ const MyAccount = () => {
     );
     unsubscribes.push(unsubscribeRenovation);
 
-    function updateAllRequests(type, requests) {
+    async function updateAllRequests(type, requests) {
+      // Load updates for each request
+      const updatesPromises = requests.map(async (request) => {
+        try {
+          const collectionName = 
+            type === 'rental' ? 'rentalRequests' :
+            type === 'buySell' ? 'buySellRequests' :
+            type === 'construction' ? 'constructionProjects' :
+            type === 'renovation' ? 'renovationProjects' : null;
+          
+          if (!collectionName) return { key: `${type}-${request.id}`, updates: [] };
+          
+          const updatesQuery = query(
+            collection(db, collectionName, request.id, 'updates'),
+            orderBy('createdAt', 'asc')
+          );
+          const updatesSnapshot = await getDocs(updatesQuery);
+          return {
+            key: `${type}-${request.id}`,
+            updates: updatesSnapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })),
+          };
+        } catch (error) {
+          console.error(`Error loading updates for ${type} request ${request.id}:`, error);
+          return { key: `${type}-${request.id}`, updates: [] };
+        }
+      });
+      
+      const updatesResults = await Promise.all(updatesPromises);
+      const newUpdatesMap = { ...requestUpdatesMap };
+      updatesResults.forEach(({ key, updates }) => {
+        newUpdatesMap[key] = updates;
+      });
+      setRequestUpdatesMap(newUpdatesMap);
+      
       setAllRequests((prev) => {
         const filtered = prev.filter((r) => r.type !== type);
         const combined = [...filtered, ...requests];
@@ -1132,13 +1171,64 @@ const MyAccount = () => {
                           {request.message && (
                             <p className="text-sm text-textSecondary mt-2">{request.message}</p>
                           )}
-                          {request.propertyId && (
-                            <Link to={`/properties/${request.propertyId}`} className="mt-3 inline-block">
-                              <Button variant="outline" size="sm">
-                                View Property
-                              </Button>
-                            </Link>
+                          
+                          {/* Timeline from updates */}
+                          {requestUpdatesMap[`${request.type}-${request.id}`]?.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-muted">
+                              <h4 className="text-xs font-semibold text-textSecondary mb-2">Timeline</h4>
+                              <div className="space-y-2">
+                                {requestUpdatesMap[`${request.type}-${request.id}`].map((update, idx) => (
+                                  <div key={update.id || idx} className="flex items-start gap-2 text-xs">
+                                    <div className="w-2 h-2 bg-primary rounded-full mt-1.5 flex-shrink-0"></div>
+                                    <div className="flex-1">
+                                      <p className="text-textMain font-medium">{update.status}</p>
+                                      {update.note && (
+                                        <p className="text-textSecondary">{update.note}</p>
+                                      )}
+                                      <p className="text-textSecondary mt-0.5">
+                                        {formatDate(update.createdAt)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           )}
+                          
+                          <div className="flex items-center gap-2 mt-3">
+                            {request.propertyId && (
+                              <Link to={`/properties/${request.propertyId}`}>
+                                <Button variant="outline" size="sm">
+                                  View Property
+                                </Button>
+                              </Link>
+                            )}
+                            {(request.providerId || (request.type === 'rental' && request.propertyId)) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    const otherId = request.providerId || 
+                                      (request.type === 'rental' && request.propertyId ? 
+                                        (await getDoc(doc(db, 'properties', request.propertyId))).data()?.ownerId : null);
+                                    if (!otherId) {
+                                      toast.error('Unable to start chat');
+                                      return;
+                                    }
+                                    const chatId = await getOrCreateChat(user.uid, otherId);
+                                    navigate(`/chat?chatId=${chatId}`);
+                                  } catch (error) {
+                                    console.error('Error starting chat:', error);
+                                    toast.error('Failed to start chat');
+                                  }
+                                }}
+                              >
+                                <MessageCircle className="w-4 h-4 mr-1" />
+                                Chat
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

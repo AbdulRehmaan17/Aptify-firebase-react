@@ -129,10 +129,17 @@ export function useChatMessages(chatId) {
 
         // Get chat document to find receiver
         const chatRef = doc(db, 'chats', chatId);
-        const chatSnap = await chatRef.get();
+        const chatSnap = await getDoc(chatRef);
+        if (!chatSnap.exists()) {
+          throw new Error('Chat not found');
+        }
         const chatData = chatSnap.data();
         const participants = chatData?.participants || [];
         const receiverId = participants.find((uid) => uid !== user.uid);
+        
+        if (!receiverId) {
+          throw new Error('Receiver not found in chat');
+        }
 
         // Add message to subcollection
         const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -145,6 +152,7 @@ export function useChatMessages(chatId) {
         });
 
         // Update parent chat document
+        const textSnippet = text.trim().substring(0, 50) + (text.trim().length > 50 ? '...' : '');
         const unreadFor = {
           ...(chatData?.unreadFor || {}),
           [receiverId]: true,
@@ -152,25 +160,24 @@ export function useChatMessages(chatId) {
         };
 
         await updateDoc(chatRef, {
-          lastMessage: text.trim().substring(0, 100),
+          lastMessage: textSnippet,
           updatedAt: serverTimestamp(),
           unreadFor: unreadFor,
         });
 
         // Send notification to receiver
-        if (receiverId) {
-          try {
-            await notificationService.sendNotification(
-              receiverId,
-              'New Chat Message',
-              text.trim().substring(0, 50) + (text.trim().length > 50 ? '...' : ''),
-              'admin',
-              `/chats?chatId=${chatId}`
-            );
-          } catch (notifError) {
-            console.error('Error sending notification:', notifError);
-            // Don't fail message send if notification fails
-          }
+        try {
+          const { sendNotification } = await import('../utils/notificationHelpers');
+          await sendNotification({
+            userId: receiverId,
+            title: 'New Message',
+            message: textSnippet,
+            type: 'chat',
+            meta: { chatId }
+          });
+        } catch (notifError) {
+          console.error('Error sending notification:', notifError);
+          // Don't fail message send if notification fails
         }
       } catch (error) {
         console.error('Error sending message:', error);
@@ -189,15 +196,18 @@ export function useChatMessages(chatId) {
     const markAsRead = async () => {
       try {
         const chatRef = doc(db, 'chats', chatId);
-        const chatSnap = await chatRef.get();
+        const chatSnap = await getDoc(chatRef);
+        if (!chatSnap.exists()) return;
+        
         const chatData = chatSnap.data();
 
-        if (chatData?.unreadFor?.[user.uid]) {
+        if (chatData?.unreadFor?.[user.uid] === true) {
           await updateDoc(chatRef, {
             unreadFor: {
               ...chatData.unreadFor,
               [user.uid]: false,
             },
+            updatedAt: serverTimestamp(),
           });
         }
       } catch (error) {

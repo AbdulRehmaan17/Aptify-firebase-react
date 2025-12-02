@@ -30,7 +30,7 @@ const ConversationList = ({ onSelectConversation, selectedChatId }) => {
     const conversationsQuery = query(
       collection(db, 'chats'),
       where('participants', 'array-contains', currentUser.uid),
-      orderBy('lastMessageAt', 'desc')
+      orderBy('updatedAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(
@@ -55,10 +55,10 @@ const ConversationList = ({ onSelectConversation, selectedChatId }) => {
         // Load user names
         await loadUserNames(Array.from(userIds));
 
-        // Sort by lastMessageAt
+        // Sort by updatedAt
         convos.sort((a, b) => {
-          const aTime = a.lastMessageAt?.toDate?.() || new Date(0);
-          const bTime = b.lastMessageAt?.toDate?.() || new Date(0);
+          const aTime = a.updatedAt?.toDate?.() || new Date(0);
+          const bTime = b.updatedAt?.toDate?.() || new Date(0);
           return bTime - aTime;
         });
 
@@ -162,10 +162,10 @@ const ConversationList = ({ onSelectConversation, selectedChatId }) => {
   };
 
   const getUnreadCount = (conversation) => {
-    if (!conversation.unreadCounts || !conversation.unreadCounts[currentUser.uid]) {
+    if (!conversation.unreadFor || conversation.unreadFor[currentUser.uid] !== true) {
       return 0;
     }
-    return conversation.unreadCounts[currentUser.uid] || 0;
+    return 1; // Boolean flag, so either 1 (unread) or 0 (read)
   };
 
   if (loading) {

@@ -182,10 +182,13 @@ const MessageBox = ({ chatId, otherParticipantId }) => {
       const chatDoc = await getDoc(doc(db, 'chats', chatId));
       if (chatDoc.exists()) {
         const chatData = chatDoc.data();
-        const unreadCounts = chatData.unreadCounts || {};
-        if (unreadCounts[currentUser.uid] > 0) {
+        const unreadFor = chatData.unreadFor || {};
+        if (unreadFor[currentUser.uid] === true) {
           await updateDoc(doc(db, 'chats', chatId), {
-            [`unreadCounts.${currentUser.uid}`]: 0,
+            unreadFor: {
+              ...unreadFor,
+              [currentUser.uid]: false,
+            },
             updatedAt: serverTimestamp(),
           });
         }
@@ -212,11 +215,18 @@ const MessageBox = ({ chatId, otherParticipantId }) => {
 
       // Update chat document
       const chatRef = doc(db, 'chats', chatId);
+      const chatDoc = await getDoc(chatRef);
+      const chatData = chatDoc.exists() ? chatDoc.data() : {};
+      const unreadFor = chatData.unreadFor || {};
+      
       await updateDoc(chatRef, {
         lastMessage: newMessage.trim(),
-        lastMessageAt: serverTimestamp(),
-        [`unreadCounts.${otherParticipantId}`]: (await getDoc(chatRef)).data()?.unreadCounts?.[otherParticipantId] || 0 + 1,
         updatedAt: serverTimestamp(),
+        unreadFor: {
+          ...unreadFor,
+          [otherParticipantId]: true,
+          [currentUser.uid]: false,
+        },
       });
 
       // Send notification to other participant

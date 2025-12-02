@@ -132,9 +132,19 @@ const Navbar = () => {
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center space-x-2 p-2 text-textSecondary hover:text-primary transition-colors"
                 >
-                  <User className="w-5 h-5" />
+                  {userProfile?.photoURL || authUserProfile?.photoURL || currentUser.photoURL ? (
+                    <img
+                      src={userProfile?.photoURL || authUserProfile?.photoURL || currentUser.photoURL}
+                      alt={userProfile?.displayName || authUserProfile?.displayName || currentUser.email || 'User'}
+                      className="w-8 h-8 rounded-full object-cover border-2 border-primary"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center border-2 border-primary">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                  )}
                   <span className="hidden sm:block text-sm font-medium text-textMain">
-                    {userProfile?.displayName || authUserProfile?.displayName || currentUser.email}
+                    {userProfile?.displayName || userProfile?.name || authUserProfile?.displayName || authUserProfile?.name || currentUser.email}
                   </span>
                 </button>
 

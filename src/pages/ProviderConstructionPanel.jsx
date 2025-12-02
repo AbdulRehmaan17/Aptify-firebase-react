@@ -379,12 +379,51 @@ const ProviderConstructionPanel = () => {
     try {
       setUpdatingStatus((prev) => ({ ...prev, [projectId]: true }));
 
-      // Update project document in Firestore
+      // Get project to find client
       const projectRef = doc(db, 'constructionProjects', projectId);
+      const projectDoc = await getDoc(projectRef);
+      if (!projectDoc.exists()) {
+        throw new Error('Project not found');
+      }
+      const projectData = projectDoc.data();
+      const clientId = projectData.userId || projectData.clientId;
+
+      // Update project document in Firestore
       await updateDoc(projectRef, {
         status: newStatus,
         updatedAt: serverTimestamp(),
       });
+
+      // Add update log
+      try {
+        const { addProjectUpdate } = await import('../utils/projectUpdates');
+        const note = newStatus === 'In Progress' ? 'Project started' : newStatus === 'Completed' ? 'Project completed' : `Status changed to ${newStatus}`;
+        await addProjectUpdate(
+          'constructionProjects',
+          projectId,
+          newStatus,
+          currentUser.uid,
+          note
+        );
+      } catch (updateError) {
+        console.error('Error adding update log:', updateError);
+      }
+
+      // Notify client
+      if (clientId) {
+        try {
+          const notificationService = (await import('../services/notificationService')).default;
+          await notificationService.create(
+            clientId,
+            'Construction Project Update',
+            `Your construction project status has been updated to: ${newStatus}`,
+            'status-update',
+            `/construction/my-requests/${projectId}`
+          );
+        } catch (notifError) {
+          console.error('Error sending notification:', notifError);
+        }
+      }
 
       // Show success toast confirming update
       toast.success(`Project status updated to ${newStatus} successfully!`);

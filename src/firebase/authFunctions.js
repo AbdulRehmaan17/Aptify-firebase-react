@@ -11,7 +11,8 @@ import {
   EmailAuthProvider,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, googleProvider } from './firebase';
+import { auth, googleProvider } from './auth';
+import { db } from './firestore';
 
 /**
  * Login with email and password
@@ -80,18 +81,9 @@ export const signup = async (email, password, name) => {
 
     const result = await createUserWithEmailAndPassword(auth, email, password);
 
-    // Create user document in Firestore
+    // Create user document in Firestore using createOrUpdateUserProfile
     try {
-      await setDoc(doc(db, 'users', result.user.uid), {
-        uid: result.user.uid,
-        email: email,
-        displayName: name,
-        createdAt: serverTimestamp(),
-        role: 'customer',
-        addresses: [],
-        orders: [],
-        wishlist: [],
-      });
+      await createOrUpdateUserProfile(result.user);
     } catch (firestoreError) {
       console.error('Error creating user document:', firestoreError);
       // Don't fail registration if Firestore write fails, user is already created in Auth
@@ -285,29 +277,38 @@ export const createOrUpdateUserProfile = async (user) => {
     const userDocRef = doc(db, 'users', user.uid);
     const userDoc = await getDoc(userDocRef);
 
-    if (!userDoc.exists()) {
+    const providerId = user.providerData?.[0]?.providerId || 'password';
+    const isNewUser = !userDoc.exists();
+
+    if (isNewUser) {
       // Create new user document
       await setDoc(userDocRef, {
         uid: user.uid,
-        email: user.email || null,
-        displayName: user.displayName || null,
-        photoURL: user.photoURL || null,
+        name: user.displayName || user.email?.split('@')[0] || '',
+        email: user.email || '',
+        phone: '',
+        photoURL: user.photoURL || '',
+        provider: providerId,
+        role: 'user',
+        providerType: null,
+        isProviderApproved: false,
+        walletBalance: 0,
+        totalBookings: 0,
+        totalReviews: 0,
         createdAt: serverTimestamp(),
-        role: 'customer',
-        addresses: [],
-        orders: [],
-        wishlist: [],
-        provider: 'google',
+        lastLogin: serverTimestamp(),
       });
     } else {
-      // Update existing user document with latest info
+      // Update existing user document with latest info and lastLogin
+      const existingData = userDoc.data();
       await setDoc(
         userDocRef,
         {
-          email: user.email || userDoc.data().email,
-          displayName: user.displayName || userDoc.data().displayName,
-          photoURL: user.photoURL || userDoc.data().photoURL,
-          updatedAt: serverTimestamp(),
+          name: user.displayName || existingData.name || user.email?.split('@')[0] || '',
+          email: user.email || existingData.email || '',
+          photoURL: user.photoURL || existingData.photoURL || '',
+          provider: providerId,
+          lastLogin: serverTimestamp(),
         },
         { merge: true }
       );

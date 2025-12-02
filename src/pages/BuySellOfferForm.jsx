@@ -5,6 +5,7 @@ import { collection, addDoc, getDoc, doc, serverTimestamp } from 'firebase/fires
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
+import { useSubmitSuccess } from '../hooks/useNotifyAndRedirect';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import toast from 'react-hot-toast';
@@ -16,6 +17,14 @@ import toast from 'react-hot-toast';
 const BuySellOfferForm = ({ propertyId, propertyTitle, propertyPrice, onSuccess, onCancel }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // Standardized success handler
+  const handleSuccess = useSubmitSuccess(
+    'Purchase offer submitted successfully!',
+    '/account',
+    2000
+  );
+  
   const [formData, setFormData] = useState({
     offerAmount: '',
     message: '',
@@ -81,6 +90,22 @@ const BuySellOfferForm = ({ propertyId, propertyTitle, propertyPrice, onSuccess,
       };
 
       const docRef = await addDoc(collection(db, 'buySellRequests'), requestData);
+      const requestId = docRef.id;
+
+      // Add initial update log
+      try {
+        const { addProjectUpdate } = await import('../utils/projectUpdates');
+        await addProjectUpdate(
+          'buySellRequests',
+          requestId,
+          'Pending',
+          user.uid,
+          'Purchase offer submitted'
+        );
+      } catch (updateError) {
+        console.error('Error adding initial update log:', updateError);
+        // Don't fail the request if update log fails
+      }
 
       // Notify property owner
       if (ownerId && ownerId !== user.uid) {
@@ -115,7 +140,8 @@ const BuySellOfferForm = ({ propertyId, propertyTitle, propertyPrice, onSuccess,
         console.error('Error creating client notification:', notifError);
       }
 
-      toast.success('Purchase offer submitted successfully!');
+      // Use standardized success handler
+      handleSuccess();
       if (onSuccess) {
         onSuccess();
       }

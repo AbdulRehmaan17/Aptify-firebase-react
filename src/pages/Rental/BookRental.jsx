@@ -159,6 +159,21 @@ const BookRental = () => {
 
       const requestId = await rentalRequestService.create(requestData);
 
+      // Add initial update log
+      try {
+        const { addProjectUpdate } = await import('../../utils/projectUpdates');
+        await addProjectUpdate(
+          'rentalRequests',
+          requestId,
+          'Pending',
+          currentUser.uid,
+          'Rental request submitted'
+        );
+      } catch (updateError) {
+        console.error('Error adding initial update log:', updateError);
+        // Don't fail the request if update log fails
+      }
+
       // Deduct from wallet if enabled
       if (useWallet && walletBalance >= totalCost) {
         try {

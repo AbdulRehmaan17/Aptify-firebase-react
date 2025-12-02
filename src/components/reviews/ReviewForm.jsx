@@ -12,8 +12,8 @@ import toast from 'react-hot-toast';
  * Used on PropertyDetailPage and Provider detail pages.
  * 
  * @param {string} targetId - ID of the property or provider being reviewed
- * @param {string} targetType - 'property', 'construction', or 'renovation'
- * @param {string} reviewerId - ID of the user submitting the review
+ * @param {string} targetType - 'property', 'provider', 'construction', or 'renovation'
+ * @param {string} authorId - ID of the user submitting the review (author)
  * @param {Object} existingReview - Existing review object if editing (optional)
  * @param {Function} onSuccess - Callback when review is submitted successfully
  * @param {Function} onCancel - Callback when form is cancelled
@@ -21,7 +21,7 @@ import toast from 'react-hot-toast';
 const ReviewForm = ({
   targetId,
   targetType,
-  reviewerId,
+  authorId,
   existingReview = null,
   onSuccess,
   onCancel,
@@ -36,13 +36,13 @@ const ReviewForm = ({
   // Check for existing review on mount
   useEffect(() => {
     const checkExistingReview = async () => {
-      if (!reviewerId || !targetId || existingReview) {
+      if (!authorId || !targetId || existingReview) {
         setCheckingReview(false);
         return;
       }
 
       try {
-        const review = await reviewsService.getUserReview(reviewerId, targetId, targetType);
+        const review = await reviewsService.getUserReview(authorId, targetId, targetType);
         if (review) {
           setHasExistingReview(true);
           setRating(review.rating);
@@ -56,7 +56,7 @@ const ReviewForm = ({
     };
 
     checkExistingReview();
-  }, [reviewerId, targetId, targetType, existingReview]);
+  }, [authorId, targetId, targetType, existingReview]);
 
   const handleRatingClick = (value) => {
     setRating(value);
@@ -65,7 +65,7 @@ const ReviewForm = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!reviewerId) {
+    if (!authorId) {
       toast.error('Please log in to submit a review.');
       return;
     }
@@ -90,14 +90,14 @@ const ReviewForm = ({
 
       if (existingReview || hasExistingReview) {
         // Update existing review
-        const reviewId = existingReview?.id || (await reviewsService.getUserReview(reviewerId, targetId, targetType))?.id;
+        const reviewId = existingReview?.id || (await reviewsService.getUserReview(authorId, targetId, targetType))?.id;
         if (reviewId) {
           await reviewsService.update(reviewId, rating, comment);
           toast.success('Review updated successfully!');
         }
       } else {
-        // Create new review
-        await reviewsService.create(reviewerId, targetId, targetType, rating, comment);
+        // Create new review (will update if duplicate exists)
+        await reviewsService.create(authorId, targetId, targetType, rating, comment);
         toast.success('Review submitted successfully!');
       }
 

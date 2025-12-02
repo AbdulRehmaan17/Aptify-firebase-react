@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { auth, db } from '../firebase/firebase';
 import {
   login,
@@ -18,6 +18,8 @@ export const AuthProvider = ({ children }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentUserRole, setCurrentUserRole] = useState('user');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     // Check if auth is available
@@ -37,6 +39,9 @@ export const AuthProvider = ({ children }) => {
         setError(null);
 
         if (firebaseUser && db) {
+          // Always call createOrUpdateUserProfile to ensure lastLogin is updated
+          await createOrUpdateUserProfile(firebaseUser);
+          
           // Fetch user profile from Firestore
           try {
             const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -45,13 +50,17 @@ export const AuthProvider = ({ children }) => {
             if (userDoc.exists()) {
               const profileData = userDoc.data();
               setUserProfile({ id: userDoc.id, ...profileData });
+              setCurrentUserRole(profileData.role || 'user');
             } else {
-              // Create profile if it doesn't exist
-              await createOrUpdateUserProfile(firebaseUser);
-              const newUserDoc = await getDoc(userDocRef);
-              if (newUserDoc.exists()) {
-                setUserProfile({ id: newUserDoc.id, ...newUserDoc.data() });
-              }
+              // If still doesn't exist after createOrUpdateUserProfile, wait a bit and retry
+              setTimeout(async () => {
+                const retryDoc = await getDoc(userDocRef);
+                if (retryDoc.exists()) {
+                  const profileData = retryDoc.data();
+                  setUserProfile({ id: retryDoc.id, ...profileData });
+                  setCurrentUserRole(profileData.role || 'user');
+                }
+              }, 500);
             }
           } catch (err) {
             console.error('Error fetching user profile:', err);
@@ -59,6 +68,7 @@ export const AuthProvider = ({ children }) => {
           }
         } else {
           setUserProfile(null);
+          setCurrentUserRole('user');
         }
 
         setLoading(false);
@@ -76,6 +86,33 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
+  // Listen to notifications for unread count
+  useEffect(() => {
+    if (!currentUser || !db) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const notificationsQuery = query(
+      collection(db, 'notifications'),
+      where('userId', '==', currentUser.uid),
+      where('read', '==', false)
+    );
+
+    const unsubscribeNotifications = onSnapshot(
+      notificationsQuery,
+      (snapshot) => {
+        setUnreadCount(snapshot.size);
+      },
+      (err) => {
+        console.error('Error listening to notifications:', err);
+        setUnreadCount(0);
+      }
+    );
+
+    return () => unsubscribeNotifications();
+  }, [currentUser]);
+
   // Login function
   const handleLogin = async (email, password) => {
     try {
@@ -87,6 +124,11 @@ export const AuthProvider = ({ children }) => {
         setError(result.error);
         setLoading(false);
         return { success: false, error: result.error };
+      }
+
+      // Call createOrUpdateUserProfile to update lastLogin
+      if (result.user) {
+        await createOrUpdateUserProfile(result.user);
       }
 
       // Auth state change will update currentUser automatically
@@ -140,6 +182,7 @@ export const AuthProvider = ({ children }) => {
         return { success: true, redirect: true };
       }
 
+      // createOrUpdateUserProfile is already called in loginWithGoogle
       // Auth state change will update currentUser automatically
       setLoading(false);
       return { success: true, user: result.user };
@@ -243,6 +286,8 @@ export const AuthProvider = ({ children }) => {
     userProfile,
     loading,
     error,
+    currentUserRole,
+    unreadCount,
     login: handleLogin,
     signup: handleSignup,
     loginWithGoogle: handleLoginWithGoogle,

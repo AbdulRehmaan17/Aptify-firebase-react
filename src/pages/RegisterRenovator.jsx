@@ -79,17 +79,18 @@ const RegisterRenovator = () => {
         setCheckingRegistration(true);
         console.log('Checking if user is already registered as renovator:', currentUser.uid);
 
-        // Query serviceProviders collection filtered by userId
+        // Query serviceProviders collection filtered by userId and serviceType
         const providersQuery = query(
           collection(db, 'serviceProviders'),
-          where('userId', '==', currentUser.uid)
+          where('userId', '==', currentUser.uid),
+          where('serviceType', '==', 'renovation')
         );
 
         const snapshot = await getDocs(providersQuery);
 
-        // Filter for Renovation service type
+        // Check if user already has renovation provider registration
         const renovationProvider = snapshot.docs.find(
-          (doc) => doc.data().serviceType === 'Renovation'
+          (doc) => doc.data().serviceType === 'renovation' || doc.data().serviceType === 'Renovation'
         );
 
         if (renovationProvider) {
@@ -315,13 +316,14 @@ const RegisterRenovator = () => {
       // Check again if user is already registered (race condition protection)
       const providersQuery = query(
         collection(db, 'serviceProviders'),
-        where('userId', '==', currentUser.uid)
+        where('userId', '==', currentUser.uid),
+        where('serviceType', '==', 'renovation')
       );
       const snapshot = await getDocs(providersQuery);
 
-      // Check if user already has Renovation service type
+      // Check if user already has renovation service type
       const renovationProvider = snapshot.docs.find(
-        (doc) => doc.data().serviceType === 'Renovation'
+        (doc) => doc.data().serviceType === 'renovation' || doc.data().serviceType === 'Renovation'
       );
 
       if (renovationProvider) {
@@ -349,35 +351,35 @@ const RegisterRenovator = () => {
         .map((link) => link.trim())
         .filter((link) => link.length > 0 && (link.startsWith('http://') || link.startsWith('https://')));
 
+      // Prepare documents object
+      const documents = {};
+      if (uploads.cnicUrl) {
+        documents.cnicUrl = uploads.cnicUrl;
+      }
+
       const providerData = {
         userId: currentUser.uid,
         name: formData.name.trim(),
         phone: formData.phone.trim(),
-        experience: Number(formData.experience),
-        experienceYears: Number(formData.experience), // Keep for backward compatibility
+        serviceType: 'renovation',
         specialization: specializationArray.length > 0 ? specializationArray : [formData.specialization.trim()],
-        expertise: specializationArray.length > 0 ? specializationArray : [formData.specialization.trim()], // Keep for backward compatibility
-        portfolioLinks: portfolioLinksArray,
+        portfolio: portfolioLinksArray,
+        documents: documents,
         city: formData.city.trim(),
-        serviceType: 'Renovation',
-        role: 'renovator',
         isApproved: false,
-        approved: false, // Keep for backward compatibility
-        rating: 0,
-        totalProjects: 0,
-        completedProjects: 0,
-        email: currentUser.email || '',
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       };
 
-      // Add file URLs if uploaded
-      if (uploads.cnicUrl) {
-        providerData.cnicUrl = uploads.cnicUrl;
+      // Add optional fields for backward compatibility
+      if (formData.experience) {
+        providerData.experience = Number(formData.experience);
+        providerData.experienceYears = Number(formData.experience);
+      }
+      if (currentUser.email) {
+        providerData.email = currentUser.email;
       }
       if (uploads.profileImageUrl) {
         providerData.profileImageUrl = uploads.profileImageUrl;
-        providerData.profileImage = uploads.profileImageUrl; // Keep for backward compatibility
       }
 
       // Add document to Firestore

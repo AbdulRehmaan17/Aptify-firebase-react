@@ -225,6 +225,20 @@ const ProviderRenovationRequests = () => {
           acceptedAt: serverTimestamp(),
         });
 
+        // Add update log
+        try {
+          const { addProjectUpdate } = await import('../../utils/projectUpdates');
+          await addProjectUpdate(
+            'renovationProjects',
+            actionModal.request.id,
+            'Accepted',
+            currentUser.uid,
+            'Provider accepted the request'
+          );
+        } catch (updateError) {
+          console.error('Error adding update log:', updateError);
+        }
+
         // Notify client
         await notificationService.create(
           actionModal.request.userId || actionModal.request.clientId,
@@ -242,6 +256,20 @@ const ProviderRenovationRequests = () => {
           updatedAt: serverTimestamp(),
           rejectedAt: serverTimestamp(),
         });
+
+        // Add update log
+        try {
+          const { addProjectUpdate } = await import('../../utils/projectUpdates');
+          await addProjectUpdate(
+            'renovationProjects',
+            actionModal.request.id,
+            'Rejected',
+            currentUser.uid,
+            'Provider declined the request'
+          );
+        } catch (updateError) {
+          console.error('Error adding update log:', updateError);
+        }
 
         // Notify client
         await notificationService.create(

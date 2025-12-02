@@ -589,19 +589,41 @@ function App() {
           <Toaster
             position="top-right"
             toastOptions={{
-              duration: 4000,
+              duration: 3000,
               style: {
                 background: '#363636',
                 color: '#fff',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                fontSize: '14px',
+                fontWeight: '500',
               },
               success: {
+                duration: 3000,
                 style: {
                   background: '#10B981',
+                  color: '#fff',
+                },
+                iconTheme: {
+                  primary: '#fff',
+                  secondary: '#10B981',
                 },
               },
               error: {
+                duration: 4000,
                 style: {
                   background: '#EF4444',
+                  color: '#fff',
+                },
+                iconTheme: {
+                  primary: '#fff',
+                  secondary: '#EF4444',
+                },
+              },
+              loading: {
+                style: {
+                  background: '#6366F1',
+                  color: '#fff',
                 },
               },
             }}

@@ -34,12 +34,11 @@ export async function getOrCreateChat(currentUid, otherUid) {
       await setDoc(chatRef, {
         participants: participants,
         lastMessage: '',
-        lastMessageAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
-        unreadCounts: {
-          [currentUid]: 0,
-          [otherUid]: 0,
+        unreadFor: {
+          [currentUid]: false,
+          [otherUid]: false,
         },
       });
     }

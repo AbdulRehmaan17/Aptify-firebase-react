@@ -13,20 +13,19 @@ service firebase.storage {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Helper function to check if user is admin
+    // Helper function to check if user is admin (using custom claims)
     function isAdmin() {
-      return isAuthenticated() && 
-             request.auth.token.role == 'admin';
+      return isAuthenticated() && request.auth.token.admin == true;
     }
     
     // ============================================
     // USER UPLOADS (Primary Structure)
     // ============================================
-    // - Allow upload only under /user_uploads/{uid}/** if request.auth.uid == uid
+    // - Allow write only under /user_uploads/{uid}/... if request.auth.uid == uid
+    // - Allow read if authenticated (user can read their own files)
     // - Allow admin full read/write
-    // - Deny all other writes
     match /user_uploads/{uid}/{allPaths=**} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (isOwner(uid) || isAdmin());
       allow write: if isOwner(uid) || isAdmin();
     }
     
@@ -34,10 +33,13 @@ service firebase.storage {
     // PROPERTIES IMAGES
     // ============================================
     // - Public read access
-    // - Authenticated users can upload
+    // - Owner or admin can write (check ownership via Firestore if property exists)
     match /properties/{propertyId}/{allPaths=**} {
       allow read: if true; // Public read access
-      allow write: if isAuthenticated();
+      allow write: if isAuthenticated() && (isAdmin() || 
+                     // Allow if property doesn't exist yet (new property) OR user owns the property
+                     !exists(/databases/(default)/documents/properties/$(propertyId)) ||
+                     get(/databases/(default)/documents/properties/$(propertyId)).data.ownerId == request.auth.uid);
     }
     
     // ============================================
@@ -48,6 +50,19 @@ service firebase.storage {
     match /users/{userId}/{allPaths=**} {
       allow read: if true; // Public read access
       allow write: if isOwner(userId) || isAdmin();
+    }
+    
+    // ============================================
+    // SERVICE PROVIDER FILES
+    // ============================================
+    // - Public read access for approved providers
+    // - Provider can manage their own files
+    match /providers/{providerId}/{allPaths=**} {
+      allow read: if true; // Public read access
+      allow write: if isAuthenticated() && (isAdmin() ||
+                     // Check if user owns the provider profile via Firestore
+                     exists(/databases/(default)/documents/serviceProviders/$(providerId)) &&
+                     get(/databases/(default)/documents/serviceProviders/$(providerId)).data.userId == request.auth.uid);
     }
     
     // ============================================
@@ -78,16 +93,6 @@ service firebase.storage {
     match /rental_photos/{userId}/{allPaths=**} {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId) || isAdmin();
-    }
-    
-    // ============================================
-    // SERVICE PROVIDER FILES
-    // ============================================
-    // - Public read access
-    // - Provider can manage their own files
-    match /service_providers/{providerId}/{allPaths=**} {
-      allow read: if true; // Public read access
-      allow write: if isAuthenticated(); // Provider or admin can write (checked via Firestore)
     }
     
     // ============================================

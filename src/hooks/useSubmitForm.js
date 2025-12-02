@@ -4,6 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
+import { useSubmitSuccess } from './useNotifyAndRedirect';
 import toast from 'react-hot-toast';
 
 /**

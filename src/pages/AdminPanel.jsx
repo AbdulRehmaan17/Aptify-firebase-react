@@ -127,6 +127,8 @@ const AdminPanel = () => {
   });
   const [sendingNotifications, setSendingNotifications] = useState(false);
   const [notificationProgress, setNotificationProgress] = useState({ sent: 0, total: 0 });
+  const [batchConfirmModalOpen, setBatchConfirmModalOpen] = useState(false);
+  const [pendingNotificationData, setPendingNotificationData] = useState(null);
   const [allNotifications, setAllNotifications] = useState([]);
   const [allNotificationsLoading, setAllNotificationsLoading] = useState(false);
   const [notificationFilters, setNotificationFilters] = useState({
@@ -239,20 +241,21 @@ const AdminPanel = () => {
         }));
         setAllReviews(reviewsData);
 
-        // Fetch reviewer names
+        // Fetch reviewer names (using authorId)
         const namePromises = reviewsData.map(async (review) => {
-          if (review.reviewerId && !userNames[review.reviewerId]) {
+          const authorId = review.authorId || review.reviewerId; // Support both for backward compatibility
+          if (authorId && !userNames[authorId]) {
             try {
-              const userDoc = await getDoc(doc(db, 'users', review.reviewerId));
+              const userDoc = await getDoc(doc(db, 'users', authorId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
                 setUserNames((prev) => ({
                   ...prev,
-                  [review.reviewerId]: userData.name || userData.displayName || 'Unknown',
+                  [authorId]: userData.name || userData.displayName || 'Unknown',
                 }));
               }
             } catch (error) {
-              console.error(`Error fetching user ${review.reviewerId}:`, error);
+              console.error(`Error fetching user ${authorId}:`, error);
             }
           }
         });
@@ -1156,7 +1159,10 @@ const AdminPanel = () => {
 
   // Handle delete user
   const handleDeleteUser = async () => {
-    if (!userToDelete || !db) return;
+    if (!userToDelete || !db || !currentUser || currentUserRole !== 'admin') {
+      toast.error('Unauthorized access');
+      return;
+    }
 
     try {
       setProcessing(true);
@@ -1174,7 +1180,10 @@ const AdminPanel = () => {
 
   // Handle approve provider
   const handleApproveProvider = async (provider) => {
-    if (!db) return;
+    if (!db || !currentUser || currentUserRole !== 'admin') {
+      toast.error('Unauthorized access');
+      return;
+    }
 
     try {
       setProcessing(true);
@@ -1188,24 +1197,37 @@ const AdminPanel = () => {
         updatedAt: serverTimestamp(),
       });
 
-      // Update user role if needed
+      // Update user role and isProviderApproved
       if (provider.userId) {
         const userRef = doc(db, 'users', provider.userId);
-        const roleToSet = provider.serviceType === 'Construction' ? 'constructor' : 'renovator';
         await updateDoc(userRef, {
-          role: roleToSet,
+          role: 'provider',
+          isProviderApproved: true,
           updatedAt: serverTimestamp(),
         });
       }
 
       // Create notification for provider
-      await notificationService.sendNotification(
-        provider.userId,
-        'Provider Application Approved',
-        `Congratulations! Your ${provider.serviceType} provider application has been approved. You can now start receiving project requests.`,
-        'status-update',
-        provider.serviceType === 'Construction' ? '/constructor-dashboard' : '/renovator-dashboard'
-      );
+      try {
+        const { sendNotification } = await import('../utils/notificationHelpers');
+        await sendNotification({
+          userId: provider.userId,
+          title: 'Provider Approved',
+          message: `Your provider account has been approved. You can now start receiving project requests.`,
+          type: 'success',
+          meta: { providerId: provider.id }
+        });
+      } catch (notifError) {
+        console.error('Error sending notification:', notifError);
+        // Fallback to notificationService
+        await notificationService.sendNotification(
+          provider.userId,
+          'Provider Application Approved',
+          `Congratulations! Your ${provider.serviceType} provider application has been approved. You can now start receiving project requests.`,
+          'status-update',
+          provider.serviceType === 'construction' || provider.serviceType === 'Construction' ? '/constructor-dashboard' : '/renovator-dashboard'
+        );
+      }
 
       toast.success('Provider approved successfully');
     } catch (error) {
@@ -1290,7 +1312,10 @@ const AdminPanel = () => {
 
   // Handle delete property
   const handleDeleteProperty = async () => {
-    if (!propertyToDelete || !db) return;
+    if (!propertyToDelete || !db || !currentUser || currentUserRole !== 'admin') {
+      toast.error('Unauthorized access');
+      return;
+    }
 
     try {
       setProcessing(true);
@@ -1368,7 +1393,10 @@ const AdminPanel = () => {
 
   // Handle update request status
   const handleUpdateRequestStatus = async (request, newStatus) => {
-    if (!db) return;
+    if (!db || !currentUser || currentUserRole !== 'admin') {
+      toast.error('Unauthorized access');
+      return;
+    }
 
     try {
       setProcessing(true);
@@ -1642,9 +1670,8 @@ const AdminPanel = () => {
 
       // Add message
       await addDoc(messagesRef, {
-        senderId: currentUser.uid,
+        sender: 'admin',
         text: newMessageText.trim(),
-        isAdmin: true,
         createdAt: serverTimestamp(),
       });
 
@@ -1678,16 +1705,18 @@ const AdminPanel = () => {
   };
 
   // Handle send notifications
-  const handleSendNotifications = async () => {
-    if (!db || !notificationForm.title.trim() || !notificationForm.message.trim()) {
+  const handleSendNotifications = async (confirmed = false) => {
+    if (!db || !currentUser || currentUserRole !== 'admin') {
+      toast.error('Unauthorized access');
+      return;
+    }
+
+    if (!notificationForm.title.trim() || !notificationForm.message.trim()) {
       toast.error('Please fill in title and message');
       return;
     }
 
     try {
-      setSendingNotifications(true);
-      setNotificationProgress({ sent: 0, total: 0 });
-
       let userIds = [];
 
       if (notificationForm.target === 'all-users') {
@@ -1706,7 +1735,6 @@ const AdminPanel = () => {
       } else if (notificationForm.target === 'single-uid') {
         if (!notificationForm.singleUid.trim()) {
           toast.error('Please enter a user UID');
-          setSendingNotifications(false);
           return;
         }
         userIds = [notificationForm.singleUid.trim()];
@@ -1714,18 +1742,17 @@ const AdminPanel = () => {
 
       if (userIds.length === 0) {
         toast.error('No users found to send notifications to');
-        setSendingNotifications(false);
         return;
       }
 
-      // Warn if > 500 users
-      if (userIds.length > 500) {
-        toast.error(
-          `Too many users (${userIds.length}). Please use batches. Limiting to 500 for now.`
-        );
-        userIds = userIds.slice(0, 500);
+      // If > 500 users and not confirmed, show confirmation modal
+      if (userIds.length > 500 && !confirmed) {
+        setPendingNotificationData({ userIds, count: userIds.length });
+        setBatchConfirmModalOpen(true);
+        return;
       }
 
+      setSendingNotifications(true);
       setNotificationProgress({ sent: 0, total: userIds.length });
 
       // Batch create notifications (Firestore batch limit is 500)
@@ -1756,12 +1783,20 @@ const AdminPanel = () => {
 
       toast.success(`Notifications sent to ${sentCount} ${notificationForm.target === 'all-providers' ? 'providers' : 'users'}`);
       setNotificationForm({ title: '', message: '', target: 'all-users', singleUid: '' });
+      setBatchConfirmModalOpen(false);
+      setPendingNotificationData(null);
     } catch (error) {
       console.error('Error sending notifications:', error);
       toast.error(`Failed to send notifications: ${error.message}`);
     } finally {
       setSendingNotifications(false);
       setNotificationProgress({ sent: 0, total: 0 });
+    }
+  };
+
+  const handleConfirmBatchSend = () => {
+    if (pendingNotificationData) {
+      handleSendNotifications(true);
     }
   };
 
@@ -1843,27 +1878,50 @@ const AdminPanel = () => {
                 </div>
               </div>
 
-              {/* Chart */}
-              <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
-                <h3 className="text-lg font-semibold text-textMain mb-4">Platform Statistics</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={[
-                      { name: 'Users', value: stats.users },
-                      { name: 'Properties', value: stats.properties },
-                      { name: 'Providers', value: stats.providers },
-                      { name: 'Requests', value: stats.requests },
-                    ]}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" fill="#3b82f6" name="Count" />
-                  </BarChart>
-                </ResponsiveContainer>
+              {/* Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Platform Statistics</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={[
+                        { name: 'Users', value: stats.users },
+                        { name: 'Properties', value: stats.properties },
+                        { name: 'Providers', value: stats.providers },
+                        { name: 'Requests', value: stats.requests },
+                      ]}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="value" fill="#3b82f6" name="Count" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
+                  <h3 className="text-lg font-semibold text-textMain mb-4">Content Distribution</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={[
+                        { name: 'Properties', value: stats.properties },
+                        { name: 'Providers', value: stats.providers },
+                        { name: 'Support', value: stats.supportChats },
+                      ]}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="value" fill="#10b981" name="Count" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </>
           )}
@@ -2063,8 +2121,20 @@ const AdminPanel = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {providers.map((provider) => {
                 const isApproved = provider.isApproved || provider.approved;
-                const specialization = provider.specialization || provider.expertise || [];
-                const portfolioLinks = provider.portfolioLinks || [];
+                const specialization = Array.isArray(provider.specialization) 
+                  ? provider.specialization 
+                  : provider.specialization 
+                    ? [provider.specialization] 
+                    : Array.isArray(provider.expertise) 
+                      ? provider.expertise 
+                      : provider.expertise 
+                        ? [provider.expertise] 
+                        : [];
+                const portfolioLinks = Array.isArray(provider.portfolio) 
+                  ? provider.portfolio 
+                  : Array.isArray(provider.portfolioLinks) 
+                    ? provider.portfolioLinks 
+                    : [];
 
                 return (
                   <div
@@ -2088,12 +2158,14 @@ const AdminPanel = () => {
                           </span>
                           <span
                             className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              provider.serviceType === 'Construction'
+                              provider.serviceType === 'construction' || provider.serviceType === 'Construction'
                                 ? 'bg-primary/10 text-primary'
                                 : 'bg-primary text-primary'
                             }`}
                           >
-                            {provider.serviceType || 'N/A'}
+                            {provider.serviceType === 'construction' ? 'Construction' : 
+                             provider.serviceType === 'renovation' ? 'Renovation' : 
+                             provider.serviceType || 'N/A'}
                           </span>
                         </div>
                         <div className="space-y-2 text-sm text-textSecondary">
@@ -3789,7 +3861,7 @@ const AdminPanel = () => {
                       </div>
                     ) : (
                       chatMessages.map((message) => {
-                        const isAdmin = message.isAdmin || message.senderId === currentUser?.uid;
+                        const isAdmin = message.sender === 'admin';
 
                         return (
                           <div
@@ -3874,7 +3946,10 @@ const AdminPanel = () => {
       };
 
       const handleDeleteReview = async () => {
-        if (!reviewToDelete) return;
+        if (!reviewToDelete || !currentUser || currentUserRole !== 'admin') {
+          toast.error('Unauthorized access');
+          return;
+        }
         try {
           setProcessing(true);
           await reviewsService.delete(reviewToDelete.id);
@@ -3929,8 +4004,7 @@ const AdminPanel = () => {
                 >
                   <option value="">All Types</option>
                   <option value="property">Property</option>
-                  <option value="construction">Construction</option>
-                  <option value="renovation">Renovation</option>
+                  <option value="provider">Provider</option>
                 </select>
               </div>
               <div>
@@ -4005,21 +4079,22 @@ const AdminPanel = () => {
                   </thead>
                   <tbody className="bg-surface divide-y divide-muted">
                     {filteredReviews.map((review) => {
-                      const reviewerName = userNames[review.reviewerId] || 'Loading...';
+                      const authorId = review.authorId || review.reviewerId; // Support both for backward compatibility
+                      const reviewerName = userNames[authorId] || 'Loading...';
                       return (
                         <tr key={review.id} className="hover:bg-background">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-textMain">{reviewerName}</div>
-                            <div className="text-xs text-textSecondary">{review.reviewerId?.substring(0, 8)}...</div>
+                            <div className="text-xs text-textSecondary">{authorId?.substring(0, 8)}...</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 review.targetType === 'property'
                                   ? 'bg-primary/10 text-primary'
-                                  : review.targetType === 'construction'
-                                    ? 'bg-orange-100 text-orange-800'
-                                    : 'bg-pink-100 text-pink-800'
+                                  : review.targetType === 'provider'
+                                    ? 'bg-accent/10 text-accent'
+                                    : 'bg-muted text-textMain'
                               }`}
                             >
                               {review.targetType}
@@ -4461,6 +4536,53 @@ const AdminPanel = () => {
                 </Button>
               </div>
             </form>
+
+            {/* Batch Confirmation Modal */}
+            <Modal
+              isOpen={batchConfirmModalOpen}
+              onClose={() => {
+                setBatchConfirmModalOpen(false);
+                setPendingNotificationData(null);
+              }}
+              title="Confirm Batch Notification"
+              size="md"
+            >
+              <div className="space-y-4">
+                <div className="bg-accent/10 border border-accent/30 rounded-lg p-4">
+                  <p className="text-textMain font-semibold mb-2">
+                    Large Batch Detected: {pendingNotificationData?.count || 0} recipients
+                  </p>
+                  <p className="text-sm text-textSecondary">
+                    You are about to send notifications to <strong>{pendingNotificationData?.count || 0}</strong> users.
+                    This will be processed in batches of 500. This action may take several minutes.
+                  </p>
+                </div>
+                <div className="bg-background rounded-lg p-4 border border-muted">
+                  <p className="text-sm font-medium text-textSecondary mb-2">Notification Details:</p>
+                  <p className="text-sm text-textMain font-semibold">{notificationForm.title}</p>
+                  <p className="text-sm text-textSecondary mt-1">{notificationForm.message}</p>
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setBatchConfirmModalOpen(false);
+                      setPendingNotificationData(null);
+                    }}
+                    disabled={sendingNotifications}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleConfirmBatchSend}
+                    loading={sendingNotifications}
+                    disabled={sendingNotifications}
+                  >
+                    Confirm & Send
+                  </Button>
+                </div>
+              </div>
+            </Modal>
           </div>
         </div>
       );

@@ -5,6 +5,7 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'fire
 import { db } from '../../firebase/firebase';
 import notificationService from '../../services/notificationService';
 import { uploadMultipleImages } from '../../firebase/storageFunctions';
+import { useSubmitSuccess } from '../../hooks/useNotifyAndRedirect';
 import { Wrench, MapPin, DollarSign, Calendar, FileText, Upload, X, Home } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
@@ -14,6 +15,11 @@ import toast from 'react-hot-toast';
 const RequestRenovation = () => {
   const { currentUser, userProfile } = useAuth();
   const navigate = useNavigate();
+  const handleSuccess = useSubmitSuccess(
+    'Renovation request submitted successfully!',
+    '/account',
+    2000
+  );
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -176,6 +182,21 @@ const RequestRenovation = () => {
       const docRef = await addDoc(collection(db, 'renovationProjects'), projectData);
       const projectId = docRef.id;
 
+      // Add initial update log
+      try {
+        const { addProjectUpdate } = await import('../../utils/projectUpdates');
+        await addProjectUpdate(
+          'renovationProjects',
+          projectId,
+          'Pending',
+          currentUser.uid,
+          'Request submitted'
+        );
+      } catch (updateError) {
+        console.error('Error adding initial update log:', updateError);
+        // Don't fail the request if update log fails
+      }
+
       // Notify all renovation providers
       try {
         const providersQuery = query(
@@ -214,8 +235,8 @@ const RequestRenovation = () => {
         console.error('Error sending user notification:', notifError);
       }
 
-      toast.success('Renovation request submitted successfully!');
-      navigate(`/renovation/my-renovations`);
+      // Use standardized success handler
+      handleSuccess();
     } catch (error) {
       console.error('Error submitting renovation request:', error);
       toast.error(error.message || 'Failed to submit renovation request');
@@ -420,7 +441,7 @@ const RequestRenovation = () => {
               >
                 Cancel
               </Button>
-              <Button type="submit" loading={loading} size="lg">
+              <Button type="submit" loading={loading} disabled={loading} size="lg">
                 Submit Request
               </Button>
             </div>

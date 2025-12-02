@@ -410,14 +410,19 @@ const ProviderRenovationPanel = () => {
         updatedAt: serverTimestamp(),
       });
 
-      // Create project update
-      const updatesRef = collection(db, 'renovationProjects', projectId, 'projectUpdates');
-      await addDoc(updatesRef, {
-        status: 'Accepted',
-        updatedBy: currentUser.uid,
-        note: 'Request accepted by provider',
-        createdAt: serverTimestamp(),
-      });
+      // Add update log
+      try {
+        const { addProjectUpdate } = await import('../utils/projectUpdates');
+        await addProjectUpdate(
+          'renovationProjects',
+          projectId,
+          'Accepted',
+          currentUser.uid,
+          'Request accepted by provider'
+        );
+      } catch (updateError) {
+        console.error('Error adding update log:', updateError);
+      }
 
       // Get project to find client
       const projectDoc = await getDoc(projectRef);
@@ -470,14 +475,19 @@ const ProviderRenovationPanel = () => {
         updatedAt: serverTimestamp(),
       });
 
-      // Create project update
-      const updatesRef = collection(db, 'renovationProjects', projectId, 'projectUpdates');
-      await addDoc(updatesRef, {
-        status: 'Rejected',
-        updatedBy: currentUser.uid,
-        note: 'Request rejected by provider',
-        createdAt: serverTimestamp(),
-      });
+      // Add update log
+      try {
+        const { addProjectUpdate } = await import('../utils/projectUpdates');
+        await addProjectUpdate(
+          'renovationProjects',
+          projectId,
+          'Rejected',
+          currentUser.uid,
+          'Request rejected by provider'
+        );
+      } catch (updateError) {
+        console.error('Error adding update log:', updateError);
+      }
 
       // Get project to find client
       const projectDoc = await getDoc(projectRef);
@@ -527,14 +537,20 @@ const ProviderRenovationPanel = () => {
         updatedAt: serverTimestamp(),
       });
 
-      // Create project update
-      const updatesRef = collection(db, 'renovationProjects', projectId, 'projectUpdates');
-      await addDoc(updatesRef, {
-        status: newStatus,
-        updatedBy: currentUser.uid,
-        note: `Status updated to ${newStatus}`,
-        createdAt: serverTimestamp(),
-      });
+      // Add update log
+      try {
+        const { addProjectUpdate } = await import('../utils/projectUpdates');
+        const note = newStatus === 'In Progress' ? 'Project started' : newStatus === 'Completed' ? 'Project completed' : `Status updated to ${newStatus}`;
+        await addProjectUpdate(
+          'renovationProjects',
+          projectId,
+          newStatus,
+          currentUser.uid,
+          note
+        );
+      } catch (updateError) {
+        console.error('Error adding update log:', updateError);
+      }
 
       // Get project to find client
       const projectDoc = await getDoc(projectRef);

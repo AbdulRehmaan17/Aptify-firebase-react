@@ -1,5 +1,5 @@
 // Main Firebase exports - re-export from firebase.js for convenience
-export { auth, db, storage, googleProvider, initError, isFirebaseInitialized, getFirebaseInitError } from './firebase';
+export { auth, db, storage, googleProvider, isFirebaseInitialized, getFirebaseInitError } from './firebase';
 
 // Auth functions
 export {
@@ -32,4 +32,6 @@ export {
   deleteMultipleImages,
   getImageUrl,
 } from './storageFunctions';
+
+
 

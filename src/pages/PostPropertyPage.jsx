@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import propertyService from '../services/propertyService';
 import notificationService from '../services/notificationService';
 import useSubmitForm from '../hooks/useSubmitForm';
+import { useSubmitSuccess } from '../hooks/useNotifyAndRedirect';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -17,6 +18,13 @@ const PostPropertyPage = () => {
   const [createdPropertyId, setCreatedPropertyId] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadingProperty, setLoadingProperty] = useState(false);
+  
+  // Standardized success handler
+  const handleSubmitSuccess = useSubmitSuccess(
+    'Property submitted successfully!',
+    '/account',
+    2000
+  );
 
   // Use standardized submit hook (only for create mode, edit mode uses direct update)
   const {
@@ -73,13 +81,17 @@ const PostPropertyPage = () => {
       }
 
       setCreatedPropertyId(propertyId);
+      
+      // Use standardized success handler
+      handleSubmitSuccess();
+      
       return propertyId;
     },
     successMessage: 'Property submitted successfully!',
     notificationTitle: 'Property Listed Successfully',
     notificationMessage: 'Your property has been submitted and is pending admin approval.',
     notificationType: 'status-update',
-    redirectPath: '/account',
+    redirectPath: null, // Handled by useSubmitSuccess
   });
 
   // Get type from query params, default to 'sale'

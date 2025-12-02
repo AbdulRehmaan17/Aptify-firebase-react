@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
 import useSubmitForm from '../hooks/useSubmitForm';
+import { useSubmitSuccess } from '../hooks/useNotifyAndRedirect';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -23,6 +24,13 @@ const Contact = () => {
     message: '',
   });
   const [errors, setErrors] = useState({});
+
+  // Standardized success handler
+  const handleSubmitSuccess = useSubmitSuccess(
+    'Message sent successfully! We will get back to you soon.',
+    '/',
+    1500
+  );
 
   // Use standardized submit hook
   const {
@@ -71,8 +79,12 @@ const Contact = () => {
     notificationTitle: 'Message Sent',
     notificationMessage: 'Your message has been received. We will get back to you soon.',
     notificationType: 'info',
-    redirectPath: '/',
+    redirectPath: null, // Handled by useSubmitSuccess
     redirectDelay: 1500,
+    onSuccess: () => {
+      // Use standardized success handler
+      handleSubmitSuccess();
+    },
   });
 
   const handleChange = (e) => {

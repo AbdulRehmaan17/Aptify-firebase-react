@@ -5,6 +5,7 @@ import { db, auth } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
 import useSubmitForm from '../hooks/useSubmitForm';
+import { useSubmitSuccess } from '../hooks/useNotifyAndRedirect';
 import { Wrench, DollarSign, Calendar, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -31,6 +32,13 @@ const RequestRenovation = () => {
   const [providers, setProviders] = useState([]);
   const [fetchingProviders, setFetchingProviders] = useState(true);
   const [errors, setErrors] = useState({});
+
+  // Standardized success handler
+  const handleSubmitSuccess = useSubmitSuccess(
+    'Renovation request submitted successfully!',
+    '/account',
+    2000
+  );
 
   // Use standardized submit hook
   const {
@@ -92,13 +100,16 @@ const RequestRenovation = () => {
         }
       }
 
+      // Use standardized success handler
+      handleSubmitSuccess();
+      
       return projectId;
     },
     successMessage: 'Renovation request submitted successfully!',
     notificationTitle: 'Renovation Request Submitted',
     notificationMessage: 'Your renovation request has been submitted successfully. The provider will review and respond soon.',
     notificationType: 'service-request',
-    redirectPath: '/account',
+    redirectPath: null, // Handled by useSubmitSuccess
   });
 
   // Get providerId from query params

@@ -136,9 +136,8 @@ const Chatbot = () => {
 
       // Add message
       await addDoc(messagesRef, {
-        senderId: chatId,
+        sender: 'user',
         text: newMessage.trim(),
-        isAdmin: false,
         createdAt: serverTimestamp(),
       });
 
@@ -260,7 +259,7 @@ const Chatbot = () => {
               </div>
             ) : (
               messages.map((message) => {
-                const isUser = !message.isAdmin && message.senderId === chatId;
+                const isUser = message.sender === 'user';
 
                 return (
                   <div
