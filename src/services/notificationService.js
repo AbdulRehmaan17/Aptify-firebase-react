@@ -10,7 +10,7 @@ import {
   writeBatch,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../firebase/firebase';
 
 const NOTIFICATIONS_COLLECTION = 'notifications';
 

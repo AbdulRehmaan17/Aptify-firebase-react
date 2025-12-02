@@ -1,29 +1,25 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db, getFirebaseInitError, googleProvider } from '../firebase';
-import { signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '../firebase/firebase';
+import {
+  login,
+  signup,
+  loginWithGoogle,
+  handleGoogleRedirect,
+  logout,
+  createOrUpdateUserProfile,
+} from '../firebase/authFunctions';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [currentUserRole, setCurrentUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    // Check for Firebase initialization error
-    const initError = getFirebaseInitError();
-    if (initError) {
-      console.error('Firebase initialization error:', initError);
-      setError(initError.message);
-      setLoading(false);
-      return;
-    }
-
     // Check if auth is available
     if (!auth) {
       console.error('Firebase auth is not initialized');
@@ -32,347 +28,236 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    try {
-      const unsubscribe = auth.onAuthStateChanged(
-        async (firebaseUser) => {
-          console.log('Auth state changed:', firebaseUser); // Debug log
-          setUser(firebaseUser);
+    // Listen to auth state changes
+    const unsubscribeAuth = onAuthStateChanged(
+      auth,
+      async (firebaseUser) => {
+        console.log('Auth state changed:', firebaseUser?.uid);
+        setCurrentUser(firebaseUser);
+        setError(null);
 
-          // Fetch user profile and role from Firestore
-          if (firebaseUser && db) {
-            try {
-              const userDocRef = doc(db, 'users', firebaseUser.uid);
-              const userDoc = await getDoc(userDocRef);
+        if (firebaseUser && db) {
+          // Fetch user profile from Firestore
+          try {
+            const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const userDoc = await getDoc(userDocRef);
 
-              if (userDoc.exists()) {
-                const profileData = userDoc.data();
-                setUserProfile(profileData);
-                setCurrentUserRole(profileData.role || 'customer');
-              } else {
-                // User document doesn't exist yet, will be created on registration
-                setUserProfile(null);
-                setCurrentUserRole(null);
+            if (userDoc.exists()) {
+              const profileData = userDoc.data();
+              setUserProfile({ id: userDoc.id, ...profileData });
+            } else {
+              // Create profile if it doesn't exist
+              await createOrUpdateUserProfile(firebaseUser);
+              const newUserDoc = await getDoc(userDocRef);
+              if (newUserDoc.exists()) {
+                setUserProfile({ id: newUserDoc.id, ...newUserDoc.data() });
               }
-            } catch (profileError) {
-              console.error('Error fetching user profile:', profileError);
-              setUserProfile(null);
-              setCurrentUserRole(null);
             }
-          } else {
-            setUserProfile(null);
-            setCurrentUserRole(null);
+          } catch (err) {
+            console.error('Error fetching user profile:', err);
+            setError('Failed to load user profile.');
           }
-
-          setLoading(false);
-          setError(null);
-        },
-        (error) => {
-          console.error('Auth state change error:', error);
-          setUser(null);
+        } else {
           setUserProfile(null);
-          setCurrentUserRole(null);
-          setLoading(false);
-          setError(error.message);
         }
-      );
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
-    } catch (error) {
-      console.error('Error setting up auth listener:', error);
-      setError(error.message);
-      setLoading(false);
-    }
+
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Auth state change error:', err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => {
+      unsubscribeAuth();
+    };
   }, []);
 
-  // Global notification listener
-  useEffect(() => {
-    if (!user || !db) {
-      setUnreadNotificationCount(0);
-      setNotifications([]);
-      return;
-    }
-
+  // Login function
+  const handleLogin = async (email, password) => {
     try {
-      const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('userId', '==', user.uid),
-        where('read', '==', false)
-      );
-
-      const unsubscribe = onSnapshot(
-        notificationsQuery,
-        (snapshot) => {
-          const notifs = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setNotifications(notifs);
-          setUnreadNotificationCount(notifs.length);
-        },
-        (error) => {
-          console.error('Error fetching notifications:', error);
-          // Fallback without orderBy if index doesn't exist
-          if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-            const fallbackQuery = query(
-              collection(db, 'notifications'),
-              where('userId', '==', user.uid)
-            );
-            const fallbackUnsubscribe = onSnapshot(
-              fallbackQuery,
-              (snapshot) => {
-                const notifs = snapshot.docs
-                  .map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                  }))
-                  .filter((n) => !n.read);
-                setNotifications(notifs);
-                setUnreadNotificationCount(notifs.length);
-              },
-              (fallbackError) => {
-                console.error('Error fetching notifications (fallback):', fallbackError);
-              }
-            );
-            return () => fallbackUnsubscribe();
-          }
-        }
-      );
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up notification listener:', error);
-    }
-  }, [user]);
-
-  const register = async (email, password, name, phone, role = 'customer') => {
-    try {
-      if (!auth || !db) {
-        throw new Error('Firebase services are not initialized');
+      setLoading(true);
+      setError(null);
+      const result = await login(email, password);
+      
+      if (!result.success) {
+        setError(result.error);
+        setLoading(false);
+        return { success: false, error: result.error };
       }
 
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-
-      // Create user profile in Firestore
-      const userProfileData = {
-        uid: result.user.uid,
-        email: result.user.email,
-        name: name || '',
-        displayName: name || '',
-        phone: phone || '',
-        role: role,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
-
-      await setDoc(doc(db, 'users', result.user.uid), userProfileData);
-
-      // Update local state
-      setUserProfile(userProfileData);
-      setCurrentUserRole(userProfileData.role);
-
+      // Auth state change will update currentUser automatically
       return { success: true, user: result.user };
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to login';
+      setError(errorMessage);
+      setLoading(false);
+      return { success: false, error: errorMessage };
     }
   };
 
-  // Function to update user role (admin only)
-  const updateUserRole = async (userId, newRole) => {
+  // Signup function
+  const handleSignup = async (email, password, name) => {
     try {
-      if (!db) {
-        throw new Error('Firebase services are not initialized');
+      setLoading(true);
+      setError(null);
+      const result = await signup(email, password, name);
+      
+      if (!result.success) {
+        setError(result.error);
+        setLoading(false);
+        return { success: false, error: result.error };
       }
 
-      // Check if current user is admin
-      if (currentUserRole !== 'admin') {
-        throw new Error('Only admins can update user roles');
+      // Auth state change will update currentUser automatically
+      return { success: true, user: result.user };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to sign up';
+      setError(errorMessage);
+      setLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Google login function
+  const handleLoginWithGoogle = async (useRedirect = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await loginWithGoogle(useRedirect);
+      
+      if (!result.success) {
+        setError(result.error);
+        setLoading(false);
+        return { success: false, error: result.error };
       }
 
-      const userDocRef = doc(db, 'users', userId);
-      await setDoc(
-        userDocRef,
-        {
-          role: newRole,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      if (result.redirect) {
+        // Redirect flow - don't set loading to false yet
+        return { success: true, redirect: true };
+      }
 
-      // If updating own role, update local state
-      if (userId === user?.uid) {
-        setCurrentUserRole(newRole);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          setUserProfile(userDoc.data());
+      // Auth state change will update currentUser automatically
+      setLoading(false);
+      return { success: true, user: result.user };
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to login with Google';
+      setError(errorMessage);
+      setLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Handle Google redirect result
+  const handleGoogleRedirectResult = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await handleGoogleRedirect();
+      
+      if (!result.success) {
+        if (result.error) {
+          setError(result.error);
         }
+        setLoading(false);
+        return result;
       }
 
+      // Auth state change will update currentUser automatically
+      setLoading(false);
+      return result;
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to complete Google sign-in';
+      setError(errorMessage);
+      setLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await logout();
+      
+      if (!result.success) {
+        setError(result.error);
+        setLoading(false);
+        return { success: false, error: result.error };
+      }
+
+      // Clear user state
+      setCurrentUser(null);
+      setUserProfile(null);
+      setLoading(false);
       return { success: true };
-    } catch (error) {
-      console.error('Error updating user role:', error);
-      throw error;
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to logout';
+      setError(errorMessage);
+      setLoading(false);
+      return { success: false, error: errorMessage };
     }
   };
 
-  const login = async (email, password) => {
+  // Create or update user profile
+  const handleCreateOrUpdateUserProfile = async (user) => {
     try {
-      if (!auth) {
-        throw new Error('Firebase auth is not initialized');
-      }
-
-      const result = await signInWithEmailAndPassword(auth, email, password);
-
-      // Fetch user profile
-      if (db) {
-        const userDocRef = doc(db, 'users', result.user.uid);
+      await createOrUpdateUserProfile(user);
+      // Refresh user profile
+      if (user && db) {
+        const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
-
         if (userDoc.exists()) {
-          const profileData = userDoc.data();
-          setUserProfile(profileData);
-          setCurrentUserRole(profileData.role || 'customer');
+          setUserProfile({ id: userDoc.id, ...userDoc.data() });
         }
       }
-
-      return { success: true, user: result.user };
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      return { success: true };
+    } catch (err) {
+      console.error('Error creating/updating user profile:', err);
+      return { success: false, error: err.message };
     }
   };
 
-  const loginWithGoogle = async () => {
-    try {
-      if (!auth || !db) {
-        throw new Error('Firebase services are not initialized');
-      }
-
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-
-      // Check if Firestore profile exists
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        // Create new user profile
-        const userProfileData = {
-          uid: user.uid,
-          name: user.displayName || '',
-          displayName: user.displayName || '',
-          email: user.email || '',
-          phone: user.phoneNumber || '',
-          role: 'customer',
-          provider: 'google',
-          photoURL: user.photoURL || null,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-
-        await setDoc(userRef, userProfileData);
-
-        // Update local state
-        setUserProfile(userProfileData);
-        setCurrentUserRole(userProfileData.role);
-      } else {
-        // Profile exists, update local state
-        const profileData = userSnap.data();
-        setUserProfile(profileData);
-        setCurrentUserRole(profileData.role || 'customer');
-      }
-
-      return user;
-    } catch (error) {
-      console.error('Google login error:', error);
-      throw error;
-    }
+  // Get user role
+  const getUserRole = () => {
+    return userProfile?.role || 'customer';
   };
 
-  const logout = async () => {
-    try {
-      if (!auth) {
-        console.error('Firebase auth is not initialized');
-        setUser(null);
-        setUserProfile(null);
-        setCurrentUserRole(null);
-        return;
-      }
-      await signOut(auth);
-      console.log('User logged out successfully'); // Debug log
-      setUserProfile(null);
-      setCurrentUserRole(null);
-    } catch (error) {
-      console.error('Error logging out:', error);
-      // Still set user to null even if signOut fails
-      setUser(null);
-      setUserProfile(null);
-      setCurrentUserRole(null);
-      throw error; // Let calling components handle the error
-    }
+  // Check if user is admin
+  const isAdmin = () => {
+    return getUserRole() === 'admin';
   };
 
-  // If there's an initialization error, show error UI instead of blank screen
-  if (error && !loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4">
-        <div className="max-w-md w-full card-base p-6 text-center">
-          <div className="mb-4">
-            <svg
-              className="mx-auto h-12 w-12 text-error"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-          <h1 className="text-2xl font-bold text-textMain mb-2">Firebase Configuration Error</h1>
-          <p className="text-textSecondary mb-4">{error}</p>
-          <p className="text-sm text-textSecondary mb-4">
-            Please check your .env file and ensure all Firebase environment variables are set
-            correctly.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primaryDark transition-colors"
-          >
-            Reload Page
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Check if user is provider
+  const isProvider = () => {
+    const role = getUserRole();
+    return role === 'constructor' || role === 'renovator' || role === 'provider';
+  };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        currentUser: user, // Alias for user
-        userProfile,
-        currentUserRole,
-        loading,
-        register,
-        login,
-        loginWithGoogle,
-        logout,
-        updateUserRole,
-        error,
-        unreadNotificationCount,
-        notifications,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const value = {
+    currentUser,
+    userProfile,
+    loading,
+    error,
+    login: handleLogin,
+    signup: handleSignup,
+    loginWithGoogle: handleLoginWithGoogle,
+    handleGoogleRedirect: handleGoogleRedirectResult,
+    logout: handleLogout,
+    createOrUpdateUserProfile: handleCreateOrUpdateUserProfile,
+    getUserRole,
+    isAdmin,
+    isProvider,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -380,3 +265,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthContext;

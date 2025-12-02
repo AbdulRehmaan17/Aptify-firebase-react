@@ -22,7 +22,7 @@ const Auth = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { register, login, loginWithGoogle } = useAuth();
+  const { signup, login, loginWithGoogle, getUserRole } = useAuth();
   const from = location.state?.from?.pathname || '/';
 
   const validateForm = () => {
@@ -67,48 +67,33 @@ const Auth = () => {
 
     setIsLoading(true);
     try {
+      let result;
       if (isLogin) {
-        await login(formData.email, formData.password);
-        toast.success('Welcome back!');
-        navigate(from, { replace: true });
+        result = await login(formData.email, formData.password);
       } else {
-        await register(formData.email, formData.password, formData.name, formData.phone);
-        toast.success('Account created successfully!');
-        navigate('/', { replace: true });
+        result = await signup(formData.email, formData.password, formData.name);
+      }
+      
+      if (!result.success) {
+        toast.error(result.error || 'Authentication failed');
+        setIsLoading(false);
+        return;
+      }
+      
+      toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
+      
+      // Redirect based on user role
+      const role = getUserRole();
+      if (role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (role === 'constructor' || role === 'renovator' || role === 'provider') {
+        navigate('/provider-dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
       }
     } catch (error) {
       console.error('Auth error:', error);
-      let errorMessage = 'An error occurred. Please try again.';
-
-      // Handle Firebase auth errors
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/email-already-in-use':
-            errorMessage = 'This email is already registered. Please sign in instead.';
-            break;
-          case 'auth/invalid-email':
-            errorMessage = 'Invalid email address.';
-            break;
-          case 'auth/weak-password':
-            errorMessage = 'Password is too weak. Please use a stronger password.';
-            break;
-          case 'auth/user-not-found':
-            errorMessage = 'No account found with this email address.';
-            break;
-          case 'auth/wrong-password':
-            errorMessage = 'Incorrect password. Please try again.';
-            break;
-          case 'auth/invalid-credential':
-            errorMessage = 'Invalid email or password.';
-            break;
-          default:
-            errorMessage = error.message || 'An error occurred. Please try again.';
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      toast.error(errorMessage);
+      toast.error(error.message || 'An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -123,29 +108,36 @@ const Auth = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      await loginWithGoogle();
-      toast.success('Logged in with Google');
-      navigate(from, { replace: true });
-    } catch (error) {
-      console.error('Google login error:', error);
-      let errorMessage = 'Failed to sign in with Google. Please try again.';
+      setIsLoading(true);
+      const result = await loginWithGoogle();
       
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/popup-closed-by-user':
-            errorMessage = 'Sign-in popup was closed. Please try again.';
-            break;
-          case 'auth/cancelled-popup-request':
-            errorMessage = 'Sign-in was cancelled. Please try again.';
-            break;
-          default:
-            errorMessage = error.message || errorMessage;
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (!result.success) {
+        toast.error(result.error || 'Failed to sign in with Google');
+        setIsLoading(false);
+        return;
       }
       
-      toast.error(errorMessage);
+      if (result.redirect) {
+        // Redirect flow - will be handled by handleGoogleRedirect
+        return;
+      }
+      
+      toast.success('Logged in with Google');
+      
+      // Redirect based on user role
+      const role = getUserRole();
+      if (role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (role === 'constructor' || role === 'renovator' || role === 'provider') {
+        navigate('/provider-dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    } catch (error) {
+      console.error('Google login error:', error);
+      toast.error(error.message || 'Failed to sign in with Google');
+    } finally {
+      setIsLoading(false);
     }
   };
 

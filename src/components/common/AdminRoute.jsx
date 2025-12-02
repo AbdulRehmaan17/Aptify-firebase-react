@@ -1,14 +1,15 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
 /**
- * ProtectedRoute - Legacy component for backward compatibility
- * Use PrivateRoute, AdminRoute, or ProviderRoute instead
+ * AdminRoute - Protects routes that require admin role
+ * Redirects non-admin users to their dashboard
  */
-const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { currentUser, loading, getUserRole, isAdmin } = useAuth();
+const AdminRoute = ({ children }) => {
+  const { currentUser, loading, isAdmin, getUserRole } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -18,13 +19,15 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     );
   }
 
+  // If user is not authenticated, redirect to login
   if (!currentUser) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (adminOnly && !isAdmin()) {
+  // If user is not admin, redirect to appropriate dashboard
+  if (!isAdmin()) {
     const role = getUserRole();
-    // Redirect based on role
+    
     if (role === 'constructor' || role === 'renovator' || role === 'provider') {
       return <Navigate to="/provider-dashboard" replace />;
     } else {
@@ -32,7 +35,9 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
     }
   }
 
+  // User is admin, allow access
   return children;
 };
 
-export default ProtectedRoute;
+export default AdminRoute;
+

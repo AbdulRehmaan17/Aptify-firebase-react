@@ -13,8 +13,7 @@ import notificationService from '../../services/notificationService';
  * Displays notification bell with unread count and dropdown
  */
 const NotificationBell = () => {
-  const { user: contextUser } = useAuth();
-  const currentUser = auth?.currentUser || contextUser;
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);

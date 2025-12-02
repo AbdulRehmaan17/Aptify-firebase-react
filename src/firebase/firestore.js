@@ -16,7 +16,7 @@ import {
   increment,
   arrayUnion,
 } from 'firebase/firestore';
-import { db } from './config';
+import { db } from './firebase';
 
 // Product operations
 export const getProducts = async (filters = {}, sortBy = 'createdAt', limitCount = 20) => {

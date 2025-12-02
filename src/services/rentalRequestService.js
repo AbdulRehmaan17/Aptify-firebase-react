@@ -12,7 +12,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import propertyService from './propertyService';
-import { db } from '../firebase';
+import { db } from '../firebase/firebase';
 import notificationService from './notificationService';
 
 const RENTAL_REQUESTS_COLLECTION = 'rentalRequests';
@@ -39,7 +39,9 @@ class RentalRequestService {
         startDate: requestData.startDate,
         endDate: requestData.endDate,
         message: requestData.message || '',
-        status: 'Pending',
+        status: requestData.status || 'Pending',
+        totalCost: requestData.totalCost || null,
+        useWallet: requestData.useWallet || false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };

@@ -21,7 +21,7 @@ import {
   deleteObject,
   listAll,
 } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db, storage } from '../firebase/firebase';
 
 // Safety check for Firebase services
 const checkFirebaseServices = () => {
@@ -38,7 +38,7 @@ const checkFirebaseServices = () => {
 };
 
 const PROPERTIES_COLLECTION = 'properties';
-const PROPERTY_TYPES = ['sale', 'rent', 'renovation'];
+const PROPERTY_TYPES = ['sale', 'rent', 'renovation', 'buy', 'sell'];
 const PROPERTY_STATUSES = ['draft', 'pending', 'published', 'sold', 'rented', 'archived'];
 
 /**

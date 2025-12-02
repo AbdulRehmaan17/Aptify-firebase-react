@@ -24,8 +24,8 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       // Fallback UI
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background px-4">
-          <div className="max-w-md w-full card-base p-6 text-center">
+        <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8">
+          <div className="max-w-md w-full bg-surface rounded-base shadow-md p-6 border border-muted text-center">
             <div className="mb-4">
               <svg
                 className="mx-auto h-12 w-12 text-error"
@@ -56,7 +56,7 @@ class ErrorBoundary extends React.Component {
                 </pre>
               </details>
             )}
-            <div className="mt-6 space-x-4">
+            <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => window.location.reload()}
                 className="px-4 py-2 bg-primary text-white rounded-base hover:bg-primaryDark transition-colors"
@@ -65,7 +65,7 @@ class ErrorBoundary extends React.Component {
               </button>
               <button
                 onClick={() => (window.location.href = '/')}
-                className="px-4 py-2 bg-muted text-textMain rounded-base hover:bg-accent transition-colors"
+                className="px-4 py-2 bg-muted text-textMain rounded-base hover:bg-muted/80 transition-colors"
               >
                 Go Home
               </button>

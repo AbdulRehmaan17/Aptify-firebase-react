@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../firebase/firebase';
 
 /**
  * Get or create a chat between two users
@@ -34,11 +34,12 @@ export async function getOrCreateChat(currentUid, otherUid) {
       await setDoc(chatRef, {
         participants: participants,
         lastMessage: '',
+        lastMessageAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
-        unreadFor: {
-          [currentUid]: false,
-          [otherUid]: false,
+        unreadCounts: {
+          [currentUid]: 0,
+          [otherUid]: 0,
         },
       });
     }

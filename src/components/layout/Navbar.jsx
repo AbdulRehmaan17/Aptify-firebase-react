@@ -13,31 +13,37 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userProfile, setUserProfile] = useState(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
-  const { user, currentUserRole, loading: authLoading, logout } = useAuth();
+  const { currentUser, userProfile: authUserProfile, getUserRole, loading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLoading && user) {
-      const fetchUserProfile = async () => {
-        try {
-          const profile = await userService.getProfile(user.uid);
-          console.log('User profile fetched:', profile); // Debug log
-          setUserProfile(profile);
-        } catch (error) {
-          console.error('Error fetching user profile:', error);
-          // Don't show error toast if profile doesn't exist yet
-          if (!error.message.includes('not found')) {
-            toast.error('Failed to load user profile.');
+    if (!authLoading && currentUser) {
+      // Use profile from AuthContext if available, otherwise fetch
+      if (authUserProfile) {
+        setUserProfile(authUserProfile);
+        setIsProfileLoading(false);
+      } else {
+        const fetchUserProfile = async () => {
+          try {
+            const profile = await userService.getProfile(currentUser.uid);
+            console.log('User profile fetched:', profile); // Debug log
+            setUserProfile(profile);
+          } catch (error) {
+            console.error('Error fetching user profile:', error);
+            // Don't show error toast if profile doesn't exist yet
+            if (!error.message.includes('not found')) {
+              toast.error('Failed to load user profile.');
+            }
+          } finally {
+            setIsProfileLoading(false);
           }
-        } finally {
-          setIsProfileLoading(false);
-        }
-      };
-      fetchUserProfile();
-    } else if (!authLoading && !user) {
+        };
+        fetchUserProfile();
+      }
+    } else if (!authLoading && !currentUser) {
       setIsProfileLoading(false);
     }
-  }, [authLoading, user]);
+  }, [authLoading, currentUser, authUserProfile]);
 
   const handleLogout = async () => {
     try {
@@ -117,10 +123,10 @@ const Navbar = () => {
             </button>
 
             {/* Notification Bell */}
-            {user && <NotificationBell />}
+            {currentUser && <NotificationBell />}
 
             {/* User Menu */}
-            {user ? (
+            {currentUser ? (
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -128,7 +134,7 @@ const Navbar = () => {
                 >
                   <User className="w-5 h-5" />
                   <span className="hidden sm:block text-sm font-medium text-textMain">
-                    {userProfile?.displayName || user.email}
+                    {userProfile?.displayName || authUserProfile?.displayName || currentUser.email}
                   </span>
                 </button>
 
@@ -158,7 +164,7 @@ const Navbar = () => {
                       <MessageSquare className="w-4 h-4 mr-2 text-primary" />
                       Chat
                     </Link>
-                    {currentUserRole === 'admin' && (
+                    {getUserRole() === 'admin' && (
                       <Link
                         to="/admin"
                         className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
@@ -183,10 +189,10 @@ const Navbar = () => {
               </div>
             ) : (
               <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="sm" onClick={() => navigate('/auth')}>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>
                   Sign In
                 </Button>
-                <Button variant="primary" size="sm" onClick={() => navigate('/auth')}>
+                <Button variant="primary" size="sm" onClick={() => navigate('/signup')}>
                   Sign Up
                 </Button>
               </div>

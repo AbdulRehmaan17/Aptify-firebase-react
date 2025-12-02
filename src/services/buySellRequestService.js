@@ -12,7 +12,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import propertyService from './propertyService';
-import { db } from '../firebase';
+import { db } from '../firebase/firebase';
 import notificationService from './notificationService';
 
 const BUY_SELL_REQUESTS_COLLECTION = 'buySellRequests';
