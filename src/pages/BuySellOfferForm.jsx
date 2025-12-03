@@ -5,6 +5,7 @@ import { collection, addDoc, getDoc, doc, serverTimestamp } from 'firebase/fires
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
+import marketplaceService from '../services/marketplaceService';
 import { useSubmitSuccess } from '../hooks/useNotifyAndRedirect';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -12,9 +13,9 @@ import toast from 'react-hot-toast';
 
 /**
  * BuySellOfferForm Component
- * Form to submit purchase offer for a property
+ * Form to submit purchase offer for a property or marketplace listing
  */
-const BuySellOfferForm = ({ propertyId, propertyTitle, propertyPrice, onSuccess, onCancel }) => {
+const BuySellOfferForm = ({ propertyId, propertyTitle, propertyPrice, listingId, listingTitle, listingPrice, onSuccess, onCancel }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -68,76 +69,138 @@ const BuySellOfferForm = ({ propertyId, propertyTitle, propertyPrice, onSuccess,
     try {
       setLoading(true);
 
-      // Get property to find owner
-      const propertyDoc = await getDoc(doc(db, 'properties', propertyId));
-      if (!propertyDoc.exists()) {
-        toast.error('Property not found');
+      let targetId, targetTitle, targetPrice, sellerId, isMarketplace = false;
+
+      // Check if it's a marketplace listing or property
+      if (listingId) {
+        isMarketplace = true;
+        targetId = listingId;
+        targetTitle = listingTitle;
+        targetPrice = listingPrice;
+        
+        const listing = await marketplaceService.getById(listingId, false);
+        sellerId = listing.sellerId;
+      } else if (propertyId) {
+        targetId = propertyId;
+        targetTitle = propertyTitle;
+        targetPrice = propertyPrice;
+        
+        const propertyDoc = await getDoc(doc(db, 'properties', propertyId));
+        if (!propertyDoc.exists()) {
+          toast.error('Property not found');
+          return;
+        }
+        const propertyData = propertyDoc.data();
+        sellerId = propertyData.ownerId;
+      } else {
+        toast.error('No property or listing ID provided');
         return;
       }
 
-      const propertyData = propertyDoc.data();
-      const ownerId = propertyData.ownerId;
+      if (isMarketplace) {
+        // Create offer in marketplace offers collection
+        const offerId = await marketplaceService.createOffer({
+          listingId: targetId,
+          buyerId: user.uid,
+          buyerName: user.displayName || user.name || user.email,
+          offerAmount: Number(formData.offerAmount),
+          message: formData.message.trim() || '',
+        });
 
-      // Create buy/sell request
-      const requestData = {
-        userId: user.uid,
-        propertyId: propertyId,
-        offerAmount: Number(formData.offerAmount),
-        message: formData.message.trim() || '',
-        status: 'Pending',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
+        // Notify seller
+        if (sellerId && sellerId !== user.uid) {
+          try {
+            const offerAmount = new Intl.NumberFormat('en-PK', {
+              style: 'currency',
+              currency: 'PKR',
+            }).format(formData.offerAmount);
 
-      const docRef = await addDoc(collection(db, 'buySellRequests'), requestData);
-      const requestId = docRef.id;
+            await notificationService.sendNotification(
+              sellerId,
+              'New Offer on Your Listing',
+              `You have received a new offer of ${offerAmount} for "${targetTitle || 'your listing'}".`,
+              'service-request',
+              `/marketplace/${targetId}`
+            );
+          } catch (notifError) {
+            console.error('Error notifying seller:', notifError);
+          }
+        }
 
-      // Add initial update log
-      try {
-        const { addProjectUpdate } = await import('../utils/projectUpdates');
-        await addProjectUpdate(
-          'buySellRequests',
-          requestId,
-          'Pending',
-          user.uid,
-          'Purchase offer submitted'
-        );
-      } catch (updateError) {
-        console.error('Error adding initial update log:', updateError);
-        // Don't fail the request if update log fails
-      }
-
-      // Notify property owner
-      if (ownerId && ownerId !== user.uid) {
+        // Notify buyer (confirmation)
         try {
-          const offerAmount = new Intl.NumberFormat('en-PK', {
-            style: 'currency',
-            currency: 'PKR',
-          }).format(formData.offerAmount);
-
           await notificationService.sendNotification(
-            ownerId,
-            'New Purchase Offer',
-            `You have received a new purchase offer of ${offerAmount} for "${propertyTitle || 'your property'}".`,
+            user.uid,
+            'Offer Submitted',
+            `Your offer for "${targetTitle || 'the listing'}" has been submitted. The seller will review it soon.`,
             'service-request',
-            `/properties/${propertyId}`
+            '/my-account'
           );
         } catch (notifError) {
-          console.error('Error notifying owner:', notifError);
+          console.error('Error creating client notification:', notifError);
         }
-      }
+      } else {
+        // Create buy/sell request for property (existing logic)
+        const requestData = {
+          userId: user.uid,
+          propertyId: propertyId,
+          offerAmount: Number(formData.offerAmount),
+          message: formData.message.trim() || '',
+          status: 'Pending',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
 
-      // Notify user (confirmation)
-      try {
-        await notificationService.sendNotification(
-          user.uid,
-          'Purchase Offer Submitted',
-          `Your purchase offer for "${propertyTitle || 'the property'}" has been submitted. The owner will review it soon.`,
-          'service-request',
-          '/my-account'
-        );
-      } catch (notifError) {
-        console.error('Error creating client notification:', notifError);
+        const docRef = await addDoc(collection(db, 'buySellRequests'), requestData);
+        const requestId = docRef.id;
+
+        // Add initial update log
+        try {
+          const { addProjectUpdate } = await import('../utils/projectUpdates');
+          await addProjectUpdate(
+            'buySellRequests',
+            requestId,
+            'Pending',
+            user.uid,
+            'Purchase offer submitted'
+          );
+        } catch (updateError) {
+          console.error('Error adding initial update log:', updateError);
+          // Don't fail the request if update log fails
+        }
+
+        // Notify property owner
+        if (sellerId && sellerId !== user.uid) {
+          try {
+            const offerAmount = new Intl.NumberFormat('en-PK', {
+              style: 'currency',
+              currency: 'PKR',
+            }).format(formData.offerAmount);
+
+            await notificationService.sendNotification(
+              sellerId,
+              'New Purchase Offer',
+              `You have received a new purchase offer of ${offerAmount} for "${targetTitle || 'your property'}".`,
+              'service-request',
+              `/properties/${propertyId}`
+            );
+          } catch (notifError) {
+            console.error('Error notifying owner:', notifError);
+          }
+        }
+
+        // Notify user (confirmation)
+        try {
+          await notificationService.sendNotification(
+            user.uid,
+            'Purchase Offer Submitted',
+            `Your purchase offer for "${targetTitle || 'the property'}" has been submitted. The owner will review it soon.`,
+            'service-request',
+            '/my-account'
+          );
+        } catch (notifError) {
+          console.error('Error creating client notification:', notifError);
+        }
       }
 
       // Use standardized success handler
@@ -161,12 +224,15 @@ const BuySellOfferForm = ({ propertyId, propertyTitle, propertyPrice, onSuccess,
     }).format(price);
   };
 
+  const displayPrice = listingPrice || propertyPrice;
+  const displayTitle = listingTitle || propertyTitle;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {propertyPrice && (
+      {displayPrice && (
         <div className="p-3 bg-primary/10 rounded-lg">
-          <p className="text-sm text-textSecondary">Property Price:</p>
-          <p className="text-lg font-semibold text-textMain">{formatPrice(propertyPrice)}</p>
+          <p className="text-sm text-textSecondary">{listingId ? 'Listing' : 'Property'} Price:</p>
+          <p className="text-lg font-semibold text-textMain">{formatPrice(displayPrice)}</p>
         </div>
       )}
 
@@ -186,10 +252,10 @@ const BuySellOfferForm = ({ propertyId, propertyTitle, propertyPrice, onSuccess,
           error={errors.offerAmount}
           required
         />
-        {propertyPrice && (
+        {displayPrice && (
           <p className="mt-1 text-xs text-textSecondary">
             {formData.offerAmount
-              ? `${((Number(formData.offerAmount) / propertyPrice) * 100).toFixed(1)}% of asking price`
+              ? `${((Number(formData.offerAmount) / displayPrice) * 100).toFixed(1)}% of asking price`
               : ''}
           </p>
         )}

@@ -5,8 +5,14 @@ import toast from 'react-hot-toast';
 const cartReducer = (state, action) => {
   switch (action.type) {
     case 'ADD_ITEM':
+      // Support both productId (legacy) and itemId (new format)
+      const itemId = action.payload.itemId || action.payload.productId;
+      const itemType = action.payload.itemType || 'marketplace';
       const existingItem = state.items.find(
-        (item) => item.productId === action.payload.productId && item.size === action.payload.size
+        (item) => {
+          const existingItemId = item.itemId || item.productId;
+          return existingItemId === itemId && item.itemType === itemType;
+        }
       );
 
       if (existingItem) {
@@ -113,9 +119,13 @@ export const CartProvider = ({ children }) => {
   }, [state.items, user]);
 
   const addToCart = (item) => {
+    const itemId = item.itemId || item.productId;
+    const itemType = item.itemType || 'marketplace';
     const cartItem = {
       ...item,
-      id: `${item.productId}_${item.size || 'default'}_${Date.now()}`,
+      itemId,
+      itemType,
+      id: `${itemId}_${itemType}_${item.size || 'default'}_${Date.now()}`,
     };
     dispatch({ type: 'ADD_ITEM', payload: cartItem });
     toast.success('Added to cart!');

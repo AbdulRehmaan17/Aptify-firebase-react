@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import notificationService from '../services/notificationService';
+import renovationRequestService from '../services/renovationRequestService';
 import {
   Wrench,
   Home,
@@ -347,7 +347,7 @@ const RenovationRequestForm = () => {
         }
       }
 
-      // Build project data object according to Firestore structure
+      // Build project data object
       const projectData = {
         userId: currentUser.uid,
         propertyId: formData.propertyId,
@@ -355,8 +355,6 @@ const RenovationRequestForm = () => {
         detailedDescription: formData.detailedDescription.trim(),
         budget: Number(formData.budget),
         preferredDate: formData.preferredDate,
-        status: 'Pending',
-        createdAt: serverTimestamp(),
       };
 
       // Add providerId if provided (optional field)
@@ -369,34 +367,11 @@ const RenovationRequestForm = () => {
         projectData.photos = photoUrls;
       }
 
-      // Save to Firestore collection "renovationProjects"
-      // Collection will be automatically created if it doesn't exist
-      const docRef = await addDoc(collection(db, 'renovationProjects'), projectData);
+      // Save using renovation request service
+      const requestId = await renovationRequestService.create(projectData);
 
-      console.log('Renovation project created with ID:', docRef.id);
+      console.log('Renovation request created with ID:', requestId);
       console.log('Project data:', projectData);
-
-      // Send notifications
-      try {
-        // Notify user (confirmation)
-        await notificationService.sendNotification(
-          currentUser.uid,
-          'Renovation Request Submitted',
-          `Your ${formData.serviceCategory} request has been submitted successfully. We'll notify you when a provider responds.`,
-          'service-request',
-          '/renovation-dashboard'
-        );
-
-        // Notify provider if one was selected
-        if (formData.providerId && formData.providerId.trim()) {
-          await notificationService.sendNotification(
-            formData.providerId,
-            'New Renovation Request',
-            `You have received a new ${formData.serviceCategory} request. Check your dashboard for details.`,
-            'service-request',
-            '/renovator-dashboard'
-          );
-        } else {
           // Notify all approved renovation providers
           const providersQuery = query(
             collection(db, 'renovationProviders'),
@@ -418,17 +393,10 @@ const RenovationRequestForm = () => {
             return Promise.resolve();
           });
           
-          await Promise.allSettled(notificationPromises);
-        }
-      } catch (notifError) {
-        console.error('Error sending notifications:', notifError);
-        // Don't fail the request if notifications fail
-      }
-
       toast.success('Renovation request submitted successfully!');
 
-      // Navigate to renovation dashboard
-      navigate('/renovation-dashboard');
+      // Navigate to dashboard
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error submitting renovation request:', error);
 

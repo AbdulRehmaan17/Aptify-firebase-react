@@ -105,11 +105,11 @@ const RegisterConstructor = () => {
         setCheckingRegistration(true);
         console.log('Checking if user is already registered as constructor:', currentUser.uid);
 
-        // Query serviceProviders collection filtered by userId
+        // Query providers collection filtered by userId
         const providersQuery = query(
-          collection(db, 'serviceProviders'),
+          collection(db, 'providers'),
           where('userId', '==', currentUser.uid),
-          where('serviceType', '==', 'construction')
+          where('type', '==', 'construction')
         );
 
         const snapshot = await getDocs(providersQuery);
@@ -434,9 +434,9 @@ const RegisterConstructor = () => {
 
       // Check again if user is already registered (race condition protection)
       const providersQuery = query(
-        collection(db, 'serviceProviders'),
+        collection(db, 'providers'),
         where('userId', '==', currentUser.uid),
-        where('serviceType', '==', 'construction')
+        where('type', '==', 'construction')
       );
       const snapshot = await getDocs(providersQuery);
 
@@ -471,7 +471,7 @@ const RegisterConstructor = () => {
         userId: currentUser.uid,
         name: formData.name.trim(),
         phone: formData.phone.trim(),
-        serviceType: 'construction',
+        type: 'construction',
         specialization: formData.skills, // Use skills as specialization
         portfolio: portfolioLinksArray,
         documents: documents,
@@ -497,8 +497,8 @@ const RegisterConstructor = () => {
         providerData.profileImageUrl = uploads.profileImageUrl;
       }
 
-      // Add document to Firestore - use serviceProviders collection
-      const docRef = await addDoc(collection(db, 'serviceProviders'), providerData);
+      // Add document to Firestore - use providers collection
+      const docRef = await addDoc(collection(db, 'providers'), providerData);
       console.log('Constructor registered with ID:', docRef.id);
       console.log('Provider data:', providerData);
 

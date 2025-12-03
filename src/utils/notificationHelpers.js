@@ -1,5 +1,5 @@
 import { collection, addDoc, doc, updateDoc, deleteDoc, query, where, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase';
 import toast from 'react-hot-toast';
 
 /**

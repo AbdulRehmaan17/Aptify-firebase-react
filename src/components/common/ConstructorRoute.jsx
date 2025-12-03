@@ -4,11 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
 /**
- * AdminRoute - Protects routes that require admin role
- * Redirects non-admin users to their dashboard
+ * ConstructorRoute - Protects routes that require constructor role
+ * Redirects non-constructor users to their dashboard
  */
-const AdminRoute = ({ children }) => {
-  const { currentUser, loading, isAdmin, getUserRole } = useAuth();
+const ConstructorRoute = ({ children }) => {
+  const { currentUser, loading, isConstructor, getUserRole, isAdmin } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -24,12 +24,10 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If user is not admin or superadmin, redirect to appropriate dashboard
-  if (!isAdmin()) {
+  // If user is not constructor (and not admin), redirect to appropriate dashboard
+  if (!isConstructor() && !isAdmin()) {
     const role = getUserRole();
     switch (role) {
-      case 'constructor':
-        return <Navigate to="/constructor-dashboard" replace />;
       case 'renovator':
         return <Navigate to="/renovator-dashboard" replace />;
       case 'provider':
@@ -39,9 +37,10 @@ const AdminRoute = ({ children }) => {
     }
   }
 
-  // User is admin, allow access
+  // User is constructor or admin, allow access
   return children;
 };
 
-export default AdminRoute;
+export default ConstructorRoute;
+
 

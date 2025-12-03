@@ -312,6 +312,127 @@ class UserService {
       throw new Error(error.message || 'Failed to fetch favorites');
     }
   }
+
+  /**
+   * Add item to user's wishlist (supports both properties and marketplace items)
+   * @param {string} userId - User document ID
+   * @param {string} itemId - Item ID (property or marketplace listing)
+   * @param {string} itemType - Item type: 'property' or 'marketplace'
+   * @returns {Promise<void>}
+   */
+  async addToWishlist(userId, itemId, itemType = 'property') {
+    try {
+      if (!userId || !itemId) {
+        throw new Error('User ID and Item ID are required');
+      }
+
+      const userRef = doc(db, USERS_COLLECTION, userId);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error('User profile not found');
+      }
+
+      const wishlist = userSnap.data().wishlist || [];
+      const wishlistItem = { id: itemId, type: itemType };
+
+      // Check if item already exists in wishlist
+      const exists = wishlist.some((item) => {
+        if (typeof item === 'string') {
+          // Legacy format: just ID string
+          return item === itemId;
+        }
+        return item.id === itemId && item.type === itemType;
+      });
+
+      if (!exists) {
+        await updateDoc(userRef, {
+          wishlist: [...wishlist, wishlistItem],
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error('Error adding to wishlist:', error);
+      throw new Error(error.message || 'Failed to add to wishlist');
+    }
+  }
+
+  /**
+   * Remove item from user's wishlist
+   * @param {string} userId - User document ID
+   * @param {string} itemId - Item ID to remove
+   * @returns {Promise<void>}
+   */
+  async removeFromWishlist(userId, itemId) {
+    try {
+      if (!userId || !itemId) {
+        throw new Error('User ID and Item ID are required');
+      }
+
+      const userRef = doc(db, USERS_COLLECTION, userId);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error('User profile not found');
+      }
+
+      const wishlist = userSnap.data().wishlist || [];
+      const updatedWishlist = wishlist.filter((item) => {
+        if (typeof item === 'string') {
+          // Legacy format: just ID string
+          return item !== itemId;
+        }
+        return item.id !== itemId;
+      });
+
+      await updateDoc(userRef, {
+        wishlist: updatedWishlist,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error removing from wishlist:', error);
+      throw new Error(error.message || 'Failed to remove from wishlist');
+    }
+  }
+
+  /**
+   * Get user's wishlist items
+   * @param {string} userId - User document ID
+   * @returns {Promise<Array>} - Array of wishlist items with id and type
+   */
+  async getWishlist(userId) {
+    try {
+      const profile = await this.getProfile(userId);
+      const wishlist = profile.wishlist || [];
+      
+      // Normalize wishlist items (handle legacy string format)
+      return wishlist.map((item) => {
+        if (typeof item === 'string') {
+          return { id: item, type: 'property' }; // Default to property for legacy items
+        }
+        return item;
+      });
+    } catch (error) {
+      console.error('Error fetching wishlist:', error);
+      throw new Error(error.message || 'Failed to fetch wishlist');
+    }
+  }
+
+  /**
+   * Check if item is in user's wishlist
+   * @param {string} userId - User document ID
+   * @param {string} itemId - Item ID to check
+   * @returns {Promise<boolean>}
+   */
+  async isInWishlist(userId, itemId) {
+    try {
+      const wishlist = await this.getWishlist(userId);
+      return wishlist.some((item) => item.id === itemId);
+    } catch (error) {
+      console.error('Error checking wishlist:', error);
+      return false;
+    }
+  }
 }
 
 // Export singleton instance

@@ -40,8 +40,8 @@ const RenovationProviders = () => {
         setLoading(true);
         // Fetch only approved providers
         const providersQuery = query(
-          collection(db, 'serviceProviders'),
-          where('serviceType', '==', 'renovation'),
+          collection(db, 'providers'),
+          where('type', '==', 'renovation'),
           where('isApproved', '==', true)
         );
 

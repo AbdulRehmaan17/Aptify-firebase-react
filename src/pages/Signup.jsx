@@ -24,12 +24,22 @@ const Signup = () => {
 
   const redirectToDashboard = () => {
     const role = getUserRole();
-    if (role === 'admin') {
-      navigate('/admin', { replace: true });
-    } else if (role === 'constructor' || role === 'renovator' || role === 'provider') {
-      navigate('/provider-dashboard', { replace: true });
-    } else {
-      navigate('/dashboard', { replace: true });
+    switch (role) {
+      case 'admin':
+      case 'superadmin':
+        navigate('/admin', { replace: true });
+        break;
+      case 'provider':
+        navigate('/provider-dashboard', { replace: true });
+        break;
+      case 'constructor':
+        navigate('/constructor-dashboard', { replace: true });
+        break;
+      case 'renovator':
+        navigate('/renovator-dashboard', { replace: true });
+        break;
+      default:
+        navigate('/dashboard', { replace: true });
     }
   };
 
@@ -89,7 +99,7 @@ const Signup = () => {
 
     setIsLoading(true);
     try {
-      const result = await signup(formData.email, formData.password, formData.name);
+      const result = await signup(formData.email, formData.password, formData.name, formData.phone);
 
       if (!result.success) {
         toast.error(result.error || 'Sign up failed');
@@ -98,7 +108,11 @@ const Signup = () => {
       }
 
       toast.success('Account created successfully!');
-      redirectToDashboard();
+      
+      // Wait a moment for user profile to be created, then redirect
+      setTimeout(() => {
+        redirectToDashboard();
+      }, 500);
     } catch (error) {
       console.error('Signup error:', error);
       toast.error(error.message || 'An error occurred. Please try again.');
@@ -282,6 +296,7 @@ const Signup = () => {
 };
 
 export default Signup;
+
 
 
 

@@ -1,12 +1,15 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Bed, Bath, Square } from 'lucide-react';
+import { MapPin, Bed, Bath, Square, Heart, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
+import userService from '../../services/userService';
 import Button from '../common/Button';
 import toast from 'react-hot-toast';
 
 const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
   const { user } = useAuth();
+  const { addToCart } = useCart();
   const navigate = useNavigate();
 
   const formatPrice = (price) => {
@@ -57,8 +60,52 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
       return;
     }
 
-    if (onFavoriteToggle) {
-      onFavoriteToggle(property.id, !isFavorite);
+    try {
+      if (isFavorite) {
+        await userService.removeFromFavorites(user.uid, property.id);
+        await userService.removeFromWishlist(user.uid, property.id);
+        toast.success('Removed from favorites');
+      } else {
+        await userService.addToFavorites(user.uid, property.id);
+        await userService.addToWishlist(user.uid, property.id, 'property');
+        toast.success('Added to favorites');
+      }
+      if (onFavoriteToggle) {
+        onFavoriteToggle(property.id, !isFavorite);
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorites');
+    }
+  };
+
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error('Please sign in to add to cart');
+      return;
+    }
+
+    // Only allow adding properties for sale to cart
+    if (property.type !== 'sale') {
+      toast.error('Only properties for sale can be added to cart');
+      return;
+    }
+
+    try {
+      addToCart({
+        itemId: property.id,
+        itemType: 'property',
+        name: property.title,
+        price: property.price,
+        image: getImageUrl(),
+        quantity: 1,
+      });
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add to cart');
     }
   };
 
@@ -209,17 +256,29 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
             </div>
           )}
 
-          {/* Action Button */}
-          <Button
-            className="w-full mt-2"
-            variant="primary"
-            onClick={(e) => {
-              e.preventDefault();
-              // Navigate is handled by the Link wrapper
-            }}
-          >
-            View Details
-          </Button>
+          {/* Action Buttons */}
+          <div className="flex gap-2 mt-2">
+            {property.type === 'sale' && (
+              <Button
+                className="flex-1"
+                variant="outline"
+                onClick={handleAddToCart}
+              >
+                <ShoppingCart className="w-4 h-4 mr-1" />
+                Add to Cart
+              </Button>
+            )}
+            <Button
+              className={property.type === 'sale' ? 'flex-1' : 'w-full'}
+              variant="primary"
+              onClick={(e) => {
+                e.preventDefault();
+                // Navigate is handled by the Link wrapper
+              }}
+            >
+              View Details
+            </Button>
+          </div>
         </div>
       </div>
     </Link>

@@ -72,11 +72,13 @@ export default function useChatList() {
           // Add user names to chats
           const chatsWithNames = chatsList.map((chat) => {
             const otherUid = chat.participants?.find((uid) => uid !== user.uid);
+            // Calculate unread count from messages if available, otherwise use boolean flag
+            const unreadCount = chat.unreadFor?.[user.uid] === true ? 1 : 0;
             return {
               ...chat,
               otherParticipantId: otherUid,
               otherParticipantName: userNames[otherUid] || 'Unknown',
-              unreadCount: chat.unreadFor?.[user.uid] === true ? 1 : 0,
+              unreadCount: unreadCount,
             };
           });
 

@@ -79,11 +79,11 @@ const RegisterRenovator = () => {
         setCheckingRegistration(true);
         console.log('Checking if user is already registered as renovator:', currentUser.uid);
 
-        // Query serviceProviders collection filtered by userId and serviceType
+        // Query providers collection filtered by userId and type
         const providersQuery = query(
-          collection(db, 'serviceProviders'),
+          collection(db, 'providers'),
           where('userId', '==', currentUser.uid),
-          where('serviceType', '==', 'renovation')
+          where('type', '==', 'renovation')
         );
 
         const snapshot = await getDocs(providersQuery);
@@ -315,18 +315,13 @@ const RegisterRenovator = () => {
 
       // Check again if user is already registered (race condition protection)
       const providersQuery = query(
-        collection(db, 'serviceProviders'),
+        collection(db, 'providers'),
         where('userId', '==', currentUser.uid),
-        where('serviceType', '==', 'renovation')
+        where('type', '==', 'renovation')
       );
       const snapshot = await getDocs(providersQuery);
 
-      // Check if user already has renovation service type
-      const renovationProvider = snapshot.docs.find(
-        (doc) => doc.data().serviceType === 'renovation' || doc.data().serviceType === 'Renovation'
-      );
-
-      if (renovationProvider) {
+      if (!snapshot.empty) {
         setIsAlreadyRegistered(true);
         toast.error('You are already registered as a renovator.');
         setLoading(false);
@@ -361,7 +356,7 @@ const RegisterRenovator = () => {
         userId: currentUser.uid,
         name: formData.name.trim(),
         phone: formData.phone.trim(),
-        serviceType: 'renovation',
+        type: 'renovation',
         specialization: specializationArray.length > 0 ? specializationArray : [formData.specialization.trim()],
         portfolio: portfolioLinksArray,
         documents: documents,
@@ -382,8 +377,8 @@ const RegisterRenovator = () => {
         providerData.profileImageUrl = uploads.profileImageUrl;
       }
 
-      // Add document to Firestore
-      const docRef = await addDoc(collection(db, 'serviceProviders'), providerData);
+      // Add document to Firestore - use providers collection
+      const docRef = await addDoc(collection(db, 'providers'), providerData);
       console.log('Renovator registered with ID:', docRef.id);
       console.log('Provider data:', providerData);
 

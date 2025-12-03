@@ -6,10 +6,6 @@ import {
   query,
   where,
   onSnapshot,
-  updateDoc,
-  deleteDoc,
-  doc,
-  writeBatch,
   orderBy,
   limit,
 } from 'firebase/firestore';
@@ -28,7 +24,9 @@ import {
   XCircle,
   Info,
   Home,
+  Trash,
 } from 'lucide-react';
+import notificationService from '../../services/notificationService';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -41,6 +39,7 @@ const NotificationsPage = () => {
   const [filter, setFilter] = useState('all'); // 'all', 'unread', 'read'
   const [deleting, setDeleting] = useState(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !currentUser) {
@@ -118,14 +117,10 @@ const NotificationsPage = () => {
   };
 
   const handleMarkAsRead = async (notificationId) => {
-    if (!db || !notificationId) return;
+    if (!notificationId) return;
 
     try {
-      const notificationRef = doc(db, 'notifications', notificationId);
-      await updateDoc(notificationRef, {
-        read: true,
-        readAt: new Date(),
-      });
+      await notificationService.markAsRead(notificationId);
     } catch (error) {
       console.error('Error marking notification as read:', error);
       toast.error('Failed to mark notification as read');
@@ -165,17 +160,32 @@ const NotificationsPage = () => {
   };
 
   const handleDelete = async (notificationId) => {
-    if (!db || !notificationId) return;
+    if (!notificationId) return;
 
     try {
       setDeleting(notificationId);
-      await deleteDoc(doc(db, 'notifications', notificationId));
+      await notificationService.deleteNotification(notificationId);
       toast.success('Notification deleted');
     } catch (error) {
       console.error('Error deleting notification:', error);
       toast.error('Failed to delete notification');
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!currentUser) return;
+
+    try {
+      setClearingAll(true);
+      await notificationService.clearAll(currentUser.uid);
+      toast.success('All notifications cleared');
+    } catch (error) {
+      console.error('Error clearing all notifications:', error);
+      toast.error('Failed to clear all notifications');
+    } finally {
+      setClearingAll(false);
     }
   };
 
@@ -281,17 +291,32 @@ const NotificationsPage = () => {
                 {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}` : 'All caught up!'}
               </p>
             </div>
-            {unreadCount > 0 && (
-              <Button
-                onClick={handleMarkAllAsRead}
-                loading={markingAllRead}
-                variant="outline"
-                className="flex items-center"
-              >
-                <CheckCheck className="w-4 h-4 mr-2" />
-                Mark All Read
-              </Button>
-            )}
+            <div className="flex items-center space-x-2">
+              {unreadCount > 0 && (
+                <Button
+                  onClick={handleMarkAllAsRead}
+                  loading={markingAllRead}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center"
+                >
+                  <CheckCheck className="w-4 h-4 mr-2" />
+                  Mark All Read
+                </Button>
+              )}
+              {notifications.length > 0 && (
+                <Button
+                  onClick={handleClearAll}
+                  loading={clearingAll}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center text-error hover:text-error hover:border-error"
+                >
+                  <Trash className="w-4 h-4 mr-2" />
+                  Clear All
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Filters */}
@@ -419,6 +444,7 @@ const NotificationsPage = () => {
 };
 
 export default NotificationsPage;
+
 
 
 

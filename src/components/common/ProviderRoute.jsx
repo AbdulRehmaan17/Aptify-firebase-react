@@ -24,9 +24,17 @@ const ProviderRoute = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If user is not provider (and not admin), redirect to dashboard
+  // If user is not provider (and not admin), redirect to appropriate dashboard
   if (!isProvider() && !isAdmin()) {
-    return <Navigate to="/dashboard" replace />;
+    const role = getUserRole();
+    switch (role) {
+      case 'constructor':
+        return <Navigate to="/constructor-dashboard" replace />;
+      case 'renovator':
+        return <Navigate to="/renovator-dashboard" replace />;
+      default:
+        return <Navigate to="/dashboard" replace />;
+    }
   }
 
   // User is provider or admin, allow access

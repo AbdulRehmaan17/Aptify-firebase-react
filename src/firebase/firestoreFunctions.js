@@ -13,7 +13,7 @@ import {
   startAfter,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db } from './firestore';
 
 /**
  * Add a document to a collection with auto-generated ID

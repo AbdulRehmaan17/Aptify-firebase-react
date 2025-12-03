@@ -1,5 +1,5 @@
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase';
 
 /**
  * Add an update log to a project's updates subcollection

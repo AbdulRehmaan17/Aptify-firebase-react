@@ -16,13 +16,19 @@ import {
   MapPin,
   DollarSign,
   Building2,
+  Star,
+  FileText,
+  LayoutDashboard,
+  Plus,
 } from 'lucide-react';
 import rentalRequestService from '../services/rentalRequestService';
 import buySellRequestService from '../services/buySellRequestService';
+import constructionRequestService from '../services/constructionRequestService';
+import renovationRequestService from '../services/renovationRequestService';
 import propertyService from '../services/propertyService';
 import notificationService from '../services/notificationService';
 import { collection, query, where, orderBy, limit, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { StatsSkeleton, GridSkeleton, PropertyCardSkeleton } from '../components/common/SkeletonLoader';
@@ -34,8 +40,15 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'properties', 'rentals', 'construction', 'renovation', 'buy-sell', 'reviews', 'notifications'
   const [recentBookings, setRecentBookings] = useState([]);
   const [favoriteProperties, setFavoriteProperties] = useState([]);
+  const [myProperties, setMyProperties] = useState([]);
+  const [myRentalRequests, setMyRentalRequests] = useState([]);
+  const [myConstructionRequests, setMyConstructionRequests] = useState([]);
+  const [myRenovationRequests, setMyRenovationRequests] = useState([]);
+  const [myBuySellOffers, setMyBuySellOffers] = useState([]);
+  const [myReviews, setMyReviews] = useState([]);
   const [recentlyViewed, setRecentlyViewed] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -55,6 +68,12 @@ const Dashboard = () => {
       await Promise.all([
         loadRecentBookings(),
         loadFavoriteProperties(),
+        loadMyProperties(),
+        loadMyRentalRequests(),
+        loadMyConstructionRequests(),
+        loadMyRenovationRequests(),
+        loadMyBuySellOffers(),
+        loadMyReviews(),
         loadRecentlyViewed(),
         loadNotifications(),
       ]);
@@ -74,17 +93,58 @@ const Dashboard = () => {
       // Get buy/sell requests
       const buySellRequests = await buySellRequestService.getByUser(currentUser.uid);
 
+      // Get construction requests
+      const constructionRequests = await constructionRequestService.getByUser(currentUser.uid);
+
+      // Get renovation requests
+      const renovationRequests = await renovationRequestService.getByUser(currentUser.uid);
+
+      // Fetch property details for rental requests
+      const rentalRequestsWithProperties = await Promise.all(
+        rentalRequests.map(async (req) => {
+          try {
+            const property = await propertyService.getById(req.propertyId, false);
+            return {
+              ...req,
+              type: 'rental',
+              date: req.createdAt || req.requestDate,
+              property,
+              propertyAddress: property?.address
+                ? `${property.address.line1 || ''}, ${property.address.city || ''}`.trim()
+                : null,
+            };
+          } catch (error) {
+            console.error('Error fetching property for rental request:', error);
+            return {
+              ...req,
+              type: 'rental',
+              date: req.createdAt || req.requestDate,
+              property: null,
+              propertyAddress: null,
+            };
+          }
+        })
+      );
+
       // Combine and sort by date
       const allBookings = [
-        ...rentalRequests.map((req) => ({
-          ...req,
-          type: 'rental',
-          date: req.createdAt || req.requestDate,
-        })),
+        ...rentalRequestsWithProperties,
         ...buySellRequests.map((req) => ({
           ...req,
           type: req.requestType || 'buy',
           date: req.createdAt || req.requestDate,
+        })),
+        ...constructionRequests.map((req) => ({
+          ...req,
+          type: 'construction',
+          date: req.createdAt,
+          projectType: req.projectType,
+        })),
+        ...renovationRequests.map((req) => ({
+          ...req,
+          type: 'renovation',
+          date: req.createdAt,
+          serviceCategory: req.serviceCategory,
         })),
       ]
         .sort((a, b) => {
@@ -125,6 +185,88 @@ const Dashboard = () => {
     }
   };
 
+  const loadMyProperties = async () => {
+    try {
+      const properties = await propertyService.getByOwner(currentUser.uid);
+      setMyProperties(properties);
+    } catch (error) {
+      console.error('Error loading my properties:', error);
+    }
+  };
+
+  const loadMyRentalRequests = async () => {
+    try {
+      const requests = await rentalRequestService.getByUser(currentUser.uid);
+      setMyRentalRequests(requests);
+    } catch (error) {
+      console.error('Error loading rental requests:', error);
+    }
+  };
+
+  const loadMyConstructionRequests = async () => {
+    try {
+      const requests = await constructionRequestService.getByUser(currentUser.uid);
+      setMyConstructionRequests(requests);
+    } catch (error) {
+      console.error('Error loading construction requests:', error);
+    }
+  };
+
+  const loadMyRenovationRequests = async () => {
+    try {
+      const requests = await renovationRequestService.getByUser(currentUser.uid);
+      setMyRenovationRequests(requests);
+    } catch (error) {
+      console.error('Error loading renovation requests:', error);
+    }
+  };
+
+  const loadMyBuySellOffers = async () => {
+    try {
+      const offers = await buySellRequestService.getByUser(currentUser.uid);
+      setMyBuySellOffers(offers);
+    } catch (error) {
+      console.error('Error loading buy/sell offers:', error);
+    }
+  };
+
+  const loadMyReviews = async () => {
+    try {
+      // Get all reviews by current user
+      const reviewsQuery = query(
+        collection(db, 'reviews'),
+        where('authorId', '==', currentUser.uid),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(reviewsQuery);
+      const reviews = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setMyReviews(reviews);
+    } catch (error) {
+      console.error('Error loading my reviews:', error);
+      // Fallback without orderBy
+      try {
+        const fallbackQuery = query(
+          collection(db, 'reviews'),
+          where('authorId', '==', currentUser.uid)
+        );
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        const reviews = fallbackSnapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => {
+            const aTime = a.createdAt?.toDate?.() || new Date(0);
+            const bTime = b.createdAt?.toDate?.() || new Date(0);
+            return bTime - aTime;
+          });
+        setMyReviews(reviews);
+      } catch (fallbackError) {
+        console.error('Error loading reviews (fallback):', fallbackError);
+      }
+    }
+  };
+
   const loadRecentlyViewed = async () => {
     try {
       // Get recently viewed from localStorage or user profile
@@ -138,7 +280,7 @@ const Dashboard = () => {
       // Get properties
       const propertyPromises = viewedIds.slice(0, 6).map(async (propertyId) => {
         try {
-          const property = await propertyService.getPropertyById(propertyId);
+          const property = await propertyService.getById(propertyId, false);
           return property;
         } catch (error) {
           console.error(`Error loading property ${propertyId}:`, error);
@@ -205,9 +347,14 @@ const Dashboard = () => {
 
   const getBookingStatusColor = (status) => {
     const statusMap = {
+      Pending: 'text-yellow-600 bg-yellow-100',
       pending: 'text-yellow-600 bg-yellow-100',
+      Accepted: 'text-green-600 bg-green-100',
+      accepted: 'text-green-600 bg-green-100',
       approved: 'text-green-600 bg-green-100',
+      Rejected: 'text-red-600 bg-red-100',
       rejected: 'text-red-600 bg-red-100',
+      Completed: 'text-blue-600 bg-blue-100',
       completed: 'text-blue-600 bg-blue-100',
       cancelled: 'text-gray-600 bg-gray-100',
     };
@@ -219,6 +366,8 @@ const Dashboard = () => {
       rental: 'Rental',
       buy: 'Buy',
       sell: 'Sell',
+      construction: 'Construction',
+      renovation: 'Renovation',
     };
     return typeMap[type] || type;
   };
@@ -261,7 +410,42 @@ const Dashboard = () => {
           <p className="text-textSecondary mt-2">Here's what's happening with your account</p>
         </div>
 
-        {/* Quick Stats */}
+        {/* Tabs */}
+        <div className="mb-6 border-b border-muted">
+          <div className="flex space-x-1 overflow-x-auto">
+            {[
+              { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+              { key: 'properties', label: 'My Properties', icon: Home },
+              { key: 'rentals', label: 'Rental Requests', icon: Calendar },
+              { key: 'construction', label: 'Construction', icon: Hammer },
+              { key: 'renovation', label: 'Renovation', icon: Wrench },
+              { key: 'buy-sell', label: 'Buy/Sell Offers', icon: ShoppingCart },
+              { key: 'reviews', label: 'My Reviews', icon: Star },
+              { key: 'notifications', label: 'Notifications', icon: Bell },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === tab.key
+                      ? 'border-primary text-primary font-medium'
+                      : 'border-transparent text-textSecondary hover:text-textMain hover:border-muted'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <>
+            {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Notifications */}
           <div className="bg-surface rounded-base shadow-md p-6 border border-muted">
@@ -395,19 +579,86 @@ const Dashboard = () => {
                             {booking.status || 'pending'}
                           </span>
                         </div>
-                        {booking.propertyId && (
+                        {booking.type === 'rental' && booking.property && (
+                          <>
+                            <p className="text-sm font-medium text-textMain mb-1">
+                              {booking.property.title}
+                            </p>
+                            {booking.propertyAddress && (
+                              <p className="text-xs text-textSecondary flex items-center mb-1">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                {booking.propertyAddress}
+                              </p>
+                            )}
+                            {booking.startDate && booking.endDate && (
+                              <p className="text-xs text-textSecondary mb-1">
+                                <Calendar className="w-3 h-3 inline mr-1" />
+                                {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
+                              </p>
+                            )}
+                            {booking.duration && (
+                              <p className="text-xs text-textSecondary mb-1">
+                                Duration: {booking.duration} month{booking.duration !== 1 ? 's' : ''}
+                              </p>
+                            )}
+                          </>
+                        )}
+                        {booking.type === 'construction' && (
+                          <>
+                            <p className="text-sm font-medium text-textMain mb-1">
+                              {booking.projectType || 'Construction Project'}
+                            </p>
+                            {booking.description && (
+                              <p className="text-xs text-textSecondary mb-1 line-clamp-2">
+                                {booking.description}
+                              </p>
+                            )}
+                            {booking.budget && (
+                              <p className="text-xs text-textSecondary mb-1 flex items-center">
+                                <DollarSign className="w-3 h-3 mr-1" />
+                                Budget: {new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(booking.budget)}
+                              </p>
+                            )}
+                            {booking.startDate && booking.endDate && (
+                              <p className="text-xs text-textSecondary mb-1">
+                                <Calendar className="w-3 h-3 inline mr-1" />
+                                {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
+                              </p>
+                            )}
+                          </>
+                        )}
+                        {booking.type === 'renovation' && (
+                          <>
+                            <p className="text-sm font-medium text-textMain mb-1">
+                              {booking.serviceCategory || 'Renovation Project'}
+                            </p>
+                            {(booking.detailedDescription || booking.description) && (
+                              <p className="text-xs text-textSecondary mb-1 line-clamp-2">
+                                {booking.detailedDescription || booking.description}
+                              </p>
+                            )}
+                            {booking.budget && (
+                              <p className="text-xs text-textSecondary mb-1 flex items-center">
+                                <DollarSign className="w-3 h-3 mr-1" />
+                                Budget: {new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(booking.budget)}
+                              </p>
+                            )}
+                            {booking.preferredDate && (
+                              <p className="text-xs text-textSecondary mb-1">
+                                <Calendar className="w-3 h-3 inline mr-1" />
+                                Preferred: {new Date(booking.preferredDate).toLocaleDateString()}
+                              </p>
+                            )}
+                          </>
+                        )}
+                        {booking.propertyId && !booking.property && booking.type !== 'construction' && (
                           <p className="text-sm text-textSecondary mb-1">
-                            Property ID: {booking.propertyId}
+                            Property ID: {booking.propertyId.substring(0, 8)}...
                           </p>
                         )}
-                        {booking.propertyAddress && (
-                          <p className="text-xs text-textSecondary flex items-center">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {booking.propertyAddress}
-                          </p>
-                        )}
-                        <p className="text-xs text-textSecondary mt-2">
-                          {formatDate(booking.date)}
+                        <p className="text-xs text-textSecondary mt-2 flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Requested: {formatDate(booking.date)}
                         </p>
                       </div>
                     </div>

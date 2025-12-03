@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import notificationService from '../services/notificationService';
+import constructionRequestService from '../services/constructionRequestService';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -251,7 +251,7 @@ const ConstructionRequestForm = () => {
     try {
       setLoading(true);
 
-      // Build project data object according to Firestore structure
+      // Build project data object
       const projectData = {
         userId: currentUser.uid,
         propertyId: isNewConstruction ? null : formData.propertyId,
@@ -260,8 +260,6 @@ const ConstructionRequestForm = () => {
         budget: Number(formData.budget),
         startDate: formData.startDate,
         endDate: formData.endDate,
-        status: 'Pending',
-        createdAt: serverTimestamp(),
       };
 
       // Add providerId if provided (optional field)
@@ -269,66 +267,16 @@ const ConstructionRequestForm = () => {
         projectData.providerId = formData.providerId.trim();
       }
 
-      // Save to Firestore collection "constructionProjects"
-      // Collection will be automatically created if it doesn't exist
-      const docRef = await addDoc(collection(db, 'constructionProjects'), projectData);
+      // Save using construction request service
+      const requestId = await constructionRequestService.create(projectData);
 
-      console.log('Construction project created with ID:', docRef.id);
+      console.log('Construction request created with ID:', requestId);
       console.log('Project data:', projectData);
-
-      // Send notifications
-      try {
-        // Notify user (confirmation)
-        await notificationService.sendNotification(
-          currentUser.uid,
-          'Construction Request Submitted',
-          `Your ${formData.projectType} request has been submitted successfully. We'll notify you when a provider responds.`,
-          'service-request',
-          '/construction-dashboard'
-        );
-
-        // Notify provider if one was selected
-        if (formData.providerId && formData.providerId.trim()) {
-          await notificationService.sendNotification(
-            formData.providerId,
-            'New Construction Request',
-            `You have received a new ${formData.projectType} request. Check your dashboard for details.`,
-            'service-request',
-            '/constructor-dashboard'
-          );
-        } else {
-          // Notify all approved construction providers
-          const providersQuery = query(
-            collection(db, 'constructionProviders'),
-            where('isApproved', '==', true)
-          );
-          const providersSnapshot = await getDocs(providersQuery);
-          
-          const notificationPromises = providersSnapshot.docs.map((providerDoc) => {
-            const providerData = providerDoc.data();
-            if (providerData.userId) {
-              return notificationService.sendNotification(
-                providerData.userId,
-                'New Construction Request Available',
-                `A new ${formData.projectType} request is available. Check available projects.`,
-                'service-request',
-                '/constructor-dashboard'
-              );
-            }
-            return Promise.resolve();
-          });
-          
-          await Promise.allSettled(notificationPromises);
-        }
-      } catch (notifError) {
-        console.error('Error sending notifications:', notifError);
-        // Don't fail the request if notifications fail
-      }
 
       toast.success('Construction request submitted successfully!');
 
-      // Navigate to construction dashboard
-      navigate('/construction-dashboard');
+      // Navigate to dashboard
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error submitting construction request:', error);
 

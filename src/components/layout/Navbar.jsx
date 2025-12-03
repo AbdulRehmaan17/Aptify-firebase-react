@@ -47,9 +47,14 @@ const Navbar = () => {
 
   const handleLogout = async () => {
     try {
-      await logout();
-      toast.success('Logged out successfully');
-      navigate('/auth');
+      setIsUserMenuOpen(false);
+      const result = await logout();
+      if (result.success) {
+        toast.success('Logged out successfully');
+        navigate('/login', { replace: true });
+      } else {
+        toast.error(result.error || 'Failed to logout');
+      }
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Failed to logout');
@@ -174,7 +179,7 @@ const Navbar = () => {
                       <MessageSquare className="w-4 h-4 mr-2 text-primary" />
                       Chat
                     </Link>
-                    {getUserRole() === 'admin' && (
+                    {(getUserRole() === 'admin' || getUserRole() === 'superadmin') && (
                       <Link
                         to="/admin"
                         className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
@@ -182,6 +187,36 @@ const Navbar = () => {
                       >
                         <Home className="w-4 h-4 mr-2 text-primary" />
                         Admin Panel
+                      </Link>
+                    )}
+                    {getUserRole() === 'constructor' && (
+                      <Link
+                        to="/constructor-dashboard"
+                        className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <Home className="w-4 h-4 mr-2 text-primary" />
+                        Constructor Dashboard
+                      </Link>
+                    )}
+                    {getUserRole() === 'renovator' && (
+                      <Link
+                        to="/renovator-dashboard"
+                        className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <Home className="w-4 h-4 mr-2 text-primary" />
+                        Renovator Dashboard
+                      </Link>
+                    )}
+                    {getUserRole() === 'provider' && (
+                      <Link
+                        to="/provider-dashboard"
+                        className="flex items-center px-4 py-2 text-sm text-textMain hover:bg-muted transition-colors"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <Home className="w-4 h-4 mr-2 text-primary" />
+                        Provider Dashboard
                       </Link>
                     )}
                     <hr className="my-2 border-muted" />

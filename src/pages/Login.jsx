@@ -27,7 +27,10 @@ const Login = () => {
       const result = await handleGoogleRedirect();
       if (result.success && result.user) {
         toast.success('Logged in with Google');
-        redirectToDashboard();
+        // Wait for user profile to load, then redirect
+        setTimeout(() => {
+          redirectToDashboard();
+        }, 500);
       } else if (result.error) {
         toast.error(result.error);
       }
@@ -37,12 +40,22 @@ const Login = () => {
 
   const redirectToDashboard = () => {
     const role = getUserRole();
-    if (role === 'admin') {
-      navigate('/admin', { replace: true });
-    } else if (role === 'constructor' || role === 'renovator' || role === 'provider') {
-      navigate('/provider-dashboard', { replace: true });
-    } else {
-      navigate('/dashboard', { replace: true });
+    switch (role) {
+      case 'admin':
+      case 'superadmin':
+        navigate('/admin', { replace: true });
+        break;
+      case 'provider':
+        navigate('/provider-dashboard', { replace: true });
+        break;
+      case 'constructor':
+        navigate('/constructor-dashboard', { replace: true });
+        break;
+      case 'renovator':
+        navigate('/renovator-dashboard', { replace: true });
+        break;
+      default:
+        navigate('/dashboard', { replace: true });
     }
   };
 
@@ -91,7 +104,10 @@ const Login = () => {
       }
 
       toast.success('Welcome back!');
-      redirectToDashboard();
+      // Wait a moment for user profile to load, then redirect
+      setTimeout(() => {
+        redirectToDashboard();
+      }, 100);
     } catch (error) {
       console.error('Login error:', error);
       toast.error(error.message || 'An error occurred. Please try again.');
@@ -117,7 +133,10 @@ const Login = () => {
       }
 
       toast.success('Logged in with Google');
-      redirectToDashboard();
+      // Wait for user profile to load, then redirect
+      setTimeout(() => {
+        redirectToDashboard();
+      }, 500);
     } catch (error) {
       console.error('Google login error:', error);
       toast.error(error.message || 'Failed to sign in with Google');
@@ -242,6 +261,7 @@ const Login = () => {
 };
 
 export default Login;
+
 
 
 

@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
 } from 'firebase/firestore';
@@ -20,6 +21,65 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 import toast from 'react-hot-toast';
 import notificationService from '../services/notificationService';
+
+// Q&A Knowledge Base
+const QnA = [
+  {
+    keywords: ['hello', 'hi', 'hey', 'greetings'],
+    response: 'Hello! How can I assist you today? You can ask me about properties, services, or submit a support request.',
+  },
+  {
+    keywords: ['property', 'properties', 'house', 'apartment', 'rent', 'buy', 'sell'],
+    response: 'We have a wide range of properties available for rent and sale. You can browse our listings on the Properties page. Need help finding something specific?',
+  },
+  {
+    keywords: ['renovation', 'renovate', 'remodel', 'repair'],
+    response: 'We offer professional renovation services! You can submit a renovation request from the Renovation page. Our team will review your request and get back to you.',
+  },
+  {
+    keywords: ['construction', 'build', 'construct', 'project'],
+    response: 'We provide construction services for various projects. Submit a construction request from the Construction page, and our providers will review it.',
+  },
+  {
+    keywords: ['price', 'cost', 'fee', 'payment', 'how much'],
+    response: 'Pricing varies based on the service and project requirements. Please submit a request with your details, and we\'ll provide you with a quote.',
+  },
+  {
+    keywords: ['contact', 'phone', 'email', 'address', 'location'],
+    response: 'You can reach us at:\n- Email: info@aptify.com\n- Phone: +92 300 123-4567\n- Office: Main Boulevard, Gulberg III, Lahore\nOr visit our Contact page for more details.',
+  },
+  {
+    keywords: ['help', 'support', 'assistance', 'problem', 'issue'],
+    response: 'I\'m here to help! You can ask me questions, or if you need more detailed assistance, our support team will respond to your messages here.',
+  },
+  {
+    keywords: ['thank', 'thanks', 'appreciate'],
+    response: 'You\'re welcome! Is there anything else I can help you with?',
+  },
+  {
+    keywords: ['hours', 'time', 'open', 'closed', 'business'],
+    response: 'Our business hours are:\n- Monday - Friday: 9:00 AM - 6:00 PM\n- Saturday: 10:00 AM - 4:00 PM\n- Sunday: Closed',
+  },
+  {
+    keywords: ['status', 'update', 'progress', 'check'],
+    response: 'To check the status of your requests, please visit your Account page or the respective service dashboard (Construction, Renovation, etc.).',
+  },
+];
+
+// Simple Q&A matching function
+const findAnswer = (question) => {
+  const lowerQuestion = question.toLowerCase();
+  
+  // Check for exact keyword matches
+  for (const qna of QnA) {
+    if (qna.keywords.some(keyword => lowerQuestion.includes(keyword))) {
+      return qna.response;
+    }
+  }
+  
+  // Default response
+  return 'I understand your question. Our support team will review your message and respond soon. In the meantime, you can browse our services or check our FAQ section.';
+};
 
 const Chatbot = () => {
   const { user, currentUser } = useAuth();
@@ -133,42 +193,70 @@ const Chatbot = () => {
     try {
       setSending(true);
       const messagesRef = collection(db, 'supportChats', chatId, 'messages');
+      const userMessage = newMessage.trim();
 
-      // Add message
+      // Add user message
       await addDoc(messagesRef, {
         sender: 'user',
-        text: newMessage.trim(),
+        senderId: chatId,
+        text: userMessage,
         createdAt: serverTimestamp(),
+        read: false,
       });
+
+      // Try to find automated answer
+      const autoAnswer = findAnswer(userMessage);
+      const shouldAutoRespond = !userMessage.toLowerCase().includes('admin') && 
+                                !userMessage.toLowerCase().includes('human') &&
+                                !userMessage.toLowerCase().includes('person');
+
+      // Add automated response if applicable
+      if (shouldAutoRespond && autoAnswer) {
+        setTimeout(async () => {
+          try {
+            await addDoc(messagesRef, {
+              sender: 'bot',
+              senderId: 'system',
+              text: autoAnswer,
+              createdAt: serverTimestamp(),
+              read: false,
+            });
+          } catch (error) {
+            console.error('Error sending auto-response:', error);
+          }
+        }, 1000); // Delay to make it feel natural
+      }
 
       // Update chat document
       const chatRef = doc(db, 'supportChats', chatId);
       await updateDoc(chatRef, {
         unreadForUser: false,
         unreadForAdmin: true,
-        lastMessage: newMessage.trim().substring(0, 100),
+        lastMessage: userMessage.substring(0, 100),
         updatedAt: serverTimestamp(),
       });
 
-      // Notify all admins
-      try {
-        const adminsQuery = query(
-          collection(db, 'users'),
-          where('role', '==', 'admin')
-        );
-        const adminsSnapshot = await getDocs(adminsQuery);
-        const adminPromises = adminsSnapshot.docs.map((adminDoc) =>
-          notificationService.sendNotification(
-            adminDoc.id,
-            'New Support Chat Message',
-            `You have a new message from a user: "${newMessage.trim().substring(0, 50)}${newMessage.trim().length > 50 ? '...' : ''}"`,
-            'admin',
-            '/admin'
-          )
-        );
-        await Promise.all(adminPromises);
-      } catch (notifError) {
-        console.error('Error notifying admins:', notifError);
+      // Notify all admins (only if it seems like they need human help)
+      if (!shouldAutoRespond) {
+        try {
+          const adminsQuery = query(
+            collection(db, 'users'),
+            where('role', 'in', ['admin', 'superadmin'])
+          );
+          const adminsSnapshot = await getDocs(adminsQuery);
+          const adminPromises = adminsSnapshot.docs.map((adminDoc) =>
+            notificationService.sendNotification(
+              adminDoc.id,
+              'New Support Chat Message',
+              `You have a new message from a user: "${userMessage.substring(0, 50)}${userMessage.length > 50 ? '...' : ''}"`,
+              'admin',
+              `/admin?tab=support-chats&chatId=${chatId}`
+            )
+          );
+          await Promise.all(adminPromises);
+        } catch (notifError) {
+          console.error('Error notifying admins:', notifError);
+        }
       }
 
       setNewMessage('');
@@ -260,6 +348,7 @@ const Chatbot = () => {
             ) : (
               messages.map((message) => {
                 const isUser = message.sender === 'user';
+                const isBot = message.sender === 'bot';
 
                 return (
                   <div
@@ -267,10 +356,15 @@ const Chatbot = () => {
                     className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className="flex flex-col max-w-[70%]">
+                      {isBot && (
+                        <span className="text-xs text-textSecondary mb-1 px-2">Support Assistant</span>
+                      )}
                       <div
                         className={`rounded-base p-3 ${
                           isUser
                             ? 'bg-primary text-white'
+                            : isBot
+                            ? 'bg-primary/10 text-textMain border border-primary/20'
                             : 'bg-muted text-textMain'
                         }`}
                       >

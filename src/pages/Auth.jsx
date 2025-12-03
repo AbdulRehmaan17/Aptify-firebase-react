@@ -71,7 +71,7 @@ const Auth = () => {
       if (isLogin) {
         result = await login(formData.email, formData.password);
       } else {
-        result = await signup(formData.email, formData.password, formData.name);
+        result = await signup(formData.email, formData.password, formData.name, formData.phone);
       }
       
       if (!result.success) {
@@ -82,15 +82,27 @@ const Auth = () => {
       
       toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
       
-      // Redirect based on user role
-      const role = getUserRole();
-      if (role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else if (role === 'constructor' || role === 'renovator' || role === 'provider') {
-        navigate('/provider-dashboard', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      // Wait a moment for user profile to be created, then redirect
+      setTimeout(() => {
+        const role = getUserRole();
+        switch (role) {
+          case 'admin':
+          case 'superadmin':
+            navigate('/admin', { replace: true });
+            break;
+          case 'provider':
+            navigate('/provider-dashboard', { replace: true });
+            break;
+          case 'constructor':
+            navigate('/constructor-dashboard', { replace: true });
+            break;
+          case 'renovator':
+            navigate('/renovator-dashboard', { replace: true });
+            break;
+          default:
+            navigate('/dashboard', { replace: true });
+        }
+      }, isLogin ? 100 : 500);
     } catch (error) {
       console.error('Auth error:', error);
       toast.error(error.message || 'An error occurred. Please try again.');
@@ -124,15 +136,27 @@ const Auth = () => {
       
       toast.success('Logged in with Google');
       
-      // Redirect based on user role
-      const role = getUserRole();
-      if (role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else if (role === 'constructor' || role === 'renovator' || role === 'provider') {
-        navigate('/provider-dashboard', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      // Wait a moment for user profile to be created, then redirect
+      setTimeout(() => {
+        const role = getUserRole();
+        switch (role) {
+          case 'admin':
+          case 'superadmin':
+            navigate('/admin', { replace: true });
+            break;
+          case 'provider':
+            navigate('/provider-dashboard', { replace: true });
+            break;
+          case 'constructor':
+            navigate('/constructor-dashboard', { replace: true });
+            break;
+          case 'renovator':
+            navigate('/renovator-dashboard', { replace: true });
+            break;
+          default:
+            navigate('/dashboard', { replace: true });
+        }
+      }, 500);
     } catch (error) {
       console.error('Google login error:', error);
       toast.error(error.message || 'Failed to sign in with Google');

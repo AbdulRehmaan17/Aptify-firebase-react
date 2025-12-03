@@ -12,7 +12,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import propertyService from './propertyService';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase';
 import notificationService from './notificationService';
 
 const RENTAL_REQUESTS_COLLECTION = 'rentalRequests';
@@ -176,12 +176,13 @@ class RentalRequestService {
   /**
    * Update request status
    * @param {string} requestId - Request document ID
-   * @param {string} status - New status: 'Accepted', 'Rejected', 'Pending'
+   * @param {string} status - New status: 'Accepted', 'Rejected', 'Completed', 'Pending'
    * @param {string} propertyTitle - Property title for notification
    * @param {string} userId - User ID to notify
+   * @param {string} chatId - Optional chat ID to include in notification link
    * @returns {Promise<void>}
    */
-  async updateStatus(requestId, status, propertyTitle, userId) {
+  async updateStatus(requestId, status, propertyTitle, userId, chatId = null) {
     try {
       if (!db) {
         throw new Error('Firestore database is not initialized');
@@ -193,21 +194,31 @@ class RentalRequestService {
         updatedAt: serverTimestamp(),
       });
 
-      // Notify user
+      // Notify user based on status
+      const notificationLink = chatId ? `/chat?chatId=${chatId}` : `/account`;
+      
       if (status === 'Accepted') {
-        await notificationService.create(
+        await notificationService.sendNotification(
           userId,
           'Rental Request Accepted',
-          `Your rental request for "${propertyTitle}" has been accepted!`,
+          `Your rental request for "${propertyTitle}" has been accepted! You can now chat with the owner.`,
           'success',
-          `/account`
+          notificationLink
         );
       } else if (status === 'Rejected') {
-        await notificationService.create(
+        await notificationService.sendNotification(
           userId,
           'Rental Request Rejected',
           `Your rental request for "${propertyTitle}" has been rejected.`,
           'info',
+          `/account`
+        );
+      } else if (status === 'Completed') {
+        await notificationService.sendNotification(
+          userId,
+          'Rental Completed',
+          `Your rental for "${propertyTitle}" has been marked as completed.`,
+          'success',
           `/account`
         );
       }

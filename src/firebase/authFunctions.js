@@ -63,7 +63,7 @@ export const login = async (email, password) => {
 /**
  * Sign up with email and password
  */
-export const signup = async (email, password, name) => {
+export const signup = async (email, password, name, phone = '') => {
   try {
     if (!auth) {
       return {
@@ -83,7 +83,7 @@ export const signup = async (email, password, name) => {
 
     // Create user document in Firestore using createOrUpdateUserProfile
     try {
-      await createOrUpdateUserProfile(result.user);
+      await createOrUpdateUserProfile(result.user, { name, phone });
     } catch (firestoreError) {
       console.error('Error creating user document:', firestoreError);
       // Don't fail registration if Firestore write fails, user is already created in Auth
@@ -266,8 +266,10 @@ export const logout = async () => {
 
 /**
  * Create or update user profile in Firestore
+ * @param {Object} user - Firebase Auth user object
+ * @param {Object} additionalData - Additional data to include (name, phone, etc.)
  */
-export const createOrUpdateUserProfile = async (user) => {
+export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
   if (!db) {
     console.warn('Database not initialized, skipping user document creation');
     return;
@@ -281,15 +283,15 @@ export const createOrUpdateUserProfile = async (user) => {
     const isNewUser = !userDoc.exists();
 
     if (isNewUser) {
-      // Create new user document
+      // Create new user document with all required fields
       await setDoc(userDocRef, {
         uid: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || '',
+        name: additionalData.name || user.displayName || user.email?.split('@')[0] || '',
         email: user.email || '',
-        phone: '',
+        phone: additionalData.phone || '',
         photoURL: user.photoURL || '',
+        role: 'user', // Default role
         provider: providerId,
-        role: 'user',
         providerType: null,
         isProviderApproved: false,
         walletBalance: 0,
@@ -301,17 +303,20 @@ export const createOrUpdateUserProfile = async (user) => {
     } else {
       // Update existing user document with latest info and lastLogin
       const existingData = userDoc.data();
-      await setDoc(
-        userDocRef,
-        {
-          name: user.displayName || existingData.name || user.email?.split('@')[0] || '',
-          email: user.email || existingData.email || '',
-          photoURL: user.photoURL || existingData.photoURL || '',
-          provider: providerId,
-          lastLogin: serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const updateData = {
+        name: additionalData.name || user.displayName || existingData.name || user.email?.split('@')[0] || '',
+        email: user.email || existingData.email || '',
+        photoURL: user.photoURL || existingData.photoURL || '',
+        provider: providerId,
+        lastLogin: serverTimestamp(),
+      };
+      
+      // Only update phone if provided and different
+      if (additionalData.phone !== undefined && additionalData.phone !== existingData.phone) {
+        updateData.phone = additionalData.phone;
+      }
+      
+      await setDoc(userDocRef, updateData, { merge: true });
     }
   } catch (firestoreError) {
     console.error('Error creating/updating user document:', firestoreError);

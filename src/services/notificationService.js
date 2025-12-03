@@ -199,6 +199,15 @@ class NotificationService {
   }
 
   /**
+   * Delete a notification (alias for delete)
+   * @param {string} notificationId - Notification document ID
+   * @returns {Promise<void>}
+   */
+  async deleteNotification(notificationId) {
+    return this.delete(notificationId);
+  }
+
+  /**
    * Clear all notifications for a user
    * @param {string} userId - User UID
    * @returns {Promise<void>}

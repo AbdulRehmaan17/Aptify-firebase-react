@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Heart, ShoppingCart, Star } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { addToWishlist, removeFromWishlist } from '../../firebase/firestore';
+import userService from '../../services/userService';
 import Button from '../common/Button';
 import toast from 'react-hot-toast';
 
@@ -21,10 +21,11 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
     }
 
     addToCart({
-      productId: product.id,
+      itemId: product.id,
+      itemType: 'marketplace',
       name: product.name,
       price: product.price,
-      image: product.image,
+      image: product.imageUrl || product.image,
       quantity: 1,
     });
   };
@@ -40,14 +41,15 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
 
     try {
       if (isWishlisted) {
-        await removeFromWishlist(user.uid, product.id);
+        await userService.removeFromWishlist(user.uid, product.id);
         toast.success('Removed from wishlist');
       } else {
-        await addToWishlist(user.uid, product.id);
+        await userService.addToWishlist(user.uid, product.id, 'marketplace');
         toast.success('Added to wishlist');
       }
       onWishlistToggle?.();
     } catch (error) {
+      console.error('Error updating wishlist:', error);
       toast.error('Failed to update wishlist');
     }
   };

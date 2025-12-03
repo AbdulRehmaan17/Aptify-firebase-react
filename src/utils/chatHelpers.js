@@ -1,5 +1,5 @@
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase';
 
 /**
  * Get or create a chat between two users

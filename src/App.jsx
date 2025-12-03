@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -56,6 +57,7 @@ import MyBookings from './pages/Rental/MyBookings';
 import ViewBooking from './pages/Rental/ViewBooking';
 import BuyPage from './pages/BuyPage';
 import SellPage from './pages/SellPage';
+import ProductDetail from './pages/ProductDetail';
 import BuySellLanding from './pages/BuySellLanding';
 import RenovationProviderDetail from './pages/RenovationProviderDetail';
 import ConstructionProviderDetail from './pages/ConstructionProviderDetail';
@@ -75,11 +77,14 @@ import AddListing from './pages/BuySell/AddListing';
 import ViewListing from './pages/BuySell/ViewListing';
 import Marketplace from './pages/BuySell/Marketplace';
 import MyListings from './pages/BuySell/MyListings';
+import Cart from './pages/Cart';
+import Wishlist from './pages/Wishlist';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <CartProvider>
+        <Router>
         <div className="min-h-screen bg-background flex flex-col">
           <Navbar />
           <main className="flex-1">
@@ -294,6 +299,23 @@ function App() {
               />
               <Route path="/buy" element={<BuyPage />} />
               <Route path="/sell" element={<SellPage />} />
+              <Route path="/marketplace/:id" element={<ProductDetail />} />
+              <Route
+                path="/cart"
+                element={
+                  <PrivateRoute>
+                    <Cart />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/wishlist"
+                element={
+                  <PrivateRoute>
+                    <Wishlist />
+                  </PrivateRoute>
+                }
+              />
 
               {/* Protected Routes */}
               <Route
@@ -630,6 +652,7 @@ function App() {
           />
         </div>
       </Router>
+      </CartProvider>
     </AuthProvider>
   );
 }

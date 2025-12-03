@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
-import { auth, db } from '../firebase/firebase';
+import { auth, db } from '../firebase';
 import {
   login,
   signup,
@@ -142,11 +142,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Signup function
-  const handleSignup = async (email, password, name) => {
+  const handleSignup = async (email, password, name, phone = '') => {
     try {
       setLoading(true);
       setError(null);
-      const result = await signup(email, password, name);
+      const result = await signup(email, password, name, phone);
       
       if (!result.success) {
         setError(result.error);
@@ -267,18 +267,52 @@ export const AuthProvider = ({ children }) => {
 
   // Get user role
   const getUserRole = () => {
-    return userProfile?.role || 'customer';
+    return userProfile?.role || currentUserRole || 'user';
   };
 
-  // Check if user is admin
+  // Check if user is admin or superadmin
   const isAdmin = () => {
-    return getUserRole() === 'admin';
+    const role = getUserRole();
+    return role === 'admin' || role === 'superadmin';
   };
 
-  // Check if user is provider
+  // Check if user is superadmin
+  const isSuperAdmin = () => {
+    return getUserRole() === 'superadmin';
+  };
+
+  // Check if user is provider (constructor, renovator, or provider)
   const isProvider = () => {
     const role = getUserRole();
     return role === 'constructor' || role === 'renovator' || role === 'provider';
+  };
+
+  // Check if user is constructor
+  const isConstructor = () => {
+    return getUserRole() === 'constructor';
+  };
+
+  // Check if user is renovator
+  const isRenovator = () => {
+    return getUserRole() === 'renovator';
+  };
+
+  // Get redirect path based on user role
+  const getRedirectPath = () => {
+    const role = getUserRole();
+    switch (role) {
+      case 'admin':
+      case 'superadmin':
+        return '/admin';
+      case 'provider':
+        return '/provider-dashboard';
+      case 'constructor':
+        return '/constructor-dashboard';
+      case 'renovator':
+        return '/renovator-dashboard';
+      default:
+        return '/dashboard';
+    }
   };
 
   const value = {
@@ -296,7 +330,11 @@ export const AuthProvider = ({ children }) => {
     createOrUpdateUserProfile: handleCreateOrUpdateUserProfile,
     getUserRole,
     isAdmin,
+    isSuperAdmin,
     isProvider,
+    isConstructor,
+    isRenovator,
+    getRedirectPath,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

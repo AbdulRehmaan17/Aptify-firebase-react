@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { Grid, List, SortAsc } from 'lucide-react';
 import propertyService from '../services/propertyService';
 import PropertyCard from '../components/property/PropertyCard';
-import ProductFilters from '../components/product/ProductFilters';
+import PropertyFilters from '../components/property/PropertyFilters';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { toast } from 'react-toastify';
@@ -232,11 +232,9 @@ const PropertiesPage = () => {
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Filters Sidebar */}
         <div className="lg:w-64 flex-shrink-0">
-          <ProductFilters
+          <PropertyFilters
             filters={filters}
             onFiltersChange={handleFiltersChange}
-            categories={['sale', 'rent', 'renovation']}
-            brands={[]}
             isOpen={filtersOpen}
             onToggle={() => setFiltersOpen(!filtersOpen)}
           />

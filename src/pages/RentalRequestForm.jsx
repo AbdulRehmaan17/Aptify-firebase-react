@@ -5,6 +5,7 @@ import { getDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
+import { getOrCreateChat } from '../utils/chatHelpers';
 import useSubmitForm from '../hooks/useSubmitForm';
 import { useSubmitSuccess } from '../hooks/useNotifyAndRedirect';
 import Button from '../components/common/Button';
@@ -22,6 +23,7 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
   const [formData, setFormData] = useState({
     startDate: '',
     endDate: '',
+    duration: '', // Duration in months
     message: '',
   });
   const [errors, setErrors] = useState({});
@@ -57,11 +59,24 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
         propertyId: propertyId,
         startDate: data.startDate,
         endDate: data.endDate,
+        duration: data.duration ? Number(data.duration) : null,
         message: data.message.trim() || '',
         status: 'Pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
+
+      // Auto-create chat between renter and owner
+      let chatId = null;
+      if (ownerId && ownerId !== user.uid) {
+        try {
+          chatId = await getOrCreateChat(user.uid, ownerId);
+          console.log('Chat created/retrieved:', chatId);
+        } catch (chatError) {
+          console.error('Error creating chat:', chatError);
+          // Don't fail the request if chat creation fails
+        }
+      }
 
       // Notify property owner
       if (ownerId && ownerId !== user.uid) {
@@ -71,7 +86,7 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
             'New Rental Request',
             `You have received a new rental request for "${propertyTitle || 'your property'}".`,
             'service-request',
-            `/properties/${propertyId}`
+            chatId ? `/chat?chatId=${chatId}` : `/properties/${propertyId}`
           );
         } catch (notifError) {
           console.error('Error notifying owner:', notifError);
@@ -198,6 +213,32 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
           error={errors.endDate}
           required
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-textSecondary mb-2">
+          <Calendar className="w-4 h-4 inline mr-1" />
+          Duration (Months) <span className="text-textSecondary text-xs">(Optional)</span>
+        </label>
+        <Input
+          type="number"
+          name="duration"
+          value={formData.duration}
+          onChange={handleChange}
+          min="1"
+          placeholder="e.g., 12"
+          error={errors.duration}
+        />
+        {formData.startDate && formData.endDate && (
+          <p className="mt-1 text-xs text-textSecondary">
+            {(() => {
+              const start = new Date(formData.startDate);
+              const end = new Date(formData.endDate);
+              const months = Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
+              return months > 0 ? `Approximately ${months} month${months !== 1 ? 's' : ''}` : '';
+            })()}
+          </p>
+        )}
       </div>
 
       <div>

@@ -7,6 +7,7 @@ import userService from '../services/userService';
 import rentalRequestService from '../services/rentalRequestService';
 import buySellRequestService from '../services/buySellRequestService';
 import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
@@ -21,6 +22,7 @@ const PropertyDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, currentUserRole } = useAuth();
+  const { addToCart, items } = useCart();
   const [property, setProperty] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,13 +54,13 @@ const PropertyDetailPage = () => {
         const propertyData = await propertyService.getById(id, true);
         setProperty(propertyData);
 
-        // Check if property is in user's favorites
+        // Check if property is in user's favorites/wishlist
         if (user) {
           try {
-            const favorites = await userService.getFavorites(user.uid);
-            setIsFavorite(favorites.includes(id));
+            const isInWishlist = await userService.isInWishlist(user.uid, id);
+            setIsFavorite(isInWishlist);
           } catch (err) {
-            console.error('Error checking favorites:', err);
+            console.error('Error checking wishlist:', err);
           }
         }
 
@@ -95,7 +97,7 @@ const PropertyDetailPage = () => {
 
   const handleToggleFavorite = async () => {
     if (!user) {
-      toast.error('Please log in to add favorites.');
+      toast.error('Please log in to add to wishlist.');
       navigate('/auth');
       return;
     }
@@ -103,20 +105,57 @@ const PropertyDetailPage = () => {
     try {
       if (isFavorite) {
         await userService.removeFromFavorites(user.uid, id);
+        await userService.removeFromWishlist(user.uid, id);
         await propertyService.toggleFavorite(id, false);
         setIsFavorite(false);
-        toast.success('Removed from favorites');
+        toast.success('Removed from wishlist');
       } else {
         await userService.addToFavorites(user.uid, id);
+        await userService.addToWishlist(user.uid, id, 'property');
         await propertyService.toggleFavorite(id, true);
         setIsFavorite(true);
-        toast.success('Added to favorites');
+        toast.success('Added to wishlist');
       }
     } catch (error) {
-      console.error('Error toggling favorite:', error);
-      toast.error('Failed to update favorites.');
+      console.error('Error toggling wishlist:', error);
+      toast.error('Failed to update wishlist.');
     }
   };
+
+  const handleAddToCart = () => {
+    if (!user) {
+      toast.error('Please log in to add items to cart.');
+      navigate('/auth');
+      return;
+    }
+
+    if (!property) return;
+
+    // Only allow adding properties for sale to cart
+    if (property.type !== 'sale') {
+      toast.error('Only properties for sale can be added to cart');
+      return;
+    }
+
+    try {
+      addToCart({
+        itemId: id,
+        itemType: 'property',
+        name: property.title,
+        price: property.price,
+        image: property.coverImage || property.photos?.[0] || null,
+        quantity: 1,
+      });
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add to cart');
+    }
+  };
+
+  const isInCart = property?.type === 'sale' && items.some((item) => {
+    const itemId = item.itemId || item.productId;
+    return itemId === id && item.itemType === 'property';
+  });
 
   const handleShare = async () => {
     try {
@@ -437,6 +476,18 @@ const PropertyDetailPage = () => {
                         Message Owner
                       </Button>
                     </div>
+                    {/* Add to Cart Button (for sale properties) */}
+                    {property.type === 'sale' && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleAddToCart}
+                        disabled={isInCart}
+                      >
+                        <ShoppingCart className={`w-4 h-4 mr-2 ${isInCart ? 'fill-current' : ''}`} />
+                        {isInCart ? 'In Cart' : 'Add to Cart'}
+                      </Button>
+                    )}
                     {/* Request Rental Button (for rent properties) */}
                     {property.type === 'rent' && (
                       <Button

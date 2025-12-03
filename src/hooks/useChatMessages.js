@@ -9,26 +9,31 @@ import {
   updateDoc,
   doc,
   getDoc,
+  setDoc,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
+import { getOrCreateChat } from '../utils/chatHelpers';
 
 /**
  * Hook to fetch and send messages in a chat
- * @param {string} chatId - Chat document ID
- * @returns {Object} - { messages, loading, sendMessage, sending }
+ * @param {string} chatId - Chat document ID (optional, can be created on first message)
+ * @param {string} otherUserId - Other user ID (required if chatId is not provided)
+ * @returns {Object} - { messages, loading, sendMessage, sending, chatId: actualChatId }
  */
-export function useChatMessages(chatId) {
+export function useChatMessages(chatId, otherUserId = null) {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [actualChatId, setActualChatId] = useState(chatId);
 
   // Fetch messages
   useEffect(() => {
-    if (!chatId || !db) {
+    const finalChatId = actualChatId || chatId;
+    if (!finalChatId || !db) {
       setLoading(false);
       return;
     }
@@ -36,7 +41,7 @@ export function useChatMessages(chatId) {
     setLoading(true);
 
     try {
-      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      const messagesRef = collection(db, 'chats', finalChatId, 'messages');
       const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'));
 
       const unsubscribe = onSnapshot(
@@ -53,7 +58,7 @@ export function useChatMessages(chatId) {
           console.error('Error fetching messages:', error);
           // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-            const fallbackQuery = query(collection(db, 'chats', chatId, 'messages'));
+            const fallbackQuery = query(collection(db, 'chats', finalChatId, 'messages'));
 
             const fallbackUnsubscribe = onSnapshot(
               fallbackQuery,
@@ -91,7 +96,7 @@ export function useChatMessages(chatId) {
       console.error('Error setting up messages listener:', error);
       setLoading(false);
     }
-  }, [chatId]);
+  }, [actualChatId, chatId]);
 
   // Send message function
   const sendMessage = useCallback(
@@ -127,13 +132,45 @@ export function useChatMessages(chatId) {
           }
         }
 
-        // Get chat document to find receiver
-        const chatRef = doc(db, 'chats', chatId);
-        const chatSnap = await getDoc(chatRef);
-        if (!chatSnap.exists()) {
-          throw new Error('Chat not found');
+        // Auto-create chat room if needed
+        let finalChatId = actualChatId || chatId;
+        if (!finalChatId && otherUserId) {
+          // Create chat room on first message
+          finalChatId = await getOrCreateChat(user.uid, otherUserId);
+          setActualChatId(finalChatId);
         }
-        const chatData = chatSnap.data();
+        
+        if (!finalChatId) {
+          throw new Error('Chat ID or other user ID is required');
+        }
+
+        // Get chat document to find receiver
+        const chatRef = doc(db, 'chats', finalChatId);
+        const chatSnap = await getDoc(chatRef);
+        
+        // Auto-create chat if it doesn't exist
+        if (!chatSnap.exists()) {
+          if (otherUserId) {
+            // Create chat room
+            await setDoc(chatRef, {
+              participants: [user.uid, otherUserId].sort(),
+              lastMessage: '',
+              updatedAt: serverTimestamp(),
+              createdAt: serverTimestamp(),
+              unreadFor: {
+                [user.uid]: false,
+                [otherUserId]: false,
+              },
+            });
+          } else {
+            throw new Error('Chat not found and cannot create without other user ID');
+          }
+        }
+        
+        const chatData = chatSnap.exists() ? chatSnap.data() : {
+          participants: [user.uid, otherUserId].sort(),
+          unreadFor: {},
+        };
         const participants = chatData?.participants || [];
         const receiverId = participants.find((uid) => uid !== user.uid);
         
@@ -141,14 +178,16 @@ export function useChatMessages(chatId) {
           throw new Error('Receiver not found in chat');
         }
 
-        // Add message to subcollection
-        const messagesRef = collection(db, 'chats', chatId, 'messages');
+        // Add message to subcollection with proper structure
+        const messagesRef = collection(db, 'chats', finalChatId, 'messages');
         await addDoc(messagesRef, {
+          chatRoomId: finalChatId,
           senderId: user.uid,
-          receiverId: receiverId,
           text: text.trim(),
           attachments: attachmentUrls,
           createdAt: serverTimestamp(),
+          read: false,
+          seenBy: [user.uid], // Sender has seen their own message
         });
 
         // Update parent chat document
@@ -167,14 +206,13 @@ export function useChatMessages(chatId) {
 
         // Send notification to receiver
         try {
-          const { sendNotification } = await import('../utils/notificationHelpers');
-          await sendNotification({
-            userId: receiverId,
-            title: 'New Message',
-            message: textSnippet,
-            type: 'chat',
-            meta: { chatId }
-          });
+          await notificationService.sendNotification(
+            receiverId,
+            'New Message',
+            textSnippet,
+            'info',
+            `/chat?chatId=${finalChatId}`
+          );
         } catch (notifError) {
           console.error('Error sending notification:', notifError);
           // Don't fail message send if notification fails
@@ -186,16 +224,17 @@ export function useChatMessages(chatId) {
         setSending(false);
       }
     },
-    [chatId, user]
+    [actualChatId, chatId, otherUserId, user]
   );
 
   // Mark chat as read when messages are loaded
   useEffect(() => {
-    if (!chatId || !user || !db || messages.length === 0) return;
+    const finalChatId = actualChatId || chatId;
+    if (!finalChatId || !user || !db || messages.length === 0) return;
 
     const markAsRead = async () => {
       try {
-        const chatRef = doc(db, 'chats', chatId);
+        const chatRef = doc(db, 'chats', finalChatId);
         const chatSnap = await getDoc(chatRef);
         if (!chatSnap.exists()) return;
         
@@ -216,8 +255,8 @@ export function useChatMessages(chatId) {
     };
 
     markAsRead();
-  }, [chatId, user, messages.length]);
+  }, [actualChatId, chatId, user, messages.length]);
 
-  return { messages, loading, sendMessage, sending };
+  return { messages, loading, sendMessage, sending, chatId: actualChatId || chatId };
 }
 

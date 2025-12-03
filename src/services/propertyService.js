@@ -21,7 +21,7 @@ import {
   deleteObject,
   listAll,
 } from 'firebase/storage';
-import { db, storage } from '../firebase/firebase';
+import { db, storage } from '../firebase';
 
 // Safety check for Firebase services
 const checkFirebaseServices = () => {

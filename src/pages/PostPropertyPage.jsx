@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Modal from '../components/common/Modal';
-import { Home, MapPin, DollarSign, Bed, Bath, Square, Upload, CheckCircle } from 'lucide-react';
+import { Home, MapPin, DollarSign, Bed, Bath, Square, Upload, CheckCircle, X } from 'lucide-react';
 
 const PostPropertyPage = () => {
   const navigate = useNavigate();
@@ -120,6 +120,7 @@ const PostPropertyPage = () => {
     amenities: [],
   });
   const [images, setImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [errors, setErrors] = useState({});
 
   // Ensure type is 'sale' when in buy/sell mode
@@ -166,6 +167,11 @@ const PostPropertyPage = () => {
           parking: propertyData.parking || false,
           amenities: propertyData.amenities || [],
         });
+        
+        // Load existing images as previews
+        if (propertyData.photos && propertyData.photos.length > 0) {
+          setImagePreviews(propertyData.photos);
+        }
       } catch (error) {
         console.error('Error loading property for edit:', error);
         toast.error('Failed to load property data');
@@ -223,6 +229,27 @@ const PostPropertyPage = () => {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files).slice(0, 10);
     setImages(files);
+    
+    // Create previews
+    const previews = files.map((file) => {
+      if (file instanceof File) {
+        return URL.createObjectURL(file);
+      }
+      return file; // If it's already a URL string
+    });
+    setImagePreviews(previews);
+  };
+
+  const removeImage = (index) => {
+    const newImages = images.filter((_, i) => i !== index);
+    const newPreviews = imagePreviews.filter((_, i) => i !== index);
+    setImages(newImages);
+    setImagePreviews(newPreviews);
+    
+    // Revoke object URL to free memory
+    if (imagePreviews[index] && imagePreviews[index].startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreviews[index]);
+    }
   };
 
   const validateForm = () => {
@@ -672,12 +699,40 @@ const PostPropertyPage = () => {
                     className="w-full text-sm text-textSecondary file:mr-4 file:py-2 file:px-4 file:rounded-base file:border-0 file:text-sm file:font-semibold file:bg-accent/10 file:text-accent hover:file:bg-accent/20 cursor-pointer"
                   />
                   {images.length > 0 && (
-                      <div className="mt-4 flex items-center gap-2 text-sm text-accent">
+                    <div className="mt-4 flex items-center gap-2 text-sm text-accent">
                       <CheckCircle className="w-5 h-5" />
                       <span className="font-medium">{images.length} image(s) selected</span>
                     </div>
                   )}
                 </div>
+                
+                {/* Image Previews */}
+                {imagePreviews.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {imagePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <div className="aspect-square rounded-lg overflow-hidden border-2 border-muted">
+                          <img
+                            src={preview}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-2 right-2 p-1 bg-error text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-error/90"
+                          aria-label="Remove image"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 text-white text-xs rounded">
+                          {index + 1}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
