@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, DollarSign, Clock, Eye, XCircle } from 'lucide-react';
+import { ShoppingCart, DollarSign, Clock, Eye, XCircle, MapPin, Package } from 'lucide-react';
 import buySellRequestService from '../../../services/buySellRequestService';
 import marketplaceService from '../../../services/marketplaceService';
 import toast from 'react-hot-toast';
@@ -115,6 +115,7 @@ const BuySellRequests = ({ user, onDataReload }) => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-display font-bold text-textMain">Buy/Sell Requests</h1>
@@ -126,11 +127,12 @@ const BuySellRequests = ({ user, onDataReload }) => {
         </Button>
       </div>
 
+      {/* Requests List */}
       {requests.length === 0 ? (
         <div className="bg-surface rounded-lg shadow-md p-12 text-center border border-muted">
           <ShoppingCart className="w-16 h-16 text-muted mx-auto mb-4" />
           <h3 className="text-lg font-medium text-textMain mb-2">No buy/sell requests</h3>
-          <p className="text-textSecondary mb-4">Start by browsing the marketplace</p>
+          <p className="text-textSecondary mb-4">Start by creating a new buy/sell offer</p>
           <Button onClick={() => navigate('/buy')} variant="primary">
             Browse Marketplace
           </Button>
@@ -153,25 +155,65 @@ const BuySellRequests = ({ user, onDataReload }) => {
                     </span>
                   </div>
 
+                  {request.listing && (
+                    <div className="flex items-center text-textSecondary text-sm mb-2">
+                      <Package className="w-4 h-4 mr-1" />
+                      <span className="capitalize">{request.listing.category || 'Item'}</span>
+                      {request.listing.location && (
+                        <>
+                          <span className="mx-2">•</span>
+                          <MapPin className="w-4 h-4 mr-1" />
+                          <span>{request.listing.location}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div className="flex items-center text-textSecondary text-sm">
                       <DollarSign className="w-4 h-4 mr-2" />
-                      <span>Offer: {formatPrice(request.offerAmount || request.amount)}</span>
+                      <span>
+                        <span className="font-medium text-textMain">Your Offer: </span>
+                        {formatPrice(request.offerAmount || request.amount)}
+                      </span>
                     </div>
                     {request.listing && (
                       <div className="flex items-center text-textSecondary text-sm">
                         <DollarSign className="w-4 h-4 mr-2" />
-                        <span>Listed: {formatPrice(request.listing.price)}</span>
+                        <span>
+                          <span className="font-medium text-textMain">Listed Price: </span>
+                          {formatPrice(request.listing.price)}
+                        </span>
                       </div>
                     )}
                     <div className="flex items-center text-textSecondary text-sm">
                       <Clock className="w-4 h-4 mr-2" />
                       <span>Requested: {formatDate(request.createdAt)}</span>
                     </div>
+                    {request.listing && request.offerAmount && request.listing.price && (
+                      <div className="flex items-center text-textSecondary text-sm">
+                        <span>
+                          {request.offerAmount < request.listing.price ? (
+                            <span className="text-green-600 font-medium">
+                              {Math.round(((request.listing.price - request.offerAmount) / request.listing.price) * 100)}% below asking
+                            </span>
+                          ) : request.offerAmount > request.listing.price ? (
+                            <span className="text-blue-600 font-medium">
+                              {Math.round(((request.offerAmount - request.listing.price) / request.listing.price) * 100)}% above asking
+                            </span>
+                          ) : (
+                            <span className="text-textMain font-medium">At asking price</span>
+                          )}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {request.message && (
-                    <p className="text-textSecondary text-sm mt-3 line-clamp-2">{request.message}</p>
+                    <p className="text-textSecondary text-sm mt-3 line-clamp-2">
+                      <span className="font-medium text-textMain">Message: </span>
+                      {request.message}
+                    </p>
                   )}
                 </div>
 
@@ -212,12 +254,12 @@ const BuySellRequests = ({ user, onDataReload }) => {
           setShowCancelModal(false);
           setRequestToCancel(null);
         }}
-        title="Cancel Request"
+        title="Cancel Buy/Sell Request"
         size="md"
       >
         <div className="space-y-4">
           <p className="text-textMain">
-            Are you sure you want to cancel this request? This action cannot be undone.
+            Are you sure you want to cancel this buy/sell request? This action cannot be undone.
           </p>
           <div className="flex items-center justify-end gap-3">
             <Button
