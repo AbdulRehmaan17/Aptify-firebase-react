@@ -247,3 +247,4 @@ const PropertyFilters = ({ filters, onFiltersChange, isOpen, onToggle }) => {
 export default PropertyFilters;
 
 
+

@@ -20,3 +20,4 @@ const Settings = ({ user, userProfile }) => {
 
 export default Settings;
 
+

@@ -160,3 +160,4 @@ const Favorites = ({ user, onDataReload }) => {
 
 export default Favorites;
 
+

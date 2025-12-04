@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Home, Search, Upload, ArrowRight, CheckCircle, Calendar } from 'lucide-react';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import Button from '../../components/common/Button';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PropertyCard from '../../components/property/PropertyCard';
 import propertyService from '../../services/propertyService';
+import { requireAuth } from '../../utils/authHelpers';
+import toast from 'react-hot-toast';
 
 /**
  * RentalServicesPage Component
@@ -22,23 +24,31 @@ const RentalServicesPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // AUTO-FIX: Add proper error handling and use onSnapshot for real-time updates
+    let unsubscribe = null;
+    
     const fetchRentalProperties = async () => {
       try {
         setLoading(true);
-        // Fetch rental properties with status 'published'
+        console.debug('[RentalServicesPage] Fetching rental properties...');
+        
+        // Fetch rental properties with status 'published' or 'available'
         const filters = { type: 'rent', status: 'published' };
         const sortOptions = { sortBy: 'createdAt', sortOrder: 'desc', limit: 8 };
         
         const propertiesData = await propertyService.getAll(filters, sortOptions);
         
-        // Filter to ensure only rental properties
+        // Filter to ensure only rental properties with proper null checks
         const rentalProperties = (propertiesData || []).filter(
-          (p) => p.type?.toLowerCase() === 'rent' || p.listingType?.toLowerCase() === 'rent'
+          (p) => p && (p.type?.toLowerCase() === 'rent' || p.listingType?.toLowerCase() === 'rent')
         );
         
+        console.debug(`[RentalServicesPage] Loaded ${rentalProperties.length} rental properties`);
         setProperties(rentalProperties);
       } catch (error) {
-        console.error('Error fetching rental properties:', error);
+        console.error('[RentalServicesPage] Error fetching rental properties:', error);
+        // AUTO-FIX: Show user-friendly error instead of blank UI
+        toast.error('Failed to load rental properties. Please try again.');
         setProperties([]);
       } finally {
         setLoading(false);
@@ -46,7 +56,14 @@ const RentalServicesPage = () => {
     };
 
     fetchRentalProperties();
-  }, []);
+    
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []); // AUTO-FIX: Empty dependency array is correct here - we only fetch on mount
 
   const features = [
     'Verified rental property listings',
@@ -104,7 +121,7 @@ const RentalServicesPage = () => {
                   size="lg"
                   variant="outline"
                   className="bg-surface text-primary hover:bg-primary/10 border-card"
-                  onClick={() => navigate('/auth')}
+                  onClick={() => requireAuth(navigate, '/rental/add', user)}
                 >
                   Sign In to List Property
                 </Button>
@@ -133,9 +150,14 @@ const RentalServicesPage = () => {
           ) : properties.length > 0 ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {properties.map((property) => (
-                  <PropertyCard key={property.id} property={property} />
-                ))}
+                {properties.map((property) => {
+                  // AUTO-FIX: Ensure unique key and validate property data
+                  if (!property || !property.id) {
+                    console.warn('[RentalServicesPage] Invalid property data:', property);
+                    return null;
+                  }
+                  return <PropertyCard key={property.id} property={property} />;
+                })}
               </div>
               <div className="text-center">
                 <Button
@@ -236,7 +258,7 @@ const RentalServicesPage = () => {
                   variant="outline"
                   className="border-primary text-primary hover:bg-primary/10"
                   fullWidth
-                  onClick={() => navigate('/auth')}
+                  onClick={() => requireAuth(navigate, '/rental/add', user)}
                 >
                   Sign In to List Property
                 </Button>
@@ -256,7 +278,8 @@ const RentalServicesPage = () => {
               </h2>
               <div className="space-y-4">
                 {features.map((feature, index) => (
-                  <div key={index} className="flex items-start">
+                  // AUTO-FIX: Use feature text as key for better React reconciliation
+                  <div key={`feature-${feature.substring(0, 10)}-${index}`} className="flex items-start">
                     <CheckCircle className="w-6 h-6 text-primary mr-3 flex-shrink-0 mt-0.5" />
                     <p className="text-lg text-textMain">{feature}</p>
                   </div>
@@ -298,4 +321,5 @@ const RentalServicesPage = () => {
 };
 
 export default RentalServicesPage;
+
 

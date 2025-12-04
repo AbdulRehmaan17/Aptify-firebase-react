@@ -82,11 +82,17 @@ const RentalListings = ({ user, onDataReload }) => {
       };
       const newStatus = statusMap[actionType];
 
+      // AUTO-FIX: Use requesterId if available, fallback to userId
+      const requesterId = selectedRequest.requesterId || selectedRequest.userId;
+      if (!requesterId) {
+        throw new Error('Cannot identify requester');
+      }
+
       await rentalRequestService.updateStatus(
         selectedRequest.id,
         newStatus,
         selectedRequest.property?.title || 'Property',
-        selectedRequest.userId,
+        requesterId,
         chatId
       );
 
@@ -107,11 +113,18 @@ const RentalListings = ({ user, onDataReload }) => {
   };
 
   const handleChat = async (request) => {
+    // AUTO-FIX: Validate request and user before creating chat, use requesterId if available
+    const requesterId = request?.requesterId || request?.userId;
+    if (!request || !requesterId || !user || !user.uid) {
+      console.error('[RentalListings] Cannot open chat: missing user data');
+      toast.error('Unable to open chat. Please try again.');
+      return;
+    }
     try {
-      const chatId = await getOrCreateChat(request.userId, user.uid);
+      const chatId = await getOrCreateChat(requesterId, user.uid);
       navigate(`/chat?chatId=${chatId}`);
     } catch (error) {
-      console.error('Error opening chat:', error);
+      console.error('[RentalListings] Error opening chat:', error);
       toast.error('Failed to open chat');
     }
   };

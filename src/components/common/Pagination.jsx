@@ -155,3 +155,4 @@ const Pagination = ({ currentPage, totalPages, onPageChange, itemsPerPage, total
 
 export default Pagination;
 
+

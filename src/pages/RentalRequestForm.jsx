@@ -54,6 +54,17 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
       const propertyData = propertyDoc.data();
       const ownerId = propertyData.ownerId;
 
+      // AUTO-FIX: Validate required fields before creating request
+      if (!user || !user.uid) {
+        throw new Error('User not authenticated');
+      }
+      if (!ownerId) {
+        throw new Error('Property owner not found');
+      }
+      if (!propertyId) {
+        throw new Error('Property ID is required');
+      }
+
       const requestData = {
         requesterId: user.uid,
         userId: user.uid, // Keep for backward compatibility
@@ -62,7 +73,7 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
         startDate: data.startDate,
         endDate: data.endDate,
         duration: data.duration ? Number(data.duration) : null,
-        message: data.message.trim() || '',
+        message: (data.message || '').trim(),
         status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),

@@ -91,7 +91,14 @@ class RentalRequestService {
       if (!db) {
         throw new Error('Firestore database is not initialized');
       }
+      
+      // AUTO-FIX: Validate userId before querying
+      if (!userId) {
+        console.warn('[RentalRequestService] getByUser called without userId');
+        return [];
+      }
 
+      // AUTO-FIX: Query both userId and requesterId for backward compatibility
       const q = query(
         collection(db, RENTAL_REQUESTS_COLLECTION),
         where('userId', '==', userId),
@@ -99,9 +106,15 @@ class RentalRequestService {
       );
 
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      // AUTO-FIX: Properly map documents with null checks
+      return snapshot.docs
+        .map((doc) => {
+          if (!doc.exists()) return null;
+          return { id: doc.id, ...doc.data() };
+        })
+        .filter((doc) => doc !== null);
     } catch (error) {
-      console.error('Error fetching user rental requests:', error);
+      console.error('[RentalRequestService] Error fetching user rental requests:', error);
       throw new Error(error.message || 'Failed to fetch rental requests');
     }
   }

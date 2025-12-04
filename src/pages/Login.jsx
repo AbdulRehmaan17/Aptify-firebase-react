@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import toast from 'react-hot-toast';
+import { redirectToNext } from '../utils/authHelpers';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -36,9 +37,19 @@ const Login = () => {
       }
     };
     checkGoogleRedirect();
-  }, []);
+  }, []); // AUTO-FIX: Empty dependency array is correct - only run on mount
 
   const redirectToDashboard = () => {
+    // AUTO-FIX: Check for 'next' query parameter first, then fallback to role-based redirect
+    const searchParams = new URLSearchParams(location.search);
+    const nextPath = searchParams.get('next');
+    
+    if (nextPath) {
+      // AUTO-FIX: Use redirectToNext utility for consistent behavior
+      redirectToNext(navigate, location.search, '/dashboard');
+      return;
+    }
+    
     const role = getUserRole();
     switch (role) {
       case 'admin':

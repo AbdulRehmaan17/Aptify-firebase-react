@@ -23,26 +23,46 @@ const RentalRequests = ({ user, onDataReload }) => {
   }, [user]);
 
   const loadRequests = async () => {
-    if (!user) return;
+    // AUTO-FIX: Validate user before loading
+    if (!user || !user.uid) {
+      console.warn('[RentalRequests] Cannot load requests: user not available');
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     try {
+      console.debug('[RentalRequests] Loading rental requests for user:', user.uid);
       const rentalRequests = await rentalRequestService.getByUser(user.uid);
-      // Fetch property details for each request
+      
+      // AUTO-FIX: Fetch property details with proper error handling
       const requestsWithProperties = await Promise.all(
-        rentalRequests.map(async (req) => {
+        (rentalRequests || []).map(async (req) => {
+          // AUTO-FIX: Validate request data
+          if (!req || !req.propertyId) {
+            console.warn('[RentalRequests] Invalid request data:', req);
+            return { ...req, property: null };
+          }
+          
           try {
             const property = await propertyService.getById(req.propertyId, false);
             return { ...req, property };
           } catch (error) {
-            console.error('Error fetching property:', error);
+            console.error('[RentalRequests] Error fetching property:', error);
             return { ...req, property: null };
           }
         })
       );
-      setRequests(requestsWithProperties);
+      
+      // AUTO-FIX: Filter out null/invalid requests
+      const validRequests = requestsWithProperties.filter((req) => req && req.id);
+      console.debug(`[RentalRequests] Loaded ${validRequests.length} rental requests`);
+      setRequests(validRequests);
     } catch (error) {
-      console.error('Error loading rental requests:', error);
-      toast.error('Failed to load rental requests');
+      console.error('[RentalRequests] Error loading rental requests:', error);
+      toast.error('Failed to load rental requests. Please try again.');
+      setRequests([]);
     } finally {
       setLoading(false);
     }
@@ -128,11 +148,17 @@ const RentalRequests = ({ user, onDataReload }) => {
         </div>
       ) : (
         <div className="space-y-4">
-          {requests.map((request) => (
-            <div
-              key={request.id}
-              className="bg-surface rounded-lg shadow-md p-6 border border-muted hover:shadow-lg transition-shadow"
-            >
+          {requests.map((request) => {
+            // AUTO-FIX: Validate request before rendering
+            if (!request || !request.id) {
+              console.warn('[RentalRequests] Invalid request in list:', request);
+              return null;
+            }
+            return (
+              <div
+                key={request.id}
+                className="bg-surface rounded-lg shadow-md p-6 border border-muted hover:shadow-lg transition-shadow"
+              >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
@@ -207,7 +233,8 @@ const RentalRequests = ({ user, onDataReload }) => {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Search, Filter, MapPin, DollarSign, Calendar } from 'lucide-react';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db } from '../../firebase';
 import propertyService from '../../services/propertyService';
 import PropertyCard from '../../components/property/PropertyCard';
 import Button from '../../components/common/Button';
@@ -30,40 +32,126 @@ const RentalBrowse = () => {
   const [selectedProperty, setSelectedProperty] = useState(null);
 
   useEffect(() => {
-    loadProperties();
-  }, [filters, sortBy]);
+    // AUTO-FIX: Add proper dependency array and cleanup for onSnapshot
+    let unsubscribe = null;
+    
+    const loadPropertiesWithSnapshot = () => {
+      try {
+        console.debug('[RentalBrowse] Setting up real-time listener for rental properties...');
+        setLoading(true);
+        
+        // Build query
+        const constraints = [
+          where('type', '==', 'rent'),
+          where('status', 'in', ['published', 'available']),
+        ];
+        
+        // Add city filter if provided
+        if (filters.city && filters.city.trim()) {
+          constraints.push(where('address.city', '==', filters.city.trim()));
+        }
+        
+        // Add ordering
+        const sortField = sortBy === 'newest' ? 'createdAt' : 'price';
+        const sortDirection = sortBy === 'price-high' ? 'desc' : 'asc';
+        constraints.push(orderBy(sortField, sortDirection));
+        
+        const q = query(collection(db, 'properties'), ...constraints);
+        
+        // Set up real-time listener
+        unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            try {
+              let propertiesData = snapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+              }));
+              
+              // Apply client-side filters (price, search)
+              if (filters.minPrice) {
+                propertiesData = propertiesData.filter((p) => (p.price || 0) >= Number(filters.minPrice));
+              }
+              if (filters.maxPrice) {
+                propertiesData = propertiesData.filter((p) => (p.price || 0) <= Number(filters.maxPrice));
+              }
+              
+              if (searchTerm.trim()) {
+                const searchLower = searchTerm.toLowerCase();
+                propertiesData = propertiesData.filter(
+                  (p) =>
+                    p.title?.toLowerCase().includes(searchLower) ||
+                    p.description?.toLowerCase().includes(searchLower) ||
+                    p.address?.city?.toLowerCase().includes(searchLower) ||
+                    p.location?.toLowerCase().includes(searchLower)
+                );
+              }
+              
+              console.debug(`[RentalBrowse] Loaded ${propertiesData.length} rental properties`);
+              setProperties(propertiesData);
+              setLoading(false);
+            } catch (error) {
+              console.error('[RentalBrowse] Error processing snapshot:', error);
+              setProperties([]);
+              setLoading(false);
+            }
+          },
+          (error) => {
+            console.error('[RentalBrowse] Snapshot error:', error);
+            // Fallback to getDocs if snapshot fails
+            loadProperties();
+          }
+        );
+      } catch (error) {
+        console.error('[RentalBrowse] Error setting up listener:', error);
+        // Fallback to regular fetch
+        loadProperties();
+      }
+    };
+    
+    loadPropertiesWithSnapshot();
+    
+    // Cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [filters, sortBy, searchTerm]); // AUTO-FIX: Include searchTerm in dependencies
 
   const loadProperties = async () => {
+    // AUTO-FIX: Fallback method when onSnapshot is not available
     setLoading(true);
     try {
+      console.debug('[RentalBrowse] Loading rental properties (fallback method)...');
       const queryFilters = {
         type: 'rent',
         status: 'published',
       };
 
       // Apply filters
-      if (filters.city) {
-        queryFilters.city = filters.city;
+      if (filters.city && filters.city.trim()) {
+        queryFilters.city = filters.city.trim();
       }
 
       const sortOptions = {
-        sortBy: sortBy === 'newest' ? 'createdAt' : sortBy === 'price-low' ? 'price' : 'price',
+        sortBy: sortBy === 'newest' ? 'createdAt' : 'price',
         sortOrder: sortBy === 'price-high' ? 'desc' : 'asc',
       };
 
       let propertiesData = await propertyService.getAll(queryFilters, sortOptions);
 
-      // Filter by type
+      // Filter by type with null checks
       propertiesData = (propertiesData || []).filter(
-        (p) => p.type?.toLowerCase() === 'rent' || p.listingType?.toLowerCase() === 'rent'
+        (p) => p && (p.type?.toLowerCase() === 'rent' || p.listingType?.toLowerCase() === 'rent')
       );
 
-      // Apply price filter
+      // Apply price filter with null safety
       if (filters.minPrice) {
-        propertiesData = propertiesData.filter((p) => p.price >= Number(filters.minPrice));
+        propertiesData = propertiesData.filter((p) => (p.price || 0) >= Number(filters.minPrice));
       }
       if (filters.maxPrice) {
-        propertiesData = propertiesData.filter((p) => p.price <= Number(filters.maxPrice));
+        propertiesData = propertiesData.filter((p) => (p.price || 0) <= Number(filters.maxPrice));
       }
 
       // Apply search term
@@ -78,10 +166,11 @@ const RentalBrowse = () => {
         );
       }
 
+      console.debug(`[RentalBrowse] Loaded ${propertiesData.length} rental properties`);
       setProperties(propertiesData);
     } catch (error) {
-      console.error('Error loading rental properties:', error);
-      toast.error('Failed to load rental properties');
+      console.error('[RentalBrowse] Error loading rental properties:', error);
+      toast.error('Failed to load rental properties. Please try again.');
       setProperties([]);
     } finally {
       setLoading(false);
@@ -89,6 +178,12 @@ const RentalBrowse = () => {
   };
 
   const handleRequestRental = (property) => {
+    // AUTO-FIX: Validate property before opening modal
+    if (!property || !property.id) {
+      console.error('[RentalBrowse] Cannot request rental: invalid property');
+      toast.error('Invalid property. Please try again.');
+      return;
+    }
     setSelectedProperty(property);
     setShowRequestModal(true);
   };
@@ -225,22 +320,29 @@ const RentalBrowse = () => {
             </div>
           ) : properties.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.map((property) => (
-                <div key={property.id} className="relative">
-                  <PropertyCard property={property} />
-                  <div className="mt-2">
-                    <Button
-                      variant="primary"
-                      fullWidth
-                      onClick={() => handleRequestRental(property)}
-                      className="bg-primary hover:bg-primaryDark text-white"
-                    >
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Request Rental
-                    </Button>
+              {properties.map((property) => {
+                // AUTO-FIX: Validate property data before rendering
+                if (!property || !property.id) {
+                  console.warn('[RentalBrowse] Invalid property data:', property);
+                  return null;
+                }
+                return (
+                  <div key={property.id} className="relative">
+                    <PropertyCard property={property} />
+                    <div className="mt-2">
+                      <Button
+                        variant="primary"
+                        fullWidth
+                        onClick={() => handleRequestRental(property)}
+                        className="bg-primary hover:bg-primaryDark text-white"
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Request Rental
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-12 bg-surface rounded-lg border border-muted">
@@ -288,4 +390,5 @@ const RentalBrowse = () => {
 };
 
 export default RentalBrowse;
+
 

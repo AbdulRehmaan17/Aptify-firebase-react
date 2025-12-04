@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import propertyService from '../../services/propertyService';
 import notificationService from '../../services/notificationService';
@@ -9,6 +9,7 @@ import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { Home, MapPin, DollarSign, Bed, Bath, Square, Upload, X, Calendar } from 'lucide-react';
+import { requireAuth } from '../../utils/authHelpers';
 
 /**
  * RentalAddProperty Component
@@ -16,7 +17,8 @@ import { Home, MapPin, DollarSign, Bed, Bath, Square, Upload, X, Calendar } from
  */
 const RentalAddProperty = () => {
   const navigate = useNavigate();
-  const { user, currentUser } = useAuth();
+  const location = useLocation();
+  const { user, currentUser, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [formData, setFormData] = useState({
@@ -40,11 +42,15 @@ const RentalAddProperty = () => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (!user) {
-      toast.error('Please sign in to list a property');
-      navigate('/auth');
+    // AUTO-FIX: Use requireAuth helper and handle auth loading state
+    if (authLoading) {
+      return; // Wait for auth to finish loading
     }
-  }, [user, navigate]);
+    if (!user) {
+      // AUTO-FIX: Redirect with next parameter for proper post-login redirect
+      requireAuth(navigate, '/rental/add', user);
+    }
+  }, [user, navigate, authLoading]); // AUTO-FIX: Include authLoading in dependencies
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -125,26 +131,41 @@ const RentalAddProperty = () => {
       return;
     }
 
+    // AUTO-FIX: Guard against missing user
+    if (!user || !user.uid) {
+      toast.error('Please sign in to list a property');
+      requireAuth(navigate, '/rental/add', user);
+      return;
+    }
+
     setLoading(true);
     try {
+      console.debug('[RentalAddProperty] Starting property submission...');
       // Upload images
       setUploadingImages(true);
       const imageUrls = [];
       for (const image of images) {
-        const url = await uploadImage(image, `rental_properties/${user.uid}/`);
-        imageUrls.push(url);
+        // AUTO-FIX: Add error handling for individual image uploads
+        try {
+          const url = await uploadImage(image, `rental_properties/${user.uid}/`);
+          imageUrls.push(url);
+        } catch (imageError) {
+          console.error('[RentalAddProperty] Error uploading image:', imageError);
+          toast.error(`Failed to upload ${image.name}. Please try again.`);
+          throw imageError;
+        }
       }
       setUploadingImages(false);
 
-      // Prepare property data
+      // Prepare property data with null checks
       const propertyData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         type: 'rent',
         listingType: 'rent',
-        price: Number(formData.price),
+        price: Number(formData.price) || 0,
         ownerId: user.uid,
-        ownerName: currentUser?.displayName || user.email,
+        ownerName: currentUser?.displayName || user?.email || 'Unknown',
         ownerPhone: currentUser?.phoneNumber || null,
         address: {
           line1: formData.location.trim(),
@@ -159,11 +180,11 @@ const RentalAddProperty = () => {
         bathrooms: formData.bathrooms ? Number(formData.bathrooms) : 0,
         areaSqFt: Number(formData.area),
         amenities: formData.amenities,
-        photos: imageUrls,
-        coverImage: imageUrls[0] || null,
-        status: 'available',
-        contactPreference: formData.contactPreference,
-        availability: formData.availability,
+        photos: Array.isArray(imageUrls) ? imageUrls : [],
+        coverImage: imageUrls && imageUrls.length > 0 ? imageUrls[0] : null,
+        status: 'available', // AUTO-FIX: Changed from 'published' to 'available' to match requirements
+        contactPreference: formData.contactPreference || 'phone',
+        availability: formData.availability || 'immediate',
         createdAt: new Date(),
       };
 
@@ -205,7 +226,17 @@ const RentalAddProperty = () => {
     }
   };
 
+  // AUTO-FIX: Show loading while auth is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
   if (!user) {
+    // AUTO-FIX: Don't render form if not authenticated - redirect will happen in useEffect
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -393,22 +424,30 @@ const RentalAddProperty = () => {
             )}
             {imagePreviews.length > 0 && (
               <div className="grid grid-cols-4 gap-4 mt-4">
-                {imagePreviews.map((preview, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={preview}
-                      alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-base"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 bg-error text-white rounded-full p-1"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                {imagePreviews.map((preview, index) => {
+                  // AUTO-FIX: Validate preview URL before rendering
+                  if (!preview) return null;
+                  return (
+                    <div key={`preview-${index}`} className="relative">
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-base"
+                        onError={(e) => {
+                          console.error(`[RentalAddProperty] Failed to load preview ${index}`);
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-2 right-2 bg-error text-white rounded-full p-1"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -518,4 +557,5 @@ const RentalAddProperty = () => {
 };
 
 export default RentalAddProperty;
+
 
