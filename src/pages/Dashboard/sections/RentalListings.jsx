@@ -247,91 +247,93 @@ const RentalListings = ({ user, onDataReload }) => {
                 console.warn('[RentalListings] Invalid request in list:', request);
                 return null;
               }
+              // AUTO-FIX: Return JSX - semicolon required after return statement
               return (
                 <div
                   key={request.id}
                   className="bg-surface rounded-lg shadow-md p-6 border border-muted hover:shadow-lg transition-shadow"
                 >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-lg font-semibold text-textMain">
-                        {request.property?.title || 'Property Request'}
-                      </h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
-                        {request.status || 'pending'}
-                      </span>
-                    </div>
-
-                    {request.startDate && request.endDate && (
-                      <div className="flex items-center text-textSecondary text-sm mb-2">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        <span>
-                          {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <h3 className="text-lg font-semibold text-textMain">
+                          {request.property?.title || 'Property Request'}
+                        </h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(request.status)}`}>
+                          {request.status || 'pending'}
                         </span>
                       </div>
-                    )}
 
-                    {request.message && (
-                      <p className="text-textSecondary text-sm mb-2">{request.message}</p>
-                    )}
+                      {request.startDate && request.endDate && (
+                        <div className="flex items-center text-textSecondary text-sm mb-2">
+                          <Calendar className="w-4 h-4 mr-2" />
+                          <span>
+                            {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                          </span>
+                        </div>
+                      )}
 
-                    <div className="flex items-center text-textSecondary text-sm">
-                      <span>Requested: {formatDate(request.createdAt)}</span>
+                      {request.message && (
+                        <p className="text-textSecondary text-sm mb-2">{request.message}</p>
+                      )}
+
+                      <div className="flex items-center text-textSecondary text-sm">
+                        <span>Requested: {formatDate(request.createdAt)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-4">
+                      {(request.status === 'Pending' || request.status === 'pending') && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRequestAction(request, 'accept')}
+                            className="text-green-600 hover:bg-green-50"
+                            disabled={actionLoading === request.id}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Accept
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRequestAction(request, 'reject')}
+                            className="text-red-600 hover:bg-red-50"
+                            disabled={actionLoading === request.id}
+                          >
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      {(request.status === 'Accepted' || request.status === 'accepted') && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleChat(request)}
+                          >
+                            <MessageSquare className="w-4 h-4 mr-1" />
+                            Chat
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRequestAction(request, 'complete')}
+                            className="text-blue-600 hover:bg-blue-50"
+                            disabled={actionLoading === request.id}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Mark Complete
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-2 ml-4">
-                    {(request.status === 'Pending' || request.status === 'pending') && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRequestAction(request, 'accept')}
-                          className="text-green-600 hover:bg-green-50"
-                          disabled={actionLoading === request.id}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Accept
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRequestAction(request, 'reject')}
-                          className="text-red-600 hover:bg-red-50"
-                          disabled={actionLoading === request.id}
-                        >
-                          <XCircle className="w-4 h-4 mr-1" />
-                          Reject
-                        </Button>
-                      </>
-                    )}
-                    {(request.status === 'Accepted' || request.status === 'accepted') && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleChat(request)}
-                        >
-                          <MessageSquare className="w-4 h-4 mr-1" />
-                          Chat
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRequestAction(request, 'complete')}
-                          className="text-blue-600 hover:bg-blue-50"
-                          disabled={actionLoading === request.id}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Mark Complete
-                        </Button>
-                      </>
-                    )}
-                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
