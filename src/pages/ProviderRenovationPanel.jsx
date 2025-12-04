@@ -422,6 +422,7 @@ const ProviderRenovationPanel = () => {
     );
   }
 
+  // AUTO-FIX: use requests length instead of undefined projects in error state check
   // Error state (only show if there's an actual error, not just empty collection)
   if (error && requests.length === 0) {
     return (

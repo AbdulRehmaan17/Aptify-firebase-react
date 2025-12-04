@@ -34,12 +34,14 @@ class RentalRequestService {
       }
 
       const request = {
-        userId: requestData.userId,
+        requesterId: requestData.userId || requestData.requesterId, // Support both field names
+        userId: requestData.userId || requestData.requesterId, // Keep for backward compatibility
+        ownerId: requestData.ownerId || null, // Will be set from property
         propertyId: requestData.propertyId,
         startDate: requestData.startDate,
         endDate: requestData.endDate,
         message: requestData.message || '',
-        status: requestData.status || 'Pending',
+        status: requestData.status || 'pending',
         totalCost: requestData.totalCost || null,
         useWallet: requestData.useWallet || false,
         createdAt: serverTimestamp(),

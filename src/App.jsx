@@ -61,9 +61,10 @@ import ProductDetail from './pages/ProductDetail';
 import BuySellLanding from './pages/BuySellLanding';
 import RenovationProviderDetail from './pages/RenovationProviderDetail';
 import ConstructionProviderDetail from './pages/ConstructionProviderDetail';
-import RentalServicesPage from './pages/RentalServicesPage';
+import RentalServicesPage from './pages/rental/RentalServicesPage';
+import RentalAddProperty from './pages/rental/RentalAddProperty';
+import RentalBrowse from './pages/rental/RentalBrowse';
 import RentalRequestForm from './pages/RentalRequestForm';
-import BrowseRentals from './pages/BrowseRentals';
 import NotificationsPage from './pages/NotificationsPage';
 import NotificationsPageNew from './pages/Notifications/NotificationsPage';
 import UserChatsPage from './pages/UserChatsPage';
@@ -209,8 +210,22 @@ function App() {
                   </ProviderRoute>
                 }
               />
+              {/* Rental Module Routes */}
+              <Route path="/rental" element={<RentalServicesPage />} />
               <Route path="/rental-services" element={<RentalServicesPage />} />
-              <Route path="/browse-rentals" element={<BrowseRentals />} />
+              <Route
+                path="/rental/add"
+                element={
+                  <PrivateRoute>
+                    <RentalAddProperty />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="/rental/browse" element={<RentalBrowse />} />
+              <Route
+                path="/rental/property/:id"
+                element={<PropertyDetailPage />}
+              />
               <Route path="/buy-sell" element={<BuySellLanding />} />
               {/* Buy/Sell Marketplace Routes */}
               <Route path="/buy-sell/marketplace" element={<Marketplace />} />

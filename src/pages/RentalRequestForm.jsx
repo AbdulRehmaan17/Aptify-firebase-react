@@ -55,13 +55,15 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
       const ownerId = propertyData.ownerId;
 
       const requestData = {
-        userId: user.uid,
+        requesterId: user.uid,
+        userId: user.uid, // Keep for backward compatibility
+        ownerId: ownerId,
         propertyId: propertyId,
         startDate: data.startDate,
         endDate: data.endDate,
         duration: data.duration ? Number(data.duration) : null,
         message: data.message.trim() || '',
-        status: 'Pending',
+        status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };

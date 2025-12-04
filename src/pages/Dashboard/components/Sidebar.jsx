@@ -18,7 +18,8 @@ const Sidebar = ({ activeSection, onSectionChange }) => {
   const menuItems = [
     { key: 'overview', label: 'Overview', icon: LayoutDashboard },
     { key: 'properties', label: 'My Properties', icon: Home },
-    { key: 'rental-requests', label: 'Rental Requests', icon: Calendar },
+    { key: 'rental-listings', label: 'Rental Listings', icon: Home },
+    { key: 'rental-requests', label: 'My Rental Requests', icon: Calendar },
     { key: 'buy-sell-requests', label: 'Buy/Sell Requests', icon: ShoppingCart },
     { key: 'renovation', label: 'Renovation', icon: Wrench },
     { key: 'construction', label: 'Construction', icon: Hammer },

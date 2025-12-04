@@ -111,9 +111,9 @@ const RentalRequests = ({ user, onDataReload }) => {
           <h1 className="text-3xl font-display font-bold text-textMain">Rental Requests</h1>
           <p className="text-textSecondary mt-2">View and manage your rental requests</p>
         </div>
-        <Button onClick={() => navigate('/rental-services')} variant="primary">
+        <Button onClick={() => navigate('/rental/browse')} variant="primary">
           <Calendar className="w-4 h-4 mr-2" />
-          New Request
+          Browse Rentals
         </Button>
       </div>
 
@@ -122,8 +122,8 @@ const RentalRequests = ({ user, onDataReload }) => {
           <Calendar className="w-16 h-16 text-muted mx-auto mb-4" />
           <h3 className="text-lg font-medium text-textMain mb-2">No rental requests</h3>
           <p className="text-textSecondary mb-4">Start by creating a new rental request</p>
-          <Button onClick={() => navigate('/rental-services')} variant="primary">
-            Create Request
+          <Button onClick={() => navigate('/rental/browse')} variant="primary">
+            Browse Rentals
           </Button>
         </div>
       ) : (

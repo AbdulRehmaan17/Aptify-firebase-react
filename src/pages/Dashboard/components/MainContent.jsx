@@ -1,6 +1,7 @@
 import React from 'react';
 import Overview from '../sections/Overview';
 import MyProperties from '../sections/MyProperties';
+import RentalListings from '../sections/RentalListings';
 import RentalRequests from '../sections/RentalRequests';
 import BuySellRequests from '../sections/BuySellRequests';
 import Renovation from '../sections/Renovation';
@@ -19,6 +20,8 @@ const MainContent = ({ activeSection, user, userProfile, onDataReload }) => {
         return <Overview user={user} userProfile={userProfile} />;
       case 'properties':
         return <MyProperties user={user} onDataReload={onDataReload} />;
+      case 'rental-listings':
+        return <RentalListings user={user} onDataReload={onDataReload} />;
       case 'rental-requests':
         return <RentalRequests user={user} onDataReload={onDataReload} />;
       case 'buy-sell-requests':
