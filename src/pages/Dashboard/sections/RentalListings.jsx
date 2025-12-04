@@ -241,11 +241,17 @@ const RentalListings = ({ user, onDataReload }) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {requests.map((request) => (
-              <div
-                key={request.id}
-                className="bg-surface rounded-lg shadow-md p-6 border border-muted hover:shadow-lg transition-shadow"
-              >
+            {requests.map((request) => {
+              // AUTO-FIX: Validate request before rendering
+              if (!request || !request.id) {
+                console.warn('[RentalListings] Invalid request in list:', request);
+                return null;
+              }
+              return (
+                <div
+                  key={request.id}
+                  className="bg-surface rounded-lg shadow-md p-6 border border-muted hover:shadow-lg transition-shadow"
+                >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
@@ -276,7 +282,7 @@ const RentalListings = ({ user, onDataReload }) => {
                   </div>
 
                   <div className="flex items-center gap-2 ml-4">
-                    {request.status === 'Pending' && (
+                    {(request.status === 'Pending' || request.status === 'pending') && (
                       <>
                         <Button
                           variant="outline"
@@ -300,7 +306,7 @@ const RentalListings = ({ user, onDataReload }) => {
                         </Button>
                       </>
                     )}
-                    {request.status === 'Accepted' && (
+                    {(request.status === 'Accepted' || request.status === 'accepted') && (
                       <>
                         <Button
                           variant="outline"
