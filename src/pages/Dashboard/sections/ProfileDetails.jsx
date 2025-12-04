@@ -43,23 +43,61 @@ const ProfileDetails = ({ user, userProfile, onDataReload }) => {
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile || currentUser) {
+      // AUTO-FIX: Always prioritize Google photoURL if user logged in with Google
+      const isGoogleUser = currentUser?.providerData?.some(
+        (provider) => provider.providerId === 'google.com'
+      );
+      
+      // Sync Google photoURL to Firestore if it exists and is different
+      const syncGooglePhoto = async () => {
+        if (isGoogleUser && currentUser?.photoURL && user?.uid) {
+          const currentPhotoURL = userProfile?.photoURL || '';
+          const googlePhotoURL = currentUser.photoURL;
+          
+          // If Google photoURL is different from Firestore, sync it
+          if (googlePhotoURL !== currentPhotoURL) {
+            try {
+              await userService.updateProfile(user.uid, {
+                photoURL: googlePhotoURL,
+              });
+              // Reload profile data after sync
+              if (onDataReload) {
+                onDataReload();
+              }
+            } catch (error) {
+              console.error('Error syncing Google photoURL:', error);
+            }
+          }
+        }
+      };
+      
+      // Determine which photoURL to use (prioritize Google if available)
+      const photoURLToUse = isGoogleUser && currentUser?.photoURL
+        ? currentUser.photoURL
+        : userProfile?.photoURL || currentUser?.photoURL || '';
+      
       setFormData({
-        displayName: userProfile.displayName || userProfile.name || '',
-        email: currentUser?.email || userProfile.email || '',
-        phone: userProfile.phone || userProfile.phoneNumber || '',
+        displayName: userProfile?.displayName || userProfile?.name || currentUser?.displayName || '',
+        email: currentUser?.email || userProfile?.email || '',
+        phone: userProfile?.phone || userProfile?.phoneNumber || '',
         address: {
-          line1: userProfile.address?.line1 || '',
-          line2: userProfile.address?.line2 || '',
-          city: userProfile.address?.city || '',
-          state: userProfile.address?.state || '',
-          postalCode: userProfile.address?.postalCode || '',
-          country: userProfile.address?.country || 'Pakistan',
+          line1: userProfile?.address?.line1 || '',
+          line2: userProfile?.address?.line2 || '',
+          city: userProfile?.address?.city || '',
+          state: userProfile?.address?.state || '',
+          postalCode: userProfile?.address?.postalCode || '',
+          country: userProfile?.address?.country || 'Pakistan',
         },
-        photoURL: currentUser?.photoURL || userProfile.photoURL || '',
+        photoURL: photoURLToUse,
       });
+      
+      // Sync Google photo if needed
+      if (isGoogleUser && currentUser?.photoURL) {
+        syncGooglePhoto();
+      }
     }
-  }, [userProfile, currentUser]);
+  }, [userProfile, currentUser, user, onDataReload]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

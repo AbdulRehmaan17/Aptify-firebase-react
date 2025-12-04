@@ -303,10 +303,23 @@ export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
     } else {
       // Update existing user document with latest info and lastLogin
       const existingData = userDoc.data();
+      
+      // AUTO-FIX: Always sync Google photoURL if user logged in with Google
+      // Prioritize Google photoURL over existing Firestore photoURL for Google auth users
+      let photoURLToUse = existingData.photoURL || '';
+      if (providerId === 'google.com' && user.photoURL) {
+        // If user logged in with Google and has a photoURL, always sync it
+        photoURLToUse = user.photoURL;
+      } else if (user.photoURL && !existingData.photoURL) {
+        // If user has photoURL from auth but Firestore doesn't have one, use auth photoURL
+        photoURLToUse = user.photoURL;
+      }
+      
       const updateData = {
         name: additionalData.name || user.displayName || existingData.name || user.email?.split('@')[0] || '',
         email: user.email || existingData.email || '',
-        photoURL: user.photoURL || existingData.photoURL || '',
+        photoURL: photoURLToUse,
+        displayName: user.displayName || existingData.displayName || existingData.name || '',
         provider: providerId,
         lastLogin: serverTimestamp(),
       };

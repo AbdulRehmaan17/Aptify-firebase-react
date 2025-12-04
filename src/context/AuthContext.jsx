@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
         setError(null);
 
         if (firebaseUser && db) {
-          // Always call createOrUpdateUserProfile to ensure lastLogin is updated
+          // Always call createOrUpdateUserProfile to ensure lastLogin is updated and Google photoURL is synced
           await createOrUpdateUserProfile(firebaseUser);
           
           // Fetch user profile from Firestore
@@ -49,8 +49,41 @@ export const AuthProvider = ({ children }) => {
 
             if (userDoc.exists()) {
               const profileData = userDoc.data();
-              setUserProfile({ id: userDoc.id, ...profileData });
-              setCurrentUserRole(profileData.role || 'user');
+              
+              // AUTO-FIX: Sync Google photoURL if user logged in with Google
+              const isGoogleUser = firebaseUser.providerData?.some(
+                (provider) => provider.providerId === 'google.com'
+              );
+              
+              // If Google user and has photoURL, ensure it's synced to profile
+              if (isGoogleUser && firebaseUser.photoURL && profileData.photoURL !== firebaseUser.photoURL) {
+                try {
+                  const { updateDoc, serverTimestamp } = await import('firebase/firestore');
+                  await updateDoc(userDocRef, {
+                    photoURL: firebaseUser.photoURL,
+                    displayName: firebaseUser.displayName || profileData.displayName || profileData.name,
+                    updatedAt: serverTimestamp(),
+                  });
+                  // Re-fetch after update
+                  const updatedDoc = await getDoc(userDocRef);
+                  if (updatedDoc.exists()) {
+                    const updatedData = updatedDoc.data();
+                    setUserProfile({ id: updatedDoc.id, ...updatedData });
+                    setCurrentUserRole(updatedData.role || 'user');
+                  } else {
+                    setUserProfile({ id: userDoc.id, ...profileData });
+                    setCurrentUserRole(profileData.role || 'user');
+                  }
+                } catch (syncError) {
+                  console.error('Error syncing Google photoURL:', syncError);
+                  // Continue with existing profile data even if sync fails
+                  setUserProfile({ id: userDoc.id, ...profileData });
+                  setCurrentUserRole(profileData.role || 'user');
+                }
+              } else {
+                setUserProfile({ id: userDoc.id, ...profileData });
+                setCurrentUserRole(profileData.role || 'user');
+              }
             } else {
               // If still doesn't exist after createOrUpdateUserProfile, wait a bit and retry
               setTimeout(async () => {
