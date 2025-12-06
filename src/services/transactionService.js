@@ -10,7 +10,7 @@ import {
   getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase';
 
 /**
  * Transaction Service

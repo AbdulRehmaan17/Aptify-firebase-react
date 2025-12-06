@@ -8,14 +8,14 @@ import { useAuth } from '../context/AuthContext';
  * @returns {Object} - { chats, loading, error }
  */
 export default function useChatList() {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userNames, setUserNames] = useState({}); // Cache for user names
 
   useEffect(() => {
-    if (!user || !user.uid || !db) {
+    if (!currentUser || !currentUser.uid || !db) {
       setLoading(false);
       return;
     }
@@ -29,7 +29,7 @@ export default function useChatList() {
       // We'll filter client-side for now, or use a different approach
       const chatsQuery = query(
         collection(db, 'chats'),
-        where('participants', 'array-contains', user.uid),
+        where('participants', 'array-contains', currentUser.uid),
         orderBy('updatedAt', 'desc')
       );
 
@@ -44,7 +44,7 @@ export default function useChatList() {
           // Fetch user names for other participants
           const fetchUserNames = async () => {
             const namePromises = chatsList.map(async (chat) => {
-              const otherUid = chat.participants?.find((uid) => uid !== user.uid);
+              const otherUid = chat.participants?.find((uid) => uid !== currentUser.uid);
               if (otherUid && !userNames[otherUid]) {
                 try {
                   const userDoc = await getDoc(doc(db, 'users', otherUid));
@@ -72,13 +72,11 @@ export default function useChatList() {
           // Add user names to chats
           const chatsWithNames = chatsList.map((chat) => {
             const otherUid = chat.participants?.find((uid) => uid !== user.uid);
-            // Calculate unread count from messages if available, otherwise use boolean flag
-            const unreadCount = chat.unreadFor?.[user.uid] === true ? 1 : 0;
             return {
               ...chat,
               otherParticipantId: otherUid,
               otherParticipantName: userNames[otherUid] || 'Unknown',
-              unreadCount: unreadCount,
+              unreadCount: chat.unreadFor?.[currentUser.uid] || 0,
             };
           });
 
@@ -112,7 +110,7 @@ export default function useChatList() {
                 // Fetch user names
                 const fetchUserNames = async () => {
                   const namePromises = chatsList.map(async (chat) => {
-                    const otherUid = chat.participants?.find((uid) => uid !== user.uid);
+                    const otherUid = chat.participants?.find((uid) => uid !== currentUser.uid);
                     if (otherUid && !userNames[otherUid]) {
                       try {
                         const userDoc = await getDoc(doc(db, 'users', otherUid));
@@ -137,12 +135,12 @@ export default function useChatList() {
 
                 // Add user names to chats
                 const chatsWithNames = chatsList.map((chat) => {
-                  const otherUid = chat.participants?.find((uid) => uid !== user.uid);
+                  const otherUid = chat.participants?.find((uid) => uid !== currentUser.uid);
                   return {
                     ...chat,
                     otherParticipantId: otherUid,
                     otherParticipantName: userNames[otherUid] || 'Unknown',
-                    unreadCount: chat.unreadFor?.[user.uid] === true ? 1 : 0,
+                    unreadCount: chat.unreadFor?.[currentUser.uid] || 0,
                   };
                 });
 
@@ -170,7 +168,7 @@ export default function useChatList() {
       setError(err.message);
       setLoading(false);
     }
-  }, [user, userNames]);
+  }, [currentUser, userNames]);
 
   return { chats, loading, error };
 }

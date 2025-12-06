@@ -22,7 +22,7 @@ const Auth = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { signup, login, loginWithGoogle, getUserRole } = useAuth();
+  const { signup, login, loginWithGoogle } = useAuth();
   const from = location.state?.from?.pathname || '/';
 
   const validateForm = () => {
@@ -70,39 +70,21 @@ const Auth = () => {
       let result;
       if (isLogin) {
         result = await login(formData.email, formData.password);
-      } else {
-        result = await signup(formData.email, formData.password, formData.name, formData.phone);
-      }
-      
-      if (!result.success) {
-        toast.error(result.error || 'Authentication failed');
-        setIsLoading(false);
-        return;
-      }
-      
-      toast.success(isLogin ? 'Welcome back!' : 'Account created successfully!');
-      
-      // Wait a moment for user profile to be created, then redirect
-      setTimeout(() => {
-        const role = getUserRole();
-        switch (role) {
-          case 'admin':
-          case 'superadmin':
-            navigate('/admin', { replace: true });
-            break;
-          case 'provider':
-            navigate('/provider-dashboard', { replace: true });
-            break;
-          case 'constructor':
-            navigate('/constructor-dashboard', { replace: true });
-            break;
-          case 'renovator':
-            navigate('/renovator-dashboard', { replace: true });
-            break;
-          default:
-            navigate('/dashboard', { replace: true });
+        if (result.success) {
+          toast.success('Welcome back!');
+          navigate(from, { replace: true });
+        } else {
+          toast.error(result.error || 'Failed to login');
         }
-      }, isLogin ? 100 : 500);
+      } else {
+        result = await signup(formData.email, formData.password, formData.name);
+        if (result.success) {
+          toast.success('Account created successfully!');
+          navigate('/', { replace: true });
+        } else {
+          toast.error(result.error || 'Failed to create account');
+        }
+      }
     } catch (error) {
       console.error('Auth error:', error);
       toast.error(error.message || 'An error occurred. Please try again.');
@@ -120,48 +102,20 @@ const Auth = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      setIsLoading(true);
       const result = await loginWithGoogle();
-      
-      if (!result.success) {
-        toast.error(result.error || 'Failed to sign in with Google');
-        setIsLoading(false);
-        return;
-      }
-      
-      if (result.redirect) {
-        // Redirect flow - will be handled by handleGoogleRedirect
-        return;
-      }
-      
-      toast.success('Logged in with Google');
-      
-      // Wait a moment for user profile to be created, then redirect
-      setTimeout(() => {
-        const role = getUserRole();
-        switch (role) {
-          case 'admin':
-          case 'superadmin':
-            navigate('/admin', { replace: true });
-            break;
-          case 'provider':
-            navigate('/provider-dashboard', { replace: true });
-            break;
-          case 'constructor':
-            navigate('/constructor-dashboard', { replace: true });
-            break;
-          case 'renovator':
-            navigate('/renovator-dashboard', { replace: true });
-            break;
-          default:
-            navigate('/dashboard', { replace: true });
+      if (result.success) {
+        if (result.redirect) {
+          // Redirect flow - will be handled by handleGoogleRedirectResult
+          return;
         }
-      }, 500);
+        toast.success('Logged in with Google');
+        navigate(from, { replace: true });
+      } else {
+        toast.error(result.error || 'Failed to sign in with Google');
+      }
     } catch (error) {
       console.error('Google login error:', error);
-      toast.error(error.message || 'Failed to sign in with Google');
-    } finally {
-      setIsLoading(false);
+      toast.error(error.message || 'Failed to sign in with Google. Please try again.');
     }
   };
 

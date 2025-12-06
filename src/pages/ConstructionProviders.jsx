@@ -40,16 +40,18 @@ const ConstructionProviders = () => {
         setLoading(true);
         // Fetch only approved providers
         const providersQuery = query(
-          collection(db, 'providers'),
-          where('type', '==', 'construction'),
-          where('isApproved', '==', true)
+          collection(db, 'serviceProviders'),
+          where('serviceType', '==', 'Construction')
         );
 
         const snapshot = await getDocs(providersQuery);
-        const providersList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const providersList = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          // Filter to show only approved providers
+          .filter((provider) => provider.isApproved === true || provider.approved === true);
 
         setProviders(providersList);
         setFilteredProviders(providersList);

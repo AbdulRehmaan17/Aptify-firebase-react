@@ -31,7 +31,6 @@ import {
   Filter,
   Star,
   CreditCard,
-  ShoppingBag,
 } from 'lucide-react';
 import {
   collection,
@@ -59,11 +58,8 @@ import notificationService from '../services/notificationService';
 import propertyService from '../services/propertyService';
 import reviewsService from '../services/reviewsService';
 import transactionService from '../services/transactionService';
-import marketplaceService from '../services/marketplaceService';
-import supportTicketService from '../services/supportTicketService';
 import toast from 'react-hot-toast';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import Pagination from '../components/common/Pagination';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const AdminPanel = () => {
   const { user, currentUser, currentUserRole, loading } = useAuth();
@@ -131,8 +127,6 @@ const AdminPanel = () => {
   });
   const [sendingNotifications, setSendingNotifications] = useState(false);
   const [notificationProgress, setNotificationProgress] = useState({ sent: 0, total: 0 });
-  const [batchConfirmModalOpen, setBatchConfirmModalOpen] = useState(false);
-  const [pendingNotificationData, setPendingNotificationData] = useState(null);
   const [allNotifications, setAllNotifications] = useState([]);
   const [allNotificationsLoading, setAllNotificationsLoading] = useState(false);
   const [notificationFilters, setNotificationFilters] = useState({
@@ -155,56 +149,6 @@ const AdminPanel = () => {
     status: '',
     targetType: '',
     userId: '',
-  });
-  const [marketplaceListings, setMarketplaceListings] = useState([]);
-  const [marketplaceLoading, setMarketplaceLoading] = useState(true);
-  const [marketplaceFilters, setMarketplaceFilters] = useState({
-    status: '',
-    category: '',
-    search: '',
-  });
-  const [deleteMarketplaceModalOpen, setDeleteMarketplaceModalOpen] = useState(false);
-  const [listingToDelete, setListingToDelete] = useState(null);
-  const [supportTickets, setSupportTickets] = useState([]);
-  const [supportTicketsLoading, setSupportTicketsLoading] = useState(true);
-  const [selectedTicket, setSelectedTicket] = useState(null);
-  const [viewTicketModalOpen, setViewTicketModalOpen] = useState(false);
-  const [replyTicketModalOpen, setReplyTicketModalOpen] = useState(false);
-  const [ticketReplyText, setTicketReplyText] = useState('');
-  const [supportTicketFilters, setSupportTicketFilters] = useState({
-    status: '',
-    search: '',
-  });
-  const [supportTicketsPage, setSupportTicketsPage] = useState(1);
-  
-  // Pagination state for all tables
-  const [usersPage, setUsersPage] = useState(1);
-  const [propertiesPage, setPropertiesPage] = useState(1);
-  const [requestsPage, setRequestsPage] = useState(1);
-  const [reviewsPage, setReviewsPage] = useState(1);
-  const [transactionsPage, setTransactionsPage] = useState(1);
-  const [marketplacePage, setMarketplacePage] = useState(1);
-  const [constructionRequestsPage, setConstructionRequestsPage] = useState(1);
-  const [renovationRequestsPage, setRenovationRequestsPage] = useState(1);
-  const [rentalRequestsPage, setRentalRequestsPage] = useState(1);
-  const [buySellRequestsPage, setBuySellRequestsPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
-  
-  // Theme/branding settings state
-  const [themeSettings, setThemeSettings] = useState({
-    primaryColor: '#3b82f6',
-    secondaryColor: '#10b981',
-    logoUrl: '',
-    siteName: 'Aptify',
-    siteDescription: 'Real Estate Platform',
-  });
-  const [themeSettingsLoading, setThemeSettingsLoading] = useState(false);
-  
-  // Chart data state
-  const [chartData, setChartData] = useState({
-    usersOverTime: [],
-    propertiesOverTime: [],
-    requestsOverTime: [],
   });
 
   // Fetch transactions when transactions tab is active
@@ -295,21 +239,20 @@ const AdminPanel = () => {
         }));
         setAllReviews(reviewsData);
 
-        // Fetch reviewer names (using authorId)
+        // Fetch reviewer names
         const namePromises = reviewsData.map(async (review) => {
-          const authorId = review.authorId || review.reviewerId; // Support both for backward compatibility
-          if (authorId && !userNames[authorId]) {
+          if (review.reviewerId && !userNames[review.reviewerId]) {
             try {
-              const userDoc = await getDoc(doc(db, 'users', authorId));
+              const userDoc = await getDoc(doc(db, 'users', review.reviewerId));
               if (userDoc.exists()) {
                 const userData = userDoc.data();
                 setUserNames((prev) => ({
                   ...prev,
-                  [authorId]: userData.name || userData.displayName || 'Unknown',
+                  [review.reviewerId]: userData.name || userData.displayName || 'Unknown',
                 }));
               }
             } catch (error) {
-              console.error(`Error fetching user ${authorId}:`, error);
+              console.error(`Error fetching user ${review.reviewerId}:`, error);
             }
           }
         });
@@ -381,23 +324,17 @@ const AdminPanel = () => {
 
   // Tab configuration
   const tabs = [
-    { key: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+    { key: 'overview', label: 'Overview', icon: LayoutDashboard },
     { key: 'users', label: 'Manage Users', icon: Users },
     { key: 'providers', label: 'Manage Providers', icon: Building2 },
     { key: 'properties', label: 'Manage Properties', icon: Home },
-    { key: 'construction-requests', label: 'Construction Requests', icon: FileText },
-    { key: 'renovation-requests', label: 'Renovation Requests', icon: FileText },
-    { key: 'rental-requests', label: 'Rental Requests', icon: FileText },
-    { key: 'buy-sell-listings', label: 'Buy/Sell Listings', icon: ShoppingBag },
+    { key: 'requests', label: 'Manage Requests', icon: FileText },
     { key: 'reviews', label: 'Manage Reviews', icon: Star },
     { key: 'transactions', label: 'Transactions', icon: CreditCard },
-    { key: 'support', label: 'Support Tickets', icon: MessageSquare },
     { key: 'support-messages', label: 'Support Messages', icon: MessageSquare },
     { key: 'support-chats', label: 'Support Chats', icon: MessageCircle },
-    { key: 'marketplace', label: 'Marketplace', icon: ShoppingBag },
     { key: 'notifications', label: 'Send Notifications', icon: Bell },
     { key: 'manage-notifications', label: 'Manage Notifications', icon: Bell },
-    { key: 'theme-settings', label: 'Theme Settings', icon: ImageIcon },
   ];
 
   // Fetch platform statistics
@@ -411,22 +348,16 @@ const AdminPanel = () => {
         usersSnapshot,
         propertiesSnapshot,
         providersSnapshot,
-        renovationRequestsSnapshot,
-        constructionRequestsSnapshot,
-        rentalRequestsSnapshot,
-        buySellRequestsSnapshot,
+        renovationProjectsSnapshot,
+        constructionProjectsSnapshot,
         supportMessagesSnapshot,
-        marketplaceSnapshot,
       ] = await Promise.allSettled([
         getDocs(collection(db, 'users')),
         getDocs(collection(db, 'properties')),
-        getDocs(query(collection(db, 'providers'), where('isApproved', '==', true))),
-        getDocs(collection(db, 'renovationRequests')),
-        getDocs(collection(db, 'constructionRequests')),
-        getDocs(collection(db, 'rentalRequests')),
-        getDocs(collection(db, 'buySellRequests')),
+        getDocs(query(collection(db, 'serviceProviders'), where('isApproved', '==', true))),
+        getDocs(collection(db, 'renovationProjects')),
+        getDocs(collection(db, 'constructionProjects')),
         getDocs(collection(db, 'supportMessages')),
-        getDocs(collection(db, 'marketplace')),
       ]);
 
       // Extract counts, defaulting to 0 if collection doesn't exist or query fails
@@ -437,26 +368,16 @@ const AdminPanel = () => {
       const providersCount =
         providersSnapshot.status === 'fulfilled' ? providersSnapshot.value.size : 0;
       const renovationCount =
-        renovationRequestsSnapshot.status === 'fulfilled'
-          ? renovationRequestsSnapshot.value.size
+        renovationProjectsSnapshot.status === 'fulfilled'
+          ? renovationProjectsSnapshot.value.size
           : 0;
       const constructionCount =
-        constructionRequestsSnapshot.status === 'fulfilled'
-          ? constructionRequestsSnapshot.value.size
+        constructionProjectsSnapshot.status === 'fulfilled'
+          ? constructionProjectsSnapshot.value.size
           : 0;
-      const rentalCount =
-        rentalRequestsSnapshot.status === 'fulfilled'
-          ? rentalRequestsSnapshot.value.size
-          : 0;
-      const buySellCount =
-        buySellRequestsSnapshot.status === 'fulfilled'
-          ? buySellRequestsSnapshot.value.size
-          : 0;
-      const requestsCount = renovationCount + constructionCount + rentalCount + buySellCount;
+      const requestsCount = renovationCount + constructionCount;
       const supportChatsCount =
         supportMessagesSnapshot.status === 'fulfilled' ? supportMessagesSnapshot.value.size : 0;
-      const marketplaceCount =
-        marketplaceSnapshot.status === 'fulfilled' ? marketplaceSnapshot.value.size : 0;
 
       setStats({
         users: usersCount,
@@ -464,95 +385,6 @@ const AdminPanel = () => {
         providers: providersCount,
         requests: requestsCount,
         supportChats: supportChatsCount,
-        marketplace: marketplaceCount,
-        constructionRequests: constructionCount,
-        renovationRequests: renovationCount,
-        rentalRequests: rentalCount,
-        buySellRequests: buySellCount,
-      });
-
-      // Generate chart data for last 7 days
-      const generateChartData = (snapshot, label) => {
-        if (snapshot.status !== 'fulfilled') return [];
-        
-        const days = 7;
-        const today = new Date();
-        const data = [];
-        
-        for (let i = days - 1; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          date.setHours(0, 0, 0, 0);
-          
-          const count = snapshot.value.docs.filter((doc) => {
-            const createdAt = doc.data().createdAt;
-            if (!createdAt) return false;
-            const docDate = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
-            docDate.setHours(0, 0, 0, 0);
-            return docDate.getTime() === date.getTime();
-          }).length;
-          
-          data.push({
-            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            [label]: count,
-          });
-        }
-        
-        return data;
-      };
-
-      // Combine chart data
-      const usersData = generateChartData(usersSnapshot, 'Users');
-      const propertiesData = generateChartData(propertiesSnapshot, 'Properties');
-      const requestsData = [];
-      
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        date.setHours(0, 0, 0, 0);
-        
-        const constructionCount = constructionRequestsSnapshot.status === 'fulfilled'
-          ? constructionRequestsSnapshot.value.docs.filter((doc) => {
-              const createdAt = doc.data().createdAt;
-              if (!createdAt) return false;
-              const docDate = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
-              docDate.setHours(0, 0, 0, 0);
-              return docDate.getTime() === date.getTime();
-            }).length
-          : 0;
-        
-        const renovationCount = renovationRequestsSnapshot.status === 'fulfilled'
-          ? renovationRequestsSnapshot.value.docs.filter((doc) => {
-              const createdAt = doc.data().createdAt;
-              if (!createdAt) return false;
-              const docDate = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
-              docDate.setHours(0, 0, 0, 0);
-              return docDate.getTime() === date.getTime();
-            }).length
-          : 0;
-        
-        const rentalCount = rentalRequestsSnapshot.status === 'fulfilled'
-          ? rentalRequestsSnapshot.value.docs.filter((doc) => {
-              const createdAt = doc.data().createdAt;
-              if (!createdAt) return false;
-              const docDate = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
-              docDate.setHours(0, 0, 0, 0);
-              return docDate.getTime() === date.getTime();
-            }).length
-          : 0;
-        
-        requestsData.push({
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          Construction: constructionCount,
-          Renovation: renovationCount,
-          Rental: rentalCount,
-        });
-      }
-
-      setChartData({
-        usersOverTime: usersData,
-        propertiesOverTime: propertiesData,
-        requestsOverTime: requestsData,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -563,7 +395,6 @@ const AdminPanel = () => {
         providers: 0,
         requests: 0,
         supportChats: 0,
-        marketplace: 0,
       });
     } finally {
       setStatsLoading(false);
@@ -1323,88 +1154,9 @@ const AdminPanel = () => {
     }
   };
 
-  // Handle suspend user
-  const handleSuspendUser = async (userId) => {
-    if (!db || !currentUser || currentUserRole !== 'admin') {
-      toast.error('Unauthorized access');
-      return;
-    }
-
-    try {
-      setProcessing(true);
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        isSuspended: true,
-        suspendedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      
-      // Notify user
-      try {
-        await notificationService.sendNotification(
-          userId,
-          'Account Suspended',
-          'Your account has been suspended by an administrator. Please contact support for more information.',
-          'warning',
-          '/contact'
-        );
-      } catch (notifError) {
-        console.error('Error sending suspension notification:', notifError);
-      }
-      
-      toast.success('User suspended successfully');
-    } catch (error) {
-      console.error('Error suspending user:', error);
-      toast.error('Failed to suspend user');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  // Handle activate user
-  const handleActivateUser = async (userId) => {
-    if (!db || !currentUser || currentUserRole !== 'admin') {
-      toast.error('Unauthorized access');
-      return;
-    }
-
-    try {
-      setProcessing(true);
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        isSuspended: false,
-        suspendedAt: null,
-        updatedAt: serverTimestamp(),
-      });
-      
-      // Notify user
-      try {
-        await notificationService.sendNotification(
-          userId,
-          'Account Activated',
-          'Your account has been reactivated. You can now access all features.',
-          'success',
-          '/dashboard'
-        );
-      } catch (notifError) {
-        console.error('Error sending activation notification:', notifError);
-      }
-      
-      toast.success('User activated successfully');
-    } catch (error) {
-      console.error('Error activating user:', error);
-      toast.error('Failed to activate user');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
   // Handle delete user
   const handleDeleteUser = async () => {
-    if (!userToDelete || !db || !currentUser || currentUserRole !== 'admin') {
-      toast.error('Unauthorized access');
-      return;
-    }
+    if (!userToDelete || !db) return;
 
     try {
       setProcessing(true);
@@ -1422,10 +1174,7 @@ const AdminPanel = () => {
 
   // Handle approve provider
   const handleApproveProvider = async (provider) => {
-    if (!db || !currentUser || currentUserRole !== 'admin') {
-      toast.error('Unauthorized access');
-      return;
-    }
+    if (!db) return;
 
     try {
       setProcessing(true);
@@ -1439,37 +1188,24 @@ const AdminPanel = () => {
         updatedAt: serverTimestamp(),
       });
 
-      // Update user role and isProviderApproved
+      // Update user role if needed
       if (provider.userId) {
         const userRef = doc(db, 'users', provider.userId);
+        const roleToSet = provider.serviceType === 'Construction' ? 'constructor' : 'renovator';
         await updateDoc(userRef, {
-          role: 'provider',
-          isProviderApproved: true,
+          role: roleToSet,
           updatedAt: serverTimestamp(),
         });
       }
 
       // Create notification for provider
-      try {
-        const { sendNotification } = await import('../utils/notificationHelpers');
-        await sendNotification({
-          userId: provider.userId,
-          title: 'Provider Approved',
-          message: `Your provider account has been approved. You can now start receiving project requests.`,
-          type: 'success',
-          meta: { providerId: provider.id }
-        });
-      } catch (notifError) {
-        console.error('Error sending notification:', notifError);
-        // Fallback to notificationService
-        await notificationService.sendNotification(
-          provider.userId,
-          'Provider Application Approved',
-          `Congratulations! Your ${provider.serviceType} provider application has been approved. You can now start receiving project requests.`,
-          'status-update',
-          provider.serviceType === 'construction' || provider.serviceType === 'Construction' ? '/constructor-dashboard' : '/renovator-dashboard'
-        );
-      }
+      await notificationService.sendNotification(
+        provider.userId,
+        'Provider Application Approved',
+        `Congratulations! Your ${provider.serviceType} provider application has been approved. You can now start receiving project requests.`,
+        'status-update',
+        provider.serviceType === 'Construction' ? '/constructor-dashboard' : '/renovator-dashboard'
+      );
 
       toast.success('Provider approved successfully');
     } catch (error) {
@@ -1554,10 +1290,7 @@ const AdminPanel = () => {
 
   // Handle delete property
   const handleDeleteProperty = async () => {
-    if (!propertyToDelete || !db || !currentUser || currentUserRole !== 'admin') {
-      toast.error('Unauthorized access');
-      return;
-    }
+    if (!propertyToDelete || !db) return;
 
     try {
       setProcessing(true);
@@ -1635,10 +1368,7 @@ const AdminPanel = () => {
 
   // Handle update request status
   const handleUpdateRequestStatus = async (request, newStatus) => {
-    if (!db || !currentUser || currentUserRole !== 'admin') {
-      toast.error('Unauthorized access');
-      return;
-    }
+    if (!db) return;
 
     try {
       setProcessing(true);
@@ -1716,101 +1446,6 @@ const AdminPanel = () => {
   };
 
   // Filter requests based on filters
-  // Fetch marketplace listings when marketplace tab is active
-  useEffect(() => {
-    if (activeTab !== 'marketplace' || !db) return;
-
-    setMarketplaceLoading(true);
-    try {
-      let listingsQuery = query(collection(db, 'marketplace'), orderBy('createdAt', 'desc'));
-
-      if (marketplaceFilters.status) {
-        listingsQuery = query(listingsQuery, where('status', '==', marketplaceFilters.status));
-      }
-
-      const unsubscribe = onSnapshot(
-        listingsQuery,
-        (snapshot) => {
-          let listings = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-
-          // Client-side filters
-          if (marketplaceFilters.category) {
-            listings = listings.filter((l) => l.category === marketplaceFilters.category);
-          }
-
-          if (marketplaceFilters.search) {
-            const search = marketplaceFilters.search.toLowerCase();
-            listings = listings.filter(
-              (l) =>
-                l.title?.toLowerCase().includes(search) ||
-                l.description?.toLowerCase().includes(search) ||
-                l.location?.toLowerCase().includes(search)
-            );
-          }
-
-          setMarketplaceListings(listings);
-          setMarketplaceLoading(false);
-        },
-        (error) => {
-          console.error('Error fetching marketplace listings:', error);
-          if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-            const fallbackQuery = query(collection(db, 'marketplace'));
-            const fallbackUnsubscribe = onSnapshot(
-              fallbackQuery,
-              (snapshot) => {
-                let listings = snapshot.docs.map((doc) => ({
-                  id: doc.id,
-                  ...doc.data(),
-                }));
-
-                // Client-side filters
-                if (marketplaceFilters.category) {
-                  listings = listings.filter((l) => l.category === marketplaceFilters.category);
-                }
-
-                if (marketplaceFilters.search) {
-                  const search = marketplaceFilters.search.toLowerCase();
-                  listings = listings.filter(
-                    (l) =>
-                      l.title?.toLowerCase().includes(search) ||
-                      l.description?.toLowerCase().includes(search) ||
-                      l.location?.toLowerCase().includes(search)
-                  );
-                }
-
-                listings.sort((a, b) => {
-                  const aTime = a.createdAt?.toDate?.() || new Date(0);
-                  const bTime = b.createdAt?.toDate?.() || new Date(0);
-                  return bTime - aTime;
-                });
-
-                setMarketplaceListings(listings);
-                setMarketplaceLoading(false);
-              },
-              (fallbackError) => {
-                console.error('Error fetching marketplace listings (fallback):', fallbackError);
-                toast.error('Failed to load marketplace listings');
-                setMarketplaceLoading(false);
-              }
-            );
-            return () => fallbackUnsubscribe();
-          } else {
-            toast.error('Failed to load marketplace listings');
-            setMarketplaceLoading(false);
-          }
-        }
-      );
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up marketplace listener:', error);
-      setMarketplaceLoading(false);
-    }
-  }, [activeTab, marketplaceFilters]);
-
   // Fetch all notifications for manage-notifications tab
   useEffect(() => {
     if (activeTab !== 'manage-notifications' || !db) return;
@@ -1866,60 +1501,6 @@ const AdminPanel = () => {
       setAllNotificationsLoading(false);
     }
   }, [activeTab]);
-
-  // Fetch support tickets when support tab is active
-  useEffect(() => {
-    if (activeTab !== 'support' || !db) return;
-
-    setSupportTicketsLoading(true);
-    try {
-      const ticketsQuery = query(
-        collection(db, 'supportTickets'),
-        orderBy('createdAt', 'desc')
-      );
-
-      const unsubscribe = onSnapshot(
-        ticketsQuery,
-        async (snapshot) => {
-          const ticketsData = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setSupportTickets(ticketsData);
-
-          // Fetch user names
-          const namePromises = ticketsData.map(async (ticket) => {
-            if (ticket.userId && !userNames[ticket.userId]) {
-              try {
-                const userDoc = await getDoc(doc(db, 'users', ticket.userId));
-                if (userDoc.exists()) {
-                  const userData = userDoc.data();
-                  setUserNames((prev) => ({
-                    ...prev,
-                    [ticket.userId]: userData.name || userData.displayName || ticket.name || 'Unknown',
-                  }));
-                }
-              } catch (error) {
-                console.error(`Error fetching user ${ticket.userId}:`, error);
-              }
-            }
-          });
-          await Promise.all(namePromises);
-
-          setSupportTicketsLoading(false);
-        },
-        (error) => {
-          console.error('Error fetching support tickets:', error);
-          setSupportTicketsLoading(false);
-        }
-      );
-
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up support tickets listener:', error);
-      setSupportTicketsLoading(false);
-    }
-  }, [activeTab, db, userNames]);
 
   const getFilteredNotifications = () => {
     let filtered = [...allNotifications];
@@ -1997,7 +1578,7 @@ const AdminPanel = () => {
         'Support Message Reply',
         `An admin has replied to your support message: "${selectedMessage.subject}".`,
         'admin',
-        '/my-account'
+        '/account'
       );
 
       toast.success('Reply sent successfully');
@@ -2061,11 +1642,10 @@ const AdminPanel = () => {
 
       // Add message
       await addDoc(messagesRef, {
-        sender: 'admin',
         senderId: currentUser.uid,
         text: newMessageText.trim(),
+        isAdmin: true,
         createdAt: serverTimestamp(),
-        read: false,
       });
 
       // Update chat document (document ID = userId)
@@ -2098,18 +1678,16 @@ const AdminPanel = () => {
   };
 
   // Handle send notifications
-  const handleSendNotifications = async (confirmed = false) => {
-    if (!db || !currentUser || currentUserRole !== 'admin') {
-      toast.error('Unauthorized access');
-      return;
-    }
-
-    if (!notificationForm.title.trim() || !notificationForm.message.trim()) {
+  const handleSendNotifications = async () => {
+    if (!db || !notificationForm.title.trim() || !notificationForm.message.trim()) {
       toast.error('Please fill in title and message');
       return;
     }
 
     try {
+      setSendingNotifications(true);
+      setNotificationProgress({ sent: 0, total: 0 });
+
       let userIds = [];
 
       if (notificationForm.target === 'all-users') {
@@ -2128,6 +1706,7 @@ const AdminPanel = () => {
       } else if (notificationForm.target === 'single-uid') {
         if (!notificationForm.singleUid.trim()) {
           toast.error('Please enter a user UID');
+          setSendingNotifications(false);
           return;
         }
         userIds = [notificationForm.singleUid.trim()];
@@ -2135,17 +1714,18 @@ const AdminPanel = () => {
 
       if (userIds.length === 0) {
         toast.error('No users found to send notifications to');
+        setSendingNotifications(false);
         return;
       }
 
-      // If > 500 users and not confirmed, show confirmation modal
-      if (userIds.length > 500 && !confirmed) {
-        setPendingNotificationData({ userIds, count: userIds.length });
-        setBatchConfirmModalOpen(true);
-        return;
+      // Warn if > 500 users
+      if (userIds.length > 500) {
+        toast.error(
+          `Too many users (${userIds.length}). Please use batches. Limiting to 500 for now.`
+        );
+        userIds = userIds.slice(0, 500);
       }
 
-      setSendingNotifications(true);
       setNotificationProgress({ sent: 0, total: userIds.length });
 
       // Batch create notifications (Firestore batch limit is 500)
@@ -2176,20 +1756,12 @@ const AdminPanel = () => {
 
       toast.success(`Notifications sent to ${sentCount} ${notificationForm.target === 'all-providers' ? 'providers' : 'users'}`);
       setNotificationForm({ title: '', message: '', target: 'all-users', singleUid: '' });
-      setBatchConfirmModalOpen(false);
-      setPendingNotificationData(null);
     } catch (error) {
       console.error('Error sending notifications:', error);
       toast.error(`Failed to send notifications: ${error.message}`);
     } finally {
       setSendingNotifications(false);
       setNotificationProgress({ sent: 0, total: 0 });
-    }
-  };
-
-  const handleConfirmBatchSend = () => {
-    if (pendingNotificationData) {
-      handleSendNotifications(true);
     }
   };
 
@@ -2269,120 +1841,29 @@ const AdminPanel = () => {
                     <MessageSquare className="w-10 h-10 text-primary opacity-50" />
                   </div>
                 </div>
-
-                <div className="bg-surface rounded-lg border border-muted shadow-sm hover:shadow-md transition p-6 md:col-span-2 lg:col-span-1">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-textSecondary mb-1">Marketplace Listings</p>
-                      <p className="text-primary font-bold text-3xl">{stats.marketplace}</p>
-                    </div>
-                    <ShoppingBag className="w-10 h-10 text-primary opacity-50" />
-                  </div>
-                </div>
               </div>
 
-              {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
-                  <h3 className="text-lg font-semibold text-textMain mb-4">Platform Statistics</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart
-                      data={[
-                        { name: 'Users', value: stats.users },
-                        { name: 'Properties', value: stats.properties },
-                        { name: 'Providers', value: stats.providers },
-                        { name: 'Requests', value: stats.requests },
-                        { name: 'Marketplace', value: stats.marketplace },
-                      ]}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="value" fill="#3b82f6" name="Count" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
-                  <h3 className="text-lg font-semibold text-textMain mb-4">Active Services</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: 'Construction', value: stats.constructionRequests || 0 },
-                          { name: 'Renovation', value: stats.renovationRequests || 0 },
-                          { name: 'Rental', value: stats.rentalRequests || 0 },
-                          { name: 'Buy/Sell', value: stats.buySellRequests || 0 },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {[
-                          { name: 'Construction', value: stats.constructionRequests || 0 },
-                          { name: 'Renovation', value: stats.renovationRequests || 0 },
-                          { name: 'Rental', value: stats.rentalRequests || 0 },
-                          { name: 'Buy/Sell', value: stats.buySellRequests || 0 },
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444'][index]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Time-based Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
-                  <h3 className="text-lg font-semibold text-textMain mb-4">Users & Properties Over Time (Last 7 Days)</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart
-                      data={chartData.usersOverTime.length > 0 ? chartData.usersOverTime : chartData.propertiesOverTime}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      {chartData.usersOverTime.length > 0 && (
-                        <Line type="monotone" dataKey="Users" stroke="#3b82f6" strokeWidth={2} />
-                      )}
-                      {chartData.propertiesOverTime.length > 0 && (
-                        <Line type="monotone" dataKey="Properties" stroke="#10b981" strokeWidth={2} />
-                      )}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
-                  <h3 className="text-lg font-semibold text-textMain mb-4">Service Requests Over Time (Last 7 Days)</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart
-                      data={chartData.requestsOverTime}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="Construction" stroke="#3b82f6" strokeWidth={2} />
-                      <Line type="monotone" dataKey="Renovation" stroke="#10b981" strokeWidth={2} />
-                      <Line type="monotone" dataKey="Rental" stroke="#f59e0b" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+              {/* Chart */}
+              <div className="bg-surface rounded-lg p-6 border border-muted shadow-sm">
+                <h3 className="text-lg font-semibold text-textMain mb-4">Platform Statistics</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={[
+                      { name: 'Users', value: stats.users },
+                      { name: 'Properties', value: stats.properties },
+                      { name: 'Providers', value: stats.providers },
+                      { name: 'Requests', value: stats.requests },
+                    ]}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="value" fill="#3b82f6" name="Count" />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </>
           )}
@@ -2421,9 +1902,6 @@ const AdminPanel = () => {
                         Role
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
                         Created At
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-textSecondary uppercase tracking-wider">
@@ -2460,44 +1938,8 @@ const AdminPanel = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
                             {formatDate(userItem.createdAt)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                userItem.isSuspended
-                                  ? 'bg-error/20 text-error'
-                                  : 'bg-green-100 text-green-800'
-                              }`}
-                            >
-                              {userItem.isSuspended ? 'Suspended' : 'Active'}
-                            </span>
-                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center justify-end gap-2">
-                              {userItem.isSuspended ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleActivateUser(userItem.id)}
-                                  disabled={processing || isCurrentUser}
-                                  className="text-green-600 border-green-600 hover:bg-green-50"
-                                  title={isCurrentUser ? 'You cannot activate yourself' : 'Activate user'}
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-1" />
-                                  Activate
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleSuspendUser(userItem.id)}
-                                  disabled={processing || isCurrentUser}
-                                  className="text-orange-600 border-orange-600 hover:bg-orange-50"
-                                  title={isCurrentUser ? 'You cannot suspend yourself' : 'Suspend user'}
-                                >
-                                  <Ban className="w-4 h-4 mr-1" />
-                                  Suspend
-                                </Button>
-                              )}
                               {!isAdmin ? (
                                 <Button
                                   size="sm"
@@ -2621,20 +2063,8 @@ const AdminPanel = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {providers.map((provider) => {
                 const isApproved = provider.isApproved || provider.approved;
-                const specialization = Array.isArray(provider.specialization) 
-                  ? provider.specialization 
-                  : provider.specialization 
-                    ? [provider.specialization] 
-                    : Array.isArray(provider.expertise) 
-                      ? provider.expertise 
-                      : provider.expertise 
-                        ? [provider.expertise] 
-                        : [];
-                const portfolioLinks = Array.isArray(provider.portfolio) 
-                  ? provider.portfolio 
-                  : Array.isArray(provider.portfolioLinks) 
-                    ? provider.portfolioLinks 
-                    : [];
+                const specialization = provider.specialization || provider.expertise || [];
+                const portfolioLinks = provider.portfolioLinks || [];
 
                 return (
                   <div
@@ -2658,14 +2088,12 @@ const AdminPanel = () => {
                           </span>
                           <span
                             className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              provider.serviceType === 'construction' || provider.serviceType === 'Construction'
+                              provider.serviceType === 'Construction'
                                 ? 'bg-primary/10 text-primary'
                                 : 'bg-primary text-primary'
                             }`}
                           >
-                            {provider.serviceType === 'construction' ? 'Construction' : 
-                             provider.serviceType === 'renovation' ? 'Renovation' : 
-                             provider.serviceType || 'N/A'}
+                            {provider.serviceType || 'N/A'}
                           </span>
                         </div>
                         <div className="space-y-2 text-sm text-textSecondary">
@@ -3851,309 +3279,6 @@ const AdminPanel = () => {
     }
 
     // Support Messages tab
-    if (activeTab === 'support') {
-      const getFilteredTickets = () => {
-        let filtered = [...supportTickets];
-
-        if (supportTicketFilters.status) {
-          filtered = filtered.filter((t) => t.status === supportTicketFilters.status);
-        }
-
-        if (supportTicketFilters.search) {
-          const searchLower = supportTicketFilters.search.toLowerCase();
-          filtered = filtered.filter(
-            (t) =>
-              t.name?.toLowerCase().includes(searchLower) ||
-              t.email?.toLowerCase().includes(searchLower) ||
-              t.message?.toLowerCase().includes(searchLower)
-          );
-        }
-
-        return filtered;
-      };
-
-      const filteredTickets = getFilteredTickets();
-      const paginatedTickets = filteredTickets.slice(
-        (supportTicketsPage - 1) * ITEMS_PER_PAGE,
-        supportTicketsPage * ITEMS_PER_PAGE
-      );
-
-      const handleViewTicket = (ticket) => {
-        setSelectedTicket(ticket);
-        setViewTicketModalOpen(true);
-      };
-
-      const handleReplyToTicket = async () => {
-        if (!ticketReplyText.trim() || !selectedTicket) {
-          toast.error('Please enter a reply message');
-          return;
-        }
-
-        try {
-          await supportTicketService.reply(selectedTicket.id, user.uid, ticketReplyText);
-          toast.success('Reply sent successfully');
-          setReplyTicketModalOpen(false);
-          setTicketReplyText('');
-          setSelectedTicket(null);
-        } catch (error) {
-          console.error('Error replying to ticket:', error);
-          toast.error(error.message || 'Failed to send reply');
-        }
-      };
-
-      const handleCloseTicket = async (ticketId) => {
-        if (!window.confirm('Are you sure you want to close this ticket?')) {
-          return;
-        }
-
-        try {
-          await supportTicketService.close(ticketId);
-          toast.success('Ticket closed successfully');
-        } catch (error) {
-          console.error('Error closing ticket:', error);
-          toast.error(error.message || 'Failed to close ticket');
-        }
-      };
-
-      return (
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-textMain mb-6">Support Tickets</h2>
-
-          {/* Filters */}
-          <div className="mb-6 flex gap-4">
-            <select
-              value={supportTicketFilters.status}
-              onChange={(e) =>
-                setSupportTicketFilters((prev) => ({ ...prev, status: e.target.value }))
-              }
-              className="px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-            >
-              <option value="">All Statuses</option>
-              <option value="open">Open</option>
-              <option value="in-progress">In Progress</option>
-              <option value="resolved">Resolved</option>
-              <option value="closed">Closed</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Search by name, email, or message..."
-              value={supportTicketFilters.search}
-              onChange={(e) =>
-                setSupportTicketFilters((prev) => ({ ...prev, search: e.target.value }))
-              }
-              className="flex-1 px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-            />
-          </div>
-
-          {supportTicketsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <LoadingSpinner size="md" />
-            </div>
-          ) : filteredTickets.length === 0 ? (
-            <div className="text-center py-12 text-textSecondary">
-              <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted" />
-              <p>No support tickets found</p>
-            </div>
-          ) : (
-            <>
-              <div className="bg-surface rounded-lg shadow-sm border border-muted overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-textMain">Name</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-textMain">Email</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-textMain">Message</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-textMain">Status</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-textMain">Created</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-textMain">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-muted">
-                    {paginatedTickets.map((ticket) => (
-                      <tr key={ticket.id} className="hover:bg-background">
-                        <td className="px-4 py-3 text-sm text-textMain">
-                          {userNames[ticket.userId] || ticket.name || 'Unknown'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-textSecondary">{ticket.email}</td>
-                        <td className="px-4 py-3 text-sm text-textSecondary max-w-xs truncate">
-                          {ticket.message}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              ticket.status === 'open'
-                                ? 'bg-accent text-white'
-                                : ticket.status === 'in-progress'
-                                  ? 'bg-primary text-white'
-                                  : ticket.status === 'resolved'
-                                    ? 'bg-green-500 text-white'
-                                    : 'bg-textSecondary text-white'
-                            }`}
-                          >
-                            {ticket.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-textSecondary">
-                          {ticket.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewTicket(ticket)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            {ticket.status !== 'closed' && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedTicket(ticket);
-                                    setReplyTicketModalOpen(true);
-                                  }}
-                                >
-                                  Reply
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="text-error border-error hover:bg-error/10"
-                                  onClick={() => handleCloseTicket(ticket.id)}
-                                >
-                                  Close
-                                </Button>
-                              </>
-                            )}
-                            {ticket.chatId && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => window.open(`/chats?chatId=${ticket.chatId}`, '_blank')}
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <Pagination
-                currentPage={supportTicketsPage}
-                totalPages={Math.ceil(filteredTickets.length / ITEMS_PER_PAGE)}
-                onPageChange={setSupportTicketsPage}
-              />
-            </>
-          )}
-
-          {/* View Ticket Modal */}
-          <Modal
-            isOpen={viewTicketModalOpen}
-            onClose={() => {
-              setViewTicketModalOpen(false);
-              setSelectedTicket(null);
-            }}
-            title="Support Ticket Details"
-            size="lg"
-          >
-            {selectedTicket && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-textSecondary mb-1">Name</label>
-                  <p className="text-textMain">{userNames[selectedTicket.userId] || selectedTicket.name}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-textSecondary mb-1">Email</label>
-                  <p className="text-textMain">{selectedTicket.email}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-textSecondary mb-1">Status</label>
-                  <span
-                    className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      selectedTicket.status === 'open'
-                        ? 'bg-accent text-white'
-                        : selectedTicket.status === 'in-progress'
-                          ? 'bg-primary text-white'
-                          : selectedTicket.status === 'resolved'
-                            ? 'bg-green-500 text-white'
-                            : 'bg-textSecondary text-white'
-                    }`}
-                  >
-                    {selectedTicket.status}
-                  </span>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-textSecondary mb-1">Message</label>
-                  <p className="text-textMain whitespace-pre-wrap">{selectedTicket.message}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-textSecondary mb-1">Created</label>
-                  <p className="text-textMain">
-                    {selectedTicket.createdAt?.toDate?.()?.toLocaleString() || 'N/A'}
-                  </p>
-                </div>
-                {selectedTicket.chatId && (
-                  <div>
-                    <Button
-                      variant="outline"
-                      onClick={() => window.open(`/chats?chatId=${selectedTicket.chatId}`, '_blank')}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open Chat
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </Modal>
-
-          {/* Reply Ticket Modal */}
-          <Modal
-            isOpen={replyTicketModalOpen}
-            onClose={() => {
-              setReplyTicketModalOpen(false);
-              setTicketReplyText('');
-              setSelectedTicket(null);
-            }}
-            title="Reply to Support Ticket"
-            size="md"
-          >
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-textSecondary mb-2">Reply Message</label>
-                <textarea
-                  value={ticketReplyText}
-                  onChange={(e) => setTicketReplyText(e.target.value)}
-                  className="w-full px-4 py-2 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none"
-                  rows={5}
-                  placeholder="Enter your reply message..."
-                />
-              </div>
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setReplyTicketModalOpen(false);
-                    setTicketReplyText('');
-                    setSelectedTicket(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button onClick={handleReplyToTicket}>Send Reply</Button>
-              </div>
-            </div>
-          </Modal>
-        </div>
-      );
-    }
-
     if (activeTab === 'support-messages') {
       return (
         <div className="p-6">
@@ -4546,291 +3671,6 @@ const AdminPanel = () => {
     }
 
     // Support Chats tab
-    if (activeTab === 'marketplace') {
-      return (
-        <div className="p-6">
-          <h2 className="text-2xl font-bold text-textMain mb-6">Marketplace Listings</h2>
-
-          {/* Filters */}
-          <div className="bg-surface rounded-lg p-4 mb-6 border border-muted">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Input
-                label="Search"
-                value={marketplaceFilters.search}
-                onChange={(e) => setMarketplaceFilters({ ...marketplaceFilters, search: e.target.value })}
-                placeholder="Search listings..."
-                leftIcon={<Search className="w-4 h-4" />}
-              />
-              <div>
-                <label className="block text-sm font-medium text-textSecondary mb-1">
-                  Status
-                </label>
-                <select
-                  value={marketplaceFilters.status}
-                  onChange={(e) => setMarketplaceFilters({ ...marketplaceFilters, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary bg-surface text-textMain"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="active">Active</option>
-                  <option value="sold">Sold</option>
-                  <option value="removed">Removed</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-textSecondary mb-1">
-                  Category
-                </label>
-                <select
-                  value={marketplaceFilters.category}
-                  onChange={(e) => setMarketplaceFilters({ ...marketplaceFilters, category: e.target.value })}
-                  className="w-full px-3 py-2 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary bg-surface text-textMain"
-                >
-                  <option value="">All Categories</option>
-                  <option value="electronics">Electronics</option>
-                  <option value="furniture">Furniture</option>
-                  <option value="vehicles">Vehicles</option>
-                  <option value="clothing">Clothing</option>
-                  <option value="books">Books</option>
-                  <option value="home">Home & Garden</option>
-                  <option value="sports">Sports</option>
-                  <option value="toys">Toys</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="flex items-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setMarketplaceFilters({ status: '', category: '', search: '' })}
-                  className="w-full"
-                >
-                  Clear Filters
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {marketplaceLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <LoadingSpinner size="lg" />
-            </div>
-          ) : marketplaceListings.length === 0 ? (
-            <div className="text-center py-12 bg-surface rounded-lg">
-              <ShoppingBag className="w-16 h-16 text-textSecondary mx-auto mb-4" />
-              <p className="text-textSecondary">No marketplace listings found</p>
-            </div>
-          ) : (
-            <div className="bg-surface rounded-lg shadow-sm border border-muted overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-background">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                        Listing
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                        Seller
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                        Price
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                        Category
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-textSecondary uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-textSecondary uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-surface divide-y divide-gray-200">
-                    {marketplaceListings.map((listing) => (
-                      <tr key={listing.id} className="hover:bg-background">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            {listing.coverImage && (
-                              <img
-                                src={listing.coverImage}
-                                alt={listing.title}
-                                className="w-12 h-12 object-cover rounded-lg mr-3"
-                              />
-                            )}
-                            <div>
-                              <div className="text-sm font-medium text-textMain">{listing.title}</div>
-                              <div className="text-xs text-textSecondary line-clamp-1">
-                                {listing.description?.substring(0, 50)}...
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-textMain">{listing.sellerName || 'Unknown'}</div>
-                          <div className="text-xs text-textSecondary">{listing.sellerId?.substring(0, 8)}...</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-textMain">
-                            {new Intl.NumberFormat('en-PK', {
-                              style: 'currency',
-                              currency: 'PKR',
-                              maximumFractionDigits: 0,
-                            }).format(listing.price)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary/10 text-primary capitalize">
-                            {listing.category}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              listing.status === 'active'
-                                ? 'bg-green-100 text-green-800'
-                                : listing.status === 'pending'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : listing.status === 'sold'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {listing.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-textSecondary">
-                          {listing.createdAt?.toDate?.()
-                            ? listing.createdAt.toDate().toLocaleDateString()
-                            : 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end gap-2">
-                            {listing.status === 'pending' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={async () => {
-                                  try {
-                                    setProcessing(true);
-                                    await marketplaceService.update(listing.id, { status: 'active' });
-                                    await notificationService.sendNotification(
-                                      listing.sellerId,
-                                      'Listing Approved',
-                                      `Your marketplace listing "${listing.title}" has been approved and is now active.`,
-                                      'success',
-                                      `/marketplace/${listing.id}`
-                                    );
-                                    toast.success('Listing approved');
-                                  } catch (error) {
-                                    console.error('Error approving listing:', error);
-                                    toast.error('Failed to approve listing');
-                                  } finally {
-                                    setProcessing(false);
-                                  }
-                                }}
-                                disabled={processing}
-                                className="text-green-600 border-green-600 hover:bg-green-50"
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Approve
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setListingToDelete(listing);
-                                setDeleteMarketplaceModalOpen(true);
-                              }}
-                              className="text-error border-error hover:bg-error/10"
-                            >
-                              <Trash2 className="w-4 h-4 mr-1" />
-                              Remove
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Delete Marketplace Listing Modal */}
-          <Modal
-            isOpen={deleteMarketplaceModalOpen}
-            onClose={() => {
-              setDeleteMarketplaceModalOpen(false);
-              setListingToDelete(null);
-            }}
-            title="Remove Marketplace Listing"
-            size="md"
-          >
-            <div className="space-y-4">
-              <p className="text-textSecondary">
-                Are you sure you want to remove this marketplace listing? This action cannot be undone.
-              </p>
-              {listingToDelete && (
-                <div className="bg-background p-4 rounded-lg">
-                  <p className="text-sm text-textSecondary mb-2">
-                    <strong>Title:</strong> {listingToDelete.title}
-                  </p>
-                  <p className="text-sm text-textSecondary">
-                    <strong>Seller:</strong> {listingToDelete.sellerName || 'Unknown'}
-                  </p>
-                </div>
-              )}
-              <div className="flex gap-3 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setDeleteMarketplaceModalOpen(false);
-                    setListingToDelete(null);
-                  }}
-                  disabled={processing}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="bg-error hover:bg-error text-white"
-                  onClick={async () => {
-                    if (!listingToDelete) return;
-                    try {
-                      setProcessing(true);
-                      await marketplaceService.delete(listingToDelete.id);
-                      await notificationService.sendNotification(
-                        listingToDelete.sellerId,
-                        'Listing Removed',
-                        `Your marketplace listing "${listingToDelete.title}" has been removed by an administrator.`,
-                        'warning',
-                        '/sell'
-                      );
-                      toast.success('Listing removed successfully');
-                      setDeleteMarketplaceModalOpen(false);
-                      setListingToDelete(null);
-                    } catch (error) {
-                      console.error('Error deleting listing:', error);
-                      toast.error('Failed to remove listing');
-                    } finally {
-                      setProcessing(false);
-                    }
-                  }}
-                  loading={processing}
-                  disabled={processing}
-                >
-                  Remove Listing
-                </Button>
-              </div>
-            </div>
-          </Modal>
-        </div>
-      );
-    }
-
     if (activeTab === 'support-chats') {
       return (
         <div className="p-6">
@@ -4949,7 +3789,7 @@ const AdminPanel = () => {
                       </div>
                     ) : (
                       chatMessages.map((message) => {
-                        const isAdmin = message.sender === 'admin';
+                        const isAdmin = message.isAdmin || message.senderId === currentUser?.uid;
 
                         return (
                           <div
@@ -5034,10 +3874,7 @@ const AdminPanel = () => {
       };
 
       const handleDeleteReview = async () => {
-        if (!reviewToDelete || !currentUser || currentUserRole !== 'admin') {
-          toast.error('Unauthorized access');
-          return;
-        }
+        if (!reviewToDelete) return;
         try {
           setProcessing(true);
           await reviewsService.delete(reviewToDelete.id);
@@ -5092,7 +3929,8 @@ const AdminPanel = () => {
                 >
                   <option value="">All Types</option>
                   <option value="property">Property</option>
-                  <option value="provider">Provider</option>
+                  <option value="construction">Construction</option>
+                  <option value="renovation">Renovation</option>
                 </select>
               </div>
               <div>
@@ -5167,22 +4005,21 @@ const AdminPanel = () => {
                   </thead>
                   <tbody className="bg-surface divide-y divide-muted">
                     {filteredReviews.map((review) => {
-                      const authorId = review.authorId || review.reviewerId; // Support both for backward compatibility
-                      const reviewerName = userNames[authorId] || 'Loading...';
+                      const reviewerName = userNames[review.reviewerId] || 'Loading...';
                       return (
                         <tr key={review.id} className="hover:bg-background">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-textMain">{reviewerName}</div>
-                            <div className="text-xs text-textSecondary">{authorId?.substring(0, 8)}...</div>
+                            <div className="text-xs text-textSecondary">{review.reviewerId?.substring(0, 8)}...</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 review.targetType === 'property'
                                   ? 'bg-primary/10 text-primary'
-                                  : review.targetType === 'provider'
-                                    ? 'bg-accent/10 text-accent'
-                                    : 'bg-muted text-textMain'
+                                  : review.targetType === 'construction'
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : 'bg-pink-100 text-pink-800'
                               }`}
                             >
                               {review.targetType}
@@ -5624,53 +4461,6 @@ const AdminPanel = () => {
                 </Button>
               </div>
             </form>
-
-            {/* Batch Confirmation Modal */}
-            <Modal
-              isOpen={batchConfirmModalOpen}
-              onClose={() => {
-                setBatchConfirmModalOpen(false);
-                setPendingNotificationData(null);
-              }}
-              title="Confirm Batch Notification"
-              size="md"
-            >
-              <div className="space-y-4">
-                <div className="bg-accent/10 border border-accent/30 rounded-lg p-4">
-                  <p className="text-textMain font-semibold mb-2">
-                    Large Batch Detected: {pendingNotificationData?.count || 0} recipients
-                  </p>
-                  <p className="text-sm text-textSecondary">
-                    You are about to send notifications to <strong>{pendingNotificationData?.count || 0}</strong> users.
-                    This will be processed in batches of 500. This action may take several minutes.
-                  </p>
-                </div>
-                <div className="bg-background rounded-lg p-4 border border-muted">
-                  <p className="text-sm font-medium text-textSecondary mb-2">Notification Details:</p>
-                  <p className="text-sm text-textMain font-semibold">{notificationForm.title}</p>
-                  <p className="text-sm text-textSecondary mt-1">{notificationForm.message}</p>
-                </div>
-                <div className="flex gap-3 justify-end">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setBatchConfirmModalOpen(false);
-                      setPendingNotificationData(null);
-                    }}
-                    disabled={sendingNotifications}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleConfirmBatchSend}
-                    loading={sendingNotifications}
-                    disabled={sendingNotifications}
-                  >
-                    Confirm & Send
-                  </Button>
-                </div>
-              </div>
-            </Modal>
           </div>
         </div>
       );

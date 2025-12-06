@@ -105,11 +105,10 @@ const RegisterConstructor = () => {
         setCheckingRegistration(true);
         console.log('Checking if user is already registered as constructor:', currentUser.uid);
 
-        // Query providers collection filtered by userId
+        // Query constructionProviders collection filtered by userId
         const providersQuery = query(
-          collection(db, 'providers'),
-          where('userId', '==', currentUser.uid),
-          where('type', '==', 'construction')
+          collection(db, 'constructionProviders'),
+          where('userId', '==', currentUser.uid)
         );
 
         const snapshot = await getDocs(providersQuery);
@@ -434,9 +433,8 @@ const RegisterConstructor = () => {
 
       // Check again if user is already registered (race condition protection)
       const providersQuery = query(
-        collection(db, 'providers'),
-        where('userId', '==', currentUser.uid),
-        where('type', '==', 'construction')
+        collection(db, 'constructionProviders'),
+        where('userId', '==', currentUser.uid)
       );
       const snapshot = await getDocs(providersQuery);
 
@@ -458,54 +456,41 @@ const RegisterConstructor = () => {
         .map((link) => link.trim())
         .filter((link) => link.length > 0 && (link.startsWith('http://') || link.startsWith('https://')));
 
-      // Prepare documents object
-      const documents = {};
-      if (uploads.cnicUrl) {
-        documents.cnicUrl = uploads.cnicUrl;
-      }
-      if (uploads.licenseFiles && uploads.licenseFiles.length > 0) {
-        documents.licenseFiles = uploads.licenseFiles;
-      }
-
       const providerData = {
         userId: currentUser.uid,
         name: formData.name.trim(),
+        companyName: formData.companyName.trim(),
+        cnic: formData.cnic.trim(),
         phone: formData.phone.trim(),
-        type: 'construction',
-        specialization: formData.skills, // Use skills as specialization
-        portfolio: portfolioLinksArray,
-        documents: documents,
+        email: formData.email.trim(),
+        experience: Number(formData.experience),
+        skills: formData.skills,
         city: formData.city.trim(),
-        isApproved: false,
+        address: formData.address.trim(),
+        portfolioLinks: portfolioLinksArray,
         createdAt: serverTimestamp(),
       };
 
-      // Add optional fields
-      if (formData.companyName) {
-        providerData.companyName = formData.companyName.trim();
-      }
-      if (formData.cnic) {
-        providerData.cnic = formData.cnic.trim();
-      }
-      if (formData.email) {
-        providerData.email = formData.email.trim();
-      }
-      if (formData.address) {
-        providerData.address = formData.address.trim();
+      // Add file URLs if uploaded
+      if (uploads.cnicUrl) {
+        providerData.cnicUrl = uploads.cnicUrl;
       }
       if (uploads.profileImageUrl) {
         providerData.profileImageUrl = uploads.profileImageUrl;
       }
+      if (uploads.licenseFiles && uploads.licenseFiles.length > 0) {
+        providerData.licenseFiles = uploads.licenseFiles;
+      }
 
-      // Add document to Firestore - use providers collection
-      const docRef = await addDoc(collection(db, 'providers'), providerData);
+      // Add document to Firestore - use constructionProviders collection
+      const docRef = await addDoc(collection(db, 'constructionProviders'), providerData);
       console.log('Constructor registered with ID:', docRef.id);
       console.log('Provider data:', providerData);
 
       toast.success('Registration submitted successfully! Your application is pending admin approval.');
 
       // Navigate to my account
-      navigate('/my-account');
+      navigate('/account');
     } catch (error) {
       console.error('Error registering as constructor:', error);
       setUploading(false);

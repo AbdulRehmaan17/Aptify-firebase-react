@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Star, Phone, Mail, MapPin, ArrowLeft, Wrench, AlertCircle, MessageSquare, CheckCircle } from 'lucide-react';
+import { Star, Phone, Mail, MapPin, ArrowLeft, Wrench, AlertCircle, MessageSquare } from 'lucide-react';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ReviewsAndRatings from './ReviewsAndRatings';
@@ -24,7 +24,6 @@ const RenovationProviderDetail = () => {
   const [provider, setProvider] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [completedJobs, setCompletedJobs] = useState(0);
 
   useEffect(() => {
     const fetchProvider = async () => {
@@ -38,7 +37,7 @@ const RenovationProviderDetail = () => {
         setLoading(true);
         setError(null);
 
-        const providerRef = doc(db, 'providers', id);
+        const providerRef = doc(db, 'serviceProviders', id);
         const providerSnap = await getDoc(providerRef);
 
         if (!providerSnap.exists()) {
@@ -53,29 +52,13 @@ const RenovationProviderDetail = () => {
         };
 
         // Verify service type matches
-        if (providerData.type !== 'renovation') {
+        if (providerData.serviceType !== 'Renovation') {
           setError('This provider is not a Renovation service provider');
           setLoading(false);
           return;
         }
 
         setProvider(providerData);
-
-        // Fetch completed jobs count
-        if (providerData.userId) {
-          try {
-            const completedQuery = query(
-              collection(db, 'renovationRequests'),
-              where('providerId', '==', providerData.userId),
-              where('status', '==', 'Completed')
-            );
-            const completedSnapshot = await getDocs(completedQuery);
-            setCompletedJobs(completedSnapshot.size);
-          } catch (err) {
-            console.error('Error fetching completed jobs:', err);
-            // Don't fail the whole page if this fails
-          }
-        }
       } catch (err) {
         console.error('Error fetching provider:', err);
         setError(err.message || 'Failed to load provider details.');
@@ -252,15 +235,6 @@ const RenovationProviderDetail = () => {
                     <p className="text-textSecondary">{provider.experienceYears} years of experience</p>
                   </div>
                 )}
-
-                {/* Completed Jobs */}
-                <div>
-                  <h3 className="text-lg font-semibold text-textMain mb-3">Completed Jobs</h3>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <p className="text-textSecondary">{completedJobs} project{completedJobs !== 1 ? 's' : ''} completed</p>
-                  </div>
-                </div>
               </div>
 
               {/* Right Column - Contact Information */}

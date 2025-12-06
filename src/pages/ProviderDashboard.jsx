@@ -17,16 +17,11 @@ import {
   Phone,
   Mail,
   Building2,
-  MessageCircle,
-  LayoutDashboard,
 } from 'lucide-react';
-import { collection, query, where, getDocs, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db } from '../firebase';
 import { updateDocById } from '../firebase/firestoreFunctions';
 import reviewsService from '../services/reviewsService';
-import constructionRequestService from '../services/constructionRequestService';
-import renovationRequestService from '../services/renovationRequestService';
-import useChatList from '../hooks/useChatList';
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
@@ -38,7 +33,6 @@ const ProviderDashboard = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'requests', 'completed', 'reviews', 'chats'
   const [stats, setStats] = useState({
     totalRequests: 0,
     activeJobs: 0,
@@ -48,10 +42,7 @@ const ProviderDashboard = () => {
     totalReviews: 0,
   });
   const [recentRequests, setRecentRequests] = useState([]);
-  const [completedJobs, setCompletedJobs] = useState([]);
-  const [incomingRequests, setIncomingRequests] = useState([]);
   const [reviews, setReviews] = useState([]);
-  const [chats, setChats] = useState([]);
   const [isAvailable, setIsAvailable] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -91,8 +82,6 @@ const ProviderDashboard = () => {
       await Promise.all([
         loadStats(),
         loadRecentRequests(),
-        loadCompletedJobs(),
-        loadIncomingRequests(),
         loadReviews(),
       ]);
     } catch (error) {
@@ -218,71 +207,6 @@ const ProviderDashboard = () => {
       setRecentRequests(allRequests);
     } catch (error) {
       console.error('Error loading recent requests:', error);
-    }
-  };
-
-  const loadCompletedJobs = async () => {
-    try {
-      const providerId = currentUser.uid;
-      const role = userProfile?.role;
-
-      let constructionCollection = 'constructionProjects';
-      let renovationCollection = 'renovationProjects';
-
-      const [constructionCompleted, renovationCompleted] = await Promise.all([
-        getDocs(
-          query(
-            collection(db, constructionCollection),
-            where('providerId', '==', providerId),
-            where('status', 'in', ['Completed', 'Done'])
-          )
-        ).catch(() => ({ docs: [] })),
-        getDocs(
-          query(
-            collection(db, renovationCollection),
-            where('providerId', '==', providerId),
-            where('status', 'in', ['Completed', 'Done'])
-          )
-        ).catch(() => ({ docs: [] })),
-      ]);
-
-      const allCompleted = [
-        ...constructionCompleted.docs.map((doc) => ({
-          id: doc.id,
-          type: 'construction',
-          ...doc.data(),
-        })),
-        ...renovationCompleted.docs.map((doc) => ({
-          id: doc.id,
-          type: 'renovation',
-          ...doc.data(),
-        })),
-      ].sort((a, b) => {
-        const aTime = a.createdAt?.toDate?.() || new Date(0);
-        const bTime = b.createdAt?.toDate?.() || new Date(0);
-        return bTime - aTime;
-      });
-
-      setCompletedJobs(allCompleted);
-    } catch (error) {
-      console.error('Error loading completed jobs:', error);
-    }
-  };
-
-  const loadIncomingRequests = async () => {
-    try {
-      const providerId = currentUser.uid;
-      const role = userProfile?.role;
-
-      if (role === 'constructor') {
-        const requests = await constructionRequestService.getByProvider(providerId);
-        setIncomingRequests(requests.filter((r) => !r.isAssigned || r.status === 'Pending'));
-      } else if (role === 'renovator') {
-        const requests = await renovationRequestService.getByProvider(providerId);
-        setIncomingRequests(requests.filter((r) => !r.isAssigned || r.status === 'Pending'));
-      }
-    } catch (error) {
-      console.error('Error loading incoming requests:', error);
     }
   };
 
@@ -464,41 +388,9 @@ const ProviderDashboard = () => {
                 </>
               )}
             </Button>
-            </div>
-          </div>
-
-        {/* Tabs */}
-        <div className="mb-6 border-b border-muted">
-          <div className="flex space-x-1 overflow-x-auto">
-            {[
-              { key: 'overview', label: 'Overview', icon: LayoutDashboard },
-              { key: 'requests', label: 'Incoming Requests', icon: Calendar },
-              { key: 'completed', label: 'Completed Jobs', icon: CheckCircle },
-              { key: 'reviews', label: 'Ratings & Reviews', icon: Star },
-              { key: 'chats', label: 'Chat with Clients', icon: MessageCircle },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors whitespace-nowrap ${
-                    activeTab === tab.key
-                      ? 'border-primary text-primary font-medium'
-                      : 'border-transparent text-textSecondary hover:text-textMain hover:border-muted'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'overview' && (
-          <>
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {/* Total Requests */}
@@ -715,163 +607,6 @@ const ProviderDashboard = () => {
             )}
           </div>
         </div>
-        </>
-        )}
-
-        {/* Incoming Requests Tab */}
-        {activeTab === 'requests' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-textMain">Incoming Service Requests</h2>
-            {incomingRequests.length === 0 ? (
-              <div className="text-center py-12 bg-surface rounded-lg">
-                <Briefcase className="w-16 h-16 mx-auto mb-4 text-muted" />
-                <p className="text-textSecondary mb-4">No incoming requests</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {incomingRequests.map((request) => (
-                  <div key={request.id} className="bg-surface rounded-lg p-4 border border-muted">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm font-medium text-textMain capitalize">
-                            {request.type || 'Service Request'}
-                          </span>
-                          <span className={`px-2 py-1 rounded text-xs ${getStatusColor(request.status)}`}>
-                            {request.status}
-                          </span>
-                          {!request.isAssigned && (
-                            <span className="px-2 py-1 rounded text-xs bg-accent text-white">
-                              New
-                            </span>
-                          )}
-                        </div>
-                        {request.description && (
-                          <p className="text-sm text-textSecondary mb-2 line-clamp-2">{request.description}</p>
-                        )}
-                        {request.budget && (
-                          <p className="text-sm text-textMain font-medium">
-                            Budget: {new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(request.budget)}
-                          </p>
-                        )}
-                        <p className="text-xs text-textSecondary mt-2">
-                          {request.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (userProfile?.role === 'constructor') {
-                            navigate('/provider-construction-panel');
-                          } else if (userProfile?.role === 'renovator') {
-                            navigate('/provider-renovation-panel');
-                          }
-                        }}
-                      >
-                        View Details
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Completed Jobs Tab */}
-        {activeTab === 'completed' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-textMain">Completed Jobs</h2>
-            {completedJobs.length === 0 ? (
-              <div className="text-center py-12 bg-surface rounded-lg">
-                <CheckCircle className="w-16 h-16 mx-auto mb-4 text-muted" />
-                <p className="text-textSecondary mb-4">No completed jobs yet</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {completedJobs.map((job) => (
-                  <div key={job.id} className="bg-surface rounded-lg p-4 border border-muted">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm font-medium text-textMain capitalize">
-                            {job.type || 'Service'}
-                          </span>
-                          <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
-                            Completed
-                          </span>
-                        </div>
-                        {job.description && (
-                          <p className="text-sm text-textSecondary mb-2 line-clamp-2">{job.description}</p>
-                        )}
-                        {job.budget && (
-                          <p className="text-sm text-textMain font-medium">
-                            Budget: {new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(job.budget)}
-                          </p>
-                        )}
-                        <p className="text-xs text-textSecondary mt-2">
-                          Completed: {job.updatedAt?.toDate?.()?.toLocaleDateString() || job.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Reviews Tab */}
-        {activeTab === 'reviews' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-textMain">Ratings & Reviews</h2>
-            {reviews.length === 0 ? (
-              <div className="text-center py-12 bg-surface rounded-lg">
-                <Star className="w-16 h-16 mx-auto mb-4 text-muted" />
-                <p className="text-textSecondary mb-4">No reviews yet</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {reviews.map((review) => (
-                  <div key={review.id} className="bg-surface rounded-lg p-4 border border-muted">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="flex">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-4 h-4 ${
-                                i < review.rating
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-gray-300'
-                              }`}
-                            />
-                          ))}
-                        </div>
-                        <span className="text-sm text-textSecondary">
-                          {review.reviewerName || 'Anonymous'}
-                        </span>
-                      </div>
-                      <span className="text-xs text-textSecondary">
-                        {review.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}
-                      </span>
-                    </div>
-                    <p className="text-textMain">{review.comment}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Chats Tab */}
-        {activeTab === 'chats' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-textMain">Chat with Clients</h2>
-            <ProviderChatsList />
-          </div>
-        )}
 
         {/* Edit Profile Modal */}
         <Modal
@@ -951,55 +686,6 @@ const ProviderDashboard = () => {
           </form>
         </Modal>
       </div>
-    </div>
-  );
-};
-
-// Component for provider chats list
-const ProviderChatsList = () => {
-  const { chats, loading } = useChatList();
-  const navigate = useNavigate();
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <LoadingSpinner size="md" />
-      </div>
-    );
-  }
-
-  if (chats.length === 0) {
-    return (
-      <div className="text-center py-12 bg-surface rounded-lg">
-        <MessageCircle className="w-16 h-16 mx-auto mb-4 text-muted" />
-        <p className="text-textSecondary mb-4">No chats yet</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {chats.map((chat) => (
-        <button
-          key={chat.id}
-          onClick={() => navigate(`/chats?chatId=${chat.id}`)}
-          className="w-full bg-surface rounded-lg p-4 border border-muted hover:border-primary transition-colors text-left"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h3 className="font-semibold text-textMain">{chat.otherParticipantName}</h3>
-              <p className="text-sm text-textSecondary truncate mt-1">
-                {chat.lastMessage || 'No messages yet'}
-              </p>
-            </div>
-            {chat.unreadCount > 0 && (
-              <span className="ml-2 bg-primary text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                {chat.unreadCount}
-              </span>
-            )}
-          </div>
-        </button>
-      ))}
     </div>
   );
 };

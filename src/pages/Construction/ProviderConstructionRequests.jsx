@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, onSnapshot, updateDoc, doc, orderBy, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import notificationService from '../../services/notificationService';
 import { getOrCreateChat } from '../../utils/chatHelpers';
 import {

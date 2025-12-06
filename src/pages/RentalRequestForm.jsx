@@ -5,9 +5,7 @@ import { getDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
-import { getOrCreateChat } from '../utils/chatHelpers';
 import useSubmitForm from '../hooks/useSubmitForm';
-import { useSubmitSuccess } from '../hooks/useNotifyAndRedirect';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Modal from '../components/common/Modal';
@@ -23,17 +21,9 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
   const [formData, setFormData] = useState({
     startDate: '',
     endDate: '',
-    duration: '', // Duration in months
     message: '',
   });
   const [errors, setErrors] = useState({});
-
-  // Standardized success handler
-  const handleSubmitSuccess = useSubmitSuccess(
-    'Rental request submitted successfully!',
-    '/account',
-    2000
-  );
 
   // Use standardized submit hook
   const {
@@ -54,42 +44,16 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
       const propertyData = propertyDoc.data();
       const ownerId = propertyData.ownerId;
 
-      // AUTO-FIX: Validate required fields before creating request
-      if (!user || !user.uid) {
-        throw new Error('User not authenticated');
-      }
-      if (!ownerId) {
-        throw new Error('Property owner not found');
-      }
-      if (!propertyId) {
-        throw new Error('Property ID is required');
-      }
-
       const requestData = {
-        requesterId: user.uid,
-        userId: user.uid, // Keep for backward compatibility
-        ownerId: ownerId,
+        userId: user.uid,
         propertyId: propertyId,
         startDate: data.startDate,
         endDate: data.endDate,
-        duration: data.duration ? Number(data.duration) : null,
-        message: (data.message || '').trim(),
-        status: 'pending',
+        message: data.message.trim() || '',
+        status: 'Pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
-
-      // Auto-create chat between renter and owner
-      let chatId = null;
-      if (ownerId && ownerId !== user.uid) {
-        try {
-          chatId = await getOrCreateChat(user.uid, ownerId);
-          console.log('Chat created/retrieved:', chatId);
-        } catch (chatError) {
-          console.error('Error creating chat:', chatError);
-          // Don't fail the request if chat creation fails
-        }
-      }
 
       // Notify property owner
       if (ownerId && ownerId !== user.uid) {
@@ -99,7 +63,7 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
             'New Rental Request',
             `You have received a new rental request for "${propertyTitle || 'your property'}".`,
             'service-request',
-            chatId ? `/chat?chatId=${chatId}` : `/properties/${propertyId}`
+            `/properties/${propertyId}`
           );
         } catch (notifError) {
           console.error('Error notifying owner:', notifError);
@@ -112,7 +76,7 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
     notificationTitle: 'Rental Request Submitted',
     notificationMessage: `Your rental request for "${propertyTitle || 'the property'}" has been submitted. The owner will review it soon.`,
     notificationType: 'service-request',
-    redirectPath: null, // Handled by useSubmitSuccess
+    redirectPath: '/account',
     createNotification: async (userId, docId, data) => {
       await notificationService.sendNotification(
         userId,
@@ -122,25 +86,7 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
         '/account'
       );
     },
-    onSuccess: async (docId, data) => {
-      // Add initial update log
-      try {
-        const { addProjectUpdate } = await import('../utils/projectUpdates');
-        await addProjectUpdate(
-          'rentalRequests',
-          docId,
-          'Pending',
-          user.uid,
-          'Rental request submitted'
-        );
-      } catch (updateError) {
-        console.error('Error adding initial update log:', updateError);
-        // Don't fail the request if update log fails
-      }
-      
-      // Use standardized success handler
-      handleSubmitSuccess();
-      
+    onSuccess: () => {
       if (onSuccess) {
         onSuccess();
       }
@@ -226,32 +172,6 @@ const RentalRequestForm = ({ propertyId, propertyTitle, onSuccess, onCancel }) =
           error={errors.endDate}
           required
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-textSecondary mb-2">
-          <Calendar className="w-4 h-4 inline mr-1" />
-          Duration (Months) <span className="text-textSecondary text-xs">(Optional)</span>
-        </label>
-        <Input
-          type="number"
-          name="duration"
-          value={formData.duration}
-          onChange={handleChange}
-          min="1"
-          placeholder="e.g., 12"
-          error={errors.duration}
-        />
-        {formData.startDate && formData.endDate && (
-          <p className="mt-1 text-xs text-textSecondary">
-            {(() => {
-              const start = new Date(formData.startDate);
-              const end = new Date(formData.endDate);
-              const months = Math.round((end - start) / (1000 * 60 * 60 * 24 * 30));
-              return months > 0 ? `Approximately ${months} month${months !== 1 ? 's' : ''}` : '';
-            })()}
-          </p>
-        )}
       </div>
 
       <div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import { getOrCreateChat } from '../../utils/chatHelpers';
 import {
   Wrench,
@@ -439,6 +439,7 @@ const MyRenovations = () => {
 };
 
 export default MyRenovations;
+
 
 
 

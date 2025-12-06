@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import { Bell, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,22 +40,27 @@ const NotificationBell = () => {
 
   // Setup real-time listener for notifications
   useEffect(() => {
-    if (!currentUser || !currentUser.uid) {
+    // Guard: Ensure user, uid, and db are available
+    if (!currentUser || !currentUser.uid || !db) {
       setLoading(false);
+      setNotifications([]);
       return;
     }
 
     setLoading(true);
     const userId = currentUser.uid;
+    let unsubscribe = null;
+    let fallbackUnsubscribe = null;
 
     try {
+      // Try with orderBy first
       const notificationsQuery = query(
         collection(db, 'notifications'),
         where('userId', '==', userId),
         orderBy('createdAt', 'desc')
       );
 
-      const unsubscribe = onSnapshot(
+      unsubscribe = onSnapshot(
         notificationsQuery,
         (snapshot) => {
           const notifs = snapshot.docs.map((doc) => ({
@@ -63,7 +68,7 @@ const NotificationBell = () => {
             ...doc.data(),
           }));
 
-          // Sort client-side if orderBy fails
+          // Sort client-side
           notifs.sort((a, b) => {
             const aTime = a.createdAt?.toDate?.() || new Date(0);
             const bTime = b.createdAt?.toDate?.() || new Date(0);
@@ -71,6 +76,7 @@ const NotificationBell = () => {
           });
 
           setNotifications(notifs);
+          setLoading(false);
 
           // Show toast for new notifications
           if (notifs.length > 0) {
@@ -115,54 +121,83 @@ const NotificationBell = () => {
               }
             }
           }
-
-          setLoading(false);
         },
         (error) => {
           console.error('Error fetching notifications:', error);
-          // Fallback without orderBy
+          
+          // Handle permission errors
+          if (error.code === 'permission-denied') {
+            console.warn('Permission denied when fetching notifications. Check Firestore rules.');
+            setNotifications([]);
+            setLoading(false);
+            return;
+          }
+          
+          // Fallback without orderBy for index errors
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-            const fallbackQuery = query(
-              collection(db, 'notifications'),
-              where('userId', '==', userId)
-            );
+            try {
+              const fallbackQuery = query(
+                collection(db, 'notifications'),
+                where('userId', '==', userId)
+              );
 
-            const fallbackUnsubscribe = onSnapshot(
-              fallbackQuery,
-              (snapshot) => {
-                const notifs = snapshot.docs.map((doc) => ({
-                  id: doc.id,
-                  ...doc.data(),
-                }));
+              fallbackUnsubscribe = onSnapshot(
+                fallbackQuery,
+                (snapshot) => {
+                  const notifs = snapshot.docs.map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                  }));
 
-                notifs.sort((a, b) => {
-                  const aTime = a.createdAt?.toDate?.() || new Date(0);
-                  const bTime = b.createdAt?.toDate?.() || new Date(0);
-                  return bTime - aTime;
-                });
+                  notifs.sort((a, b) => {
+                    const aTime = a.createdAt?.toDate?.() || new Date(0);
+                    const bTime = b.createdAt?.toDate?.() || new Date(0);
+                    return bTime - aTime;
+                  });
 
-                setNotifications(notifs);
-                setLoading(false);
-              },
-              (fallbackError) => {
-                console.error('Error fetching notifications (fallback):', fallbackError);
-                setLoading(false);
-              }
-            );
-
-            return () => fallbackUnsubscribe();
+                  setNotifications(notifs);
+                  setLoading(false);
+                },
+                (fallbackError) => {
+                  console.error('Error fetching notifications (fallback):', fallbackError);
+                  if (fallbackError.code === 'permission-denied') {
+                    console.warn('Permission denied in fallback query. Check Firestore rules.');
+                  }
+                  setNotifications([]);
+                  setLoading(false);
+                }
+              );
+            } catch (fallbackSetupError) {
+              console.error('Error setting up fallback query:', fallbackSetupError);
+              setNotifications([]);
+              setLoading(false);
+            }
           } else {
+            setNotifications([]);
             setLoading(false);
           }
         }
       );
-
-      return () => unsubscribe();
     } catch (error) {
       console.error('Error setting up notifications listener:', error);
+      setNotifications([]);
       setLoading(false);
     }
-  }, [currentUser]);
+
+    // Cleanup function
+    return () => {
+      try {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+        if (fallbackUnsubscribe) {
+          fallbackUnsubscribe();
+        }
+      } catch (cleanupError) {
+        console.error('Error cleaning up notifications listener:', cleanupError);
+      }
+    };
+  }, [currentUser?.uid, db]);
 
   const handleMarkAsRead = async (notificationId, e) => {
     e.preventDefault();

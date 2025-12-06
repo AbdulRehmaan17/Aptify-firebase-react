@@ -79,18 +79,17 @@ const RegisterRenovator = () => {
         setCheckingRegistration(true);
         console.log('Checking if user is already registered as renovator:', currentUser.uid);
 
-        // Query providers collection filtered by userId and type
+        // Query serviceProviders collection filtered by userId
         const providersQuery = query(
-          collection(db, 'providers'),
-          where('userId', '==', currentUser.uid),
-          where('type', '==', 'renovation')
+          collection(db, 'serviceProviders'),
+          where('userId', '==', currentUser.uid)
         );
 
         const snapshot = await getDocs(providersQuery);
 
-        // Check if user already has renovation provider registration
+        // Filter for Renovation service type
         const renovationProvider = snapshot.docs.find(
-          (doc) => doc.data().serviceType === 'renovation' || doc.data().serviceType === 'Renovation'
+          (doc) => doc.data().serviceType === 'Renovation'
         );
 
         if (renovationProvider) {
@@ -315,13 +314,17 @@ const RegisterRenovator = () => {
 
       // Check again if user is already registered (race condition protection)
       const providersQuery = query(
-        collection(db, 'providers'),
-        where('userId', '==', currentUser.uid),
-        where('type', '==', 'renovation')
+        collection(db, 'serviceProviders'),
+        where('userId', '==', currentUser.uid)
       );
       const snapshot = await getDocs(providersQuery);
 
-      if (!snapshot.empty) {
+      // Check if user already has Renovation service type
+      const renovationProvider = snapshot.docs.find(
+        (doc) => doc.data().serviceType === 'Renovation'
+      );
+
+      if (renovationProvider) {
         setIsAlreadyRegistered(true);
         toast.error('You are already registered as a renovator.');
         setLoading(false);
@@ -346,39 +349,39 @@ const RegisterRenovator = () => {
         .map((link) => link.trim())
         .filter((link) => link.length > 0 && (link.startsWith('http://') || link.startsWith('https://')));
 
-      // Prepare documents object
-      const documents = {};
-      if (uploads.cnicUrl) {
-        documents.cnicUrl = uploads.cnicUrl;
-      }
-
       const providerData = {
         userId: currentUser.uid,
         name: formData.name.trim(),
         phone: formData.phone.trim(),
-        type: 'renovation',
+        experience: Number(formData.experience),
+        experienceYears: Number(formData.experience), // Keep for backward compatibility
         specialization: specializationArray.length > 0 ? specializationArray : [formData.specialization.trim()],
-        portfolio: portfolioLinksArray,
-        documents: documents,
+        expertise: specializationArray.length > 0 ? specializationArray : [formData.specialization.trim()], // Keep for backward compatibility
+        portfolioLinks: portfolioLinksArray,
         city: formData.city.trim(),
+        serviceType: 'Renovation',
+        role: 'renovator',
         isApproved: false,
+        approved: false, // Keep for backward compatibility
+        rating: 0,
+        totalProjects: 0,
+        completedProjects: 0,
+        email: currentUser.email || '',
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
 
-      // Add optional fields for backward compatibility
-      if (formData.experience) {
-        providerData.experience = Number(formData.experience);
-        providerData.experienceYears = Number(formData.experience);
-      }
-      if (currentUser.email) {
-        providerData.email = currentUser.email;
+      // Add file URLs if uploaded
+      if (uploads.cnicUrl) {
+        providerData.cnicUrl = uploads.cnicUrl;
       }
       if (uploads.profileImageUrl) {
         providerData.profileImageUrl = uploads.profileImageUrl;
+        providerData.profileImage = uploads.profileImageUrl; // Keep for backward compatibility
       }
 
-      // Add document to Firestore - use providers collection
-      const docRef = await addDoc(collection(db, 'providers'), providerData);
+      // Add document to Firestore
+      const docRef = await addDoc(collection(db, 'serviceProviders'), providerData);
       console.log('Renovator registered with ID:', docRef.id);
       console.log('Provider data:', providerData);
 

@@ -3,484 +3,127 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ============================================
-    // HELPER FUNCTIONS
-    // ============================================
-    
-    // Check if user is authenticated
+    // Helper function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // Check if user is the owner of a document
+    // Helper function to check if user is the owner
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Check if user is admin or superadmin
+    // Helper function to check if user is admin
+    // Uses exists() check to avoid errors if document doesn't exist
     function isAdmin() {
       return isAuthenticated() && 
-             (getUserRole() == 'admin' || getUserRole() == 'superadmin');
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
-    // Get user role from Firestore (more reliable than custom claims)
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-    
-    // Check if user is provider (constructor, renovator, or provider role)
-    function isProvider() {
-      return isAuthenticated() && 
-             (getUserRole() == 'constructor' || 
-              getUserRole() == 'renovator' || 
-              getUserRole() == 'provider');
-    }
-    
-    // Check if user owns a property
-    function isPropertyOwner(propertyId) {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/properties/$(propertyId)) &&
-             get(/databases/$(database)/documents/properties/$(propertyId)).data.ownerId == request.auth.uid;
-    }
-    
-    // Check if user is involved in a project (client or provider)
-    function isProjectParticipant(projectData) {
-      return isAuthenticated() && 
-             (projectData.userId == request.auth.uid ||
-              projectData.clientId == request.auth.uid ||
-              projectData.providerId == request.auth.uid);
-    }
-    
-    // Check if user is a chat participant
-    function isChatParticipant(chatData) {
-      return isAuthenticated() && 
-             request.auth.uid in chatData.participants;
-    }
-    
-    // Validate required fields for user document
-    function isValidUserDocument() {
-      return request.resource.data.keys().hasAll(['uid', 'email', 'role']) &&
-             request.resource.data.uid == request.auth.uid &&
-             request.resource.data.email is string &&
-             request.resource.data.role is string &&
-             request.resource.data.role in ['user', 'provider', 'constructor', 'renovator', 'admin', 'superadmin'];
-    }
-    
-    // Prevent modification of sensitive user fields
-    function canModifyUserField(field) {
-      // Users can modify their own non-sensitive fields
-      let sensitiveFields = ['uid', 'role', 'walletBalance', 'totalBookings', 'totalReviews', 'createdAt'];
-      return !(field in sensitiveFields) || isAdmin();
+    // Helper function to check if provider is approved
+    function isApprovedProvider(providerId) {
+      let providerData = get(/databases/$(database)/documents/serviceProviders/$(providerId)).data;
+      return providerData.approved == true;
     }
     
     // ============================================
     // USERS COLLECTION
     // ============================================
+    // - User can read/write their own profile
+    // - User can create their own profile on signup
+    // - Admin can read/write all
+    // - Users can update allowed fields on their own profile
     match /users/{userId} {
-      // Users can read their own document, admins can read all
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      // Allow read: owner can always read their own profile, admin can read any
+      allow read: if isAuthenticated() && 
+                     (request.auth.uid == userId || isAdmin());
       
-      // Users can create their own document with valid structure
+      // Allow create: user can create their own profile, admin can create any
       allow create: if isAuthenticated() && 
-                       request.auth.uid == userId &&
-                       isValidUserDocument() &&
-                       request.resource.data.createdAt == request.time;
+                       (request.auth.uid == userId || isAdmin());
       
-      // Users can update their own non-sensitive fields, admins can update anything
+      // Allow update: user can always update their own profile (check owner first)
+      // Admin can update any profile
       allow update: if isAuthenticated() && 
-                       (isOwner(userId) || isAdmin()) &&
-                       // Prevent role escalation (users can't make themselves admin)
-                       (isAdmin() || 
-                        (request.resource.data.role == resource.data.role &&
-                         request.resource.data.role != 'admin' &&
-                         request.resource.data.role != 'superadmin')) &&
-                       // Prevent UID modification
-                       request.resource.data.uid == resource.data.uid &&
-                       // Prevent wallet balance modification by non-admins
-                       (isAdmin() || request.resource.data.walletBalance == resource.data.walletBalance);
+                       (request.auth.uid == userId || isAdmin());
       
-      // Only admins can delete user documents
-      allow delete: if isAdmin();
-    }
-    
-    // ============================================
-    // SERVICE PROVIDERS COLLECTION
-    // ============================================
-    match /serviceProviders/{providerId} {
-      // Anyone can read approved providers, providers can read their own
-      allow read: if !isAuthenticated() && resource.data.isApproved == true ||
-                     isAuthenticated() && 
-                     (resource.data.isApproved == true || 
-                      resource.data.userId == request.auth.uid ||
-                      isAdmin());
-      
-      // Authenticated users can create provider profiles
-      allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Providers can update their own profile, admins can update any
-      allow update: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid || isAdmin()) &&
-                       // Prevent userId modification
-                       request.resource.data.userId == resource.data.userId &&
-                       // Only admins can change approval status
-                       (isAdmin() || request.resource.data.isApproved == resource.data.isApproved);
-      
-      // Only admins can delete provider profiles
-      allow delete: if isAdmin();
+      // Allow delete: only owner or admin can delete
+      allow delete: if isAuthenticated() && 
+                       (request.auth.uid == userId || isAdmin());
     }
     
     // ============================================
     // PROPERTIES COLLECTION
     // ============================================
+    // - All users can read (public)
+    // - Only owner or admin can write/update/delete
     match /properties/{propertyId} {
-      // Public read for active properties, owners and admins can read all
-      allow read: if !isAuthenticated() && resource.data.status == 'published' ||
-                     isAuthenticated() && 
-                     (resource.data.status == 'published' || 
-                      resource.data.ownerId == request.auth.uid ||
+      allow read: if true; // Public read access
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && 
+                             (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+    
+    // ============================================
+    // SERVICE PROVIDERS COLLECTION
+    // ============================================
+    // - Provider can create/update only their own provider profile
+    // - Admin can approve providers
+    // - Public can read only approved providers (isApproved or approved field)
+    match /serviceProviders/{providerId} {
+      allow read: if true && 
+                     (resource.data.isApproved == true || 
+                      resource.data.approved == true || 
+                      isOwner(resource.data.userId) || 
                       isAdmin());
-      
-      // Authenticated users can create properties (they become owner)
       allow create: if isAuthenticated() && 
-                       request.resource.data.ownerId == request.auth.uid &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only property owners and admins can update
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.isApproved == false &&
+                       request.resource.data.approved == false;
       allow update: if isAuthenticated() && 
-                       (resource.data.ownerId == request.auth.uid || isAdmin()) &&
-                       // Prevent ownerId modification
-                       request.resource.data.ownerId == resource.data.ownerId;
-      
-      // Only property owners and admins can delete
-      allow delete: if isAuthenticated() && 
-                       (resource.data.ownerId == request.auth.uid || isAdmin());
+                       (isOwner(resource.data.userId) || isAdmin());
+      allow delete: if isAdmin();
     }
     
     // ============================================
     // CONSTRUCTION PROJECTS COLLECTION
     // ============================================
+    // - Client can create request
+    // - Provider can update status of requests assigned to them
+    // - Admin can read/write everything
     match /constructionProjects/{projectId} {
-      // Only participants and admins can read
       allow read: if isAuthenticated() && 
-                     (isProjectParticipant(resource.data) || isAdmin());
-      
-      // Authenticated users can create projects (they become client)
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.providerId == request.auth.uid ||
+                      isAdmin());
       allow create: if isAuthenticated() && 
-                       (request.resource.data.userId == request.auth.uid ||
-                        request.resource.data.clientId == request.auth.uid) &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only participants and admins can update
+                       request.resource.data.userId == request.auth.uid;
       allow update: if isAuthenticated() && 
-                       (isProjectParticipant(resource.data) || isAdmin()) &&
-                       // Prevent userId/clientId modification
-                       (request.resource.data.userId == resource.data.userId &&
-                        request.resource.data.clientId == resource.data.clientId);
-      
-      // Only clients and admins can delete
+                       (resource.data.userId == request.auth.uid || 
+                        resource.data.providerId == request.auth.uid ||
+                        isAdmin());
       allow delete: if isAuthenticated() && 
-                       ((resource.data.userId == request.auth.uid ||
-                         resource.data.clientId == request.auth.uid) ||
-                        isAdmin());
-      
-      // Updates subcollection
-      match /updates/{updateId} {
-        allow read: if isAuthenticated() && 
-                       (isProjectParticipant(get(/databases/$(database)/documents/constructionProjects/$(projectId)).data) ||
-                        isAdmin());
-        
-        allow create: if isAuthenticated() && 
-                         (isProjectParticipant(get(/databases/$(database)/documents/constructionProjects/$(projectId)).data) ||
-                          isAdmin()) &&
-                         request.resource.data.createdAt == request.time;
-        
-        // Only admins can modify/delete updates
-        allow update, delete: if isAdmin();
-      }
+                       (resource.data.userId == request.auth.uid || isAdmin());
     }
     
     // ============================================
     // RENOVATION PROJECTS COLLECTION
     // ============================================
+    // - Client can create request
+    // - Provider can update status of requests assigned to them
+    // - Admin can read/write everything
     match /renovationProjects/{projectId} {
-      // Only participants and admins can read
       allow read: if isAuthenticated() && 
-                     (isProjectParticipant(resource.data) || isAdmin());
-      
-      // Authenticated users can create projects (they become client)
-      allow create: if isAuthenticated() && 
-                       (request.resource.data.userId == request.auth.uid ||
-                        request.resource.data.clientId == request.auth.uid) &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only participants and admins can update
-      allow update: if isAuthenticated() && 
-                       (isProjectParticipant(resource.data) || isAdmin()) &&
-                       // Prevent userId/clientId modification
-                       (request.resource.data.userId == resource.data.userId &&
-                        request.resource.data.clientId == resource.data.clientId);
-      
-      // Only clients and admins can delete
-      allow delete: if isAuthenticated() && 
-                       ((resource.data.userId == request.auth.uid ||
-                         resource.data.clientId == request.auth.uid) ||
-                        isAdmin());
-      
-      // Updates subcollection
-      match /updates/{updateId} {
-        allow read: if isAuthenticated() && 
-                       (isProjectParticipant(get(/databases/$(database)/documents/renovationProjects/$(projectId)).data) ||
-                        isAdmin());
-        
-        allow create: if isAuthenticated() && 
-                         (isProjectParticipant(get(/databases/$(database)/documents/renovationProjects/$(projectId)).data) ||
-                          isAdmin()) &&
-                         request.resource.data.createdAt == request.time;
-        
-        // Only admins can modify/delete updates
-        allow update, delete: if isAdmin();
-      }
-    }
-    
-    // ============================================
-    // RENTAL REQUESTS COLLECTION
-    // ============================================
-    match /rentalRequests/{requestId} {
-      // Only involved parties and admins can read
-      allow read: if isAuthenticated() && 
-                     (resource.data.userId == request.auth.uid ||
-                      isPropertyOwner(resource.data.propertyId) ||
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.providerId == request.auth.uid ||
                       isAdmin());
-      
-      // Authenticated users can create rental requests
       allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only involved parties and admins can update
+                       request.resource.data.userId == request.auth.uid;
       allow update: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid ||
-                        isPropertyOwner(resource.data.propertyId) ||
-                        isAdmin()) &&
-                       // Prevent userId modification
-                       request.resource.data.userId == resource.data.userId;
-      
-      // Only request creator, property owner, and admins can delete
-      allow delete: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid ||
-                        isPropertyOwner(resource.data.propertyId) ||
+                       (resource.data.userId == request.auth.uid || 
+                        resource.data.providerId == request.auth.uid ||
                         isAdmin());
-    }
-    
-    // ============================================
-    // BUY/SELL REQUESTS COLLECTION
-    // ============================================
-    match /buySellRequests/{requestId} {
-      // Only involved parties and admins can read
-      allow read: if isAuthenticated() && 
-                     (resource.data.userId == request.auth.uid ||
-                      isPropertyOwner(resource.data.propertyId) ||
-                      isAdmin());
-      
-      // Authenticated users can create buy/sell requests
-      allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only involved parties and admins can update
-      allow update: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid ||
-                        isPropertyOwner(resource.data.propertyId) ||
-                        isAdmin()) &&
-                       // Prevent userId modification
-                       request.resource.data.userId == resource.data.userId;
-      
-      // Only request creator, property owner, and admins can delete
-      allow delete: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid ||
-                        isPropertyOwner(resource.data.propertyId) ||
-                        isAdmin());
-    }
-    
-    // ============================================
-    // RENTALS COLLECTION (Rental Properties)
-    // ============================================
-    match /rentals/{rentalId} {
-      // Public read for active rentals, owners and admins can read all
-      allow read: if !isAuthenticated() && resource.data.status == 'available' ||
-                     isAuthenticated() && 
-                     (resource.data.status == 'available' || 
-                      resource.data.ownerId == request.auth.uid ||
-                      isAdmin());
-      
-      // Authenticated users can create rentals (they become owner)
-      allow create: if isAuthenticated() && 
-                       request.resource.data.ownerId == request.auth.uid &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only rental owners and admins can update
-      allow update: if isAuthenticated() && 
-                       (resource.data.ownerId == request.auth.uid || isAdmin()) &&
-                       // Prevent ownerId modification
-                       request.resource.data.ownerId == resource.data.ownerId;
-      
-      // Only rental owners and admins can delete
-      allow delete: if isAuthenticated() && 
-                       (resource.data.ownerId == request.auth.uid || isAdmin());
-      
-      // Bookings subcollection
-      match /bookings/{bookingId} {
-        allow read: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid ||
-                        get(/databases/$(database)/documents/rentals/$(rentalId)).data.ownerId == request.auth.uid ||
-                        isAdmin());
-        
-        allow create: if isAuthenticated() && 
-                         request.resource.data.userId == request.auth.uid &&
-                         request.resource.data.createdAt == request.time;
-        
-        allow update: if isAuthenticated() && 
-                         (resource.data.userId == request.auth.uid ||
-                          get(/databases/$(database)/documents/rentals/$(rentalId)).data.ownerId == request.auth.uid ||
-                          isAdmin());
-        
-        allow delete: if isAuthenticated() && 
-                         (resource.data.userId == request.auth.uid ||
-                          get(/databases/$(database)/documents/rentals/$(rentalId)).data.ownerId == request.auth.uid ||
-                          isAdmin());
-      }
-    }
-    
-    // ============================================
-    // LISTINGS COLLECTION (Buy/Sell Marketplace)
-    // ============================================
-    match /listings/{listingId} {
-      // Public read for active listings, owners and admins can read all
-      allow read: if !isAuthenticated() && resource.data.status == 'active' ||
-                     isAuthenticated() && 
-                     (resource.data.status == 'active' || 
-                      resource.data.sellerId == request.auth.uid ||
-                      isAdmin());
-      
-      // Authenticated users can create listings (they become seller)
-      allow create: if isAuthenticated() && 
-                       request.resource.data.sellerId == request.auth.uid &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only listing owners and admins can update
-      allow update: if isAuthenticated() && 
-                       (resource.data.sellerId == request.auth.uid || isAdmin()) &&
-                       // Prevent sellerId modification
-                       request.resource.data.sellerId == resource.data.sellerId;
-      
-      // Only listing owners and admins can delete
-      allow delete: if isAuthenticated() && 
-                       (resource.data.sellerId == request.auth.uid || isAdmin());
-    }
-    
-    // ============================================
-    // CHATS COLLECTION (User-to-User Chats)
-    // ============================================
-    match /chats/{chatId} {
-      // Only participants and admins can read
-      allow read: if isAuthenticated() && 
-                     (isChatParticipant(resource.data) || isAdmin());
-      
-      // Authenticated users can create chats (must include themselves as participant)
-      allow create: if isAuthenticated() && 
-                       request.auth.uid in request.resource.data.participants &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only participants and admins can update
-      allow update: if isAuthenticated() && 
-                       (isChatParticipant(resource.data) || isAdmin()) &&
-                       // Prevent participant list modification by non-admins
-                       (isAdmin() || request.resource.data.participants == resource.data.participants);
-      
-      // Only admins can delete chats
-      allow delete: if isAdmin();
-      
-      // Messages subcollection
-      match /messages/{messageId} {
-        allow read: if isAuthenticated() && 
-                       (isChatParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data) ||
-                        isAdmin());
-        
-        allow create: if isAuthenticated() && 
-                         isChatParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data) &&
-                         request.resource.data.senderId == request.auth.uid &&
-                         request.resource.data.createdAt == request.time;
-        
-        // Users can only update/delete their own messages, admins can do all
-        allow update, delete: if isAuthenticated() && 
-                                 (resource.data.senderId == request.auth.uid || isAdmin());
-      }
-    }
-    
-    // ============================================
-    // SUPPORT CHATS COLLECTION
-    // ============================================
-    match /supportChats/{chatId} {
-      // Only chat participants (user or admin) and admins can read
-      allow read: if isAuthenticated() && 
-                     (resource.data.userId == request.auth.uid ||
-                      resource.data.adminId == request.auth.uid ||
-                      isAdmin());
-      
-      // Authenticated users can create support chats
-      allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only participants and admins can update
-      allow update: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid ||
-                        resource.data.adminId == request.auth.uid ||
-                        isAdmin());
-      
-      // Only admins can delete support chats
-      allow delete: if isAdmin();
-      
-      // Messages subcollection
-      match /messages/{messageId} {
-        allow read: if isAuthenticated() && 
-                       (get(/databases/$(database)/documents/supportChats/$(chatId)).data.userId == request.auth.uid ||
-                        get(/databases/$(database)/documents/supportChats/$(chatId)).data.adminId == request.auth.uid ||
-                        isAdmin());
-        
-        allow create: if isAuthenticated() && 
-                         (get(/databases/$(database)/documents/supportChats/$(chatId)).data.userId == request.auth.uid ||
-                          get(/databases/$(database)/documents/supportChats/$(chatId)).data.adminId == request.auth.uid ||
-                          isAdmin()) &&
-                         request.resource.data.sender == request.auth.uid &&
-                         request.resource.data.createdAt == request.time;
-        
-        // Users can only update/delete their own messages, admins can do all
-        allow update, delete: if isAuthenticated() && 
-                                 (resource.data.sender == request.auth.uid || isAdmin());
-      }
-    }
-    
-    // ============================================
-    // NOTIFICATIONS COLLECTION
-    // ============================================
-    match /notifications/{notificationId} {
-      // Only target user and admins can read
-      allow read: if isAuthenticated() && 
-                     (resource.data.userId == request.auth.uid || isAdmin());
-      
-      // Only system (via admin functions) can create notifications
-      allow create: if isAdmin();
-      
-      // Only target user and admins can update (e.g., mark as read)
-      allow update: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid || isAdmin()) &&
-                       // Prevent userId modification
-                       request.resource.data.userId == resource.data.userId;
-      
-      // Only target user and admins can delete
       allow delete: if isAuthenticated() && 
                        (resource.data.userId == request.auth.uid || isAdmin());
     }
@@ -488,121 +131,314 @@ service cloud.firestore {
     // ============================================
     // REVIEWS COLLECTION
     // ============================================
+    // - Authenticated users can create
+    // - Only author or admin can delete
+    // - Readable publicly
     match /reviews/{reviewId} {
-      // Public read access
-      allow read: if true;
-      
-      // Users can create reviews for services/products they've interacted with
-      // Note: Service completion verification should be done in application logic
-      // Rules here ensure users can only create reviews with their own ID
+      allow read: if true; // Public read access
       allow create: if isAuthenticated() && 
-                       (request.resource.data.reviewerId == request.auth.uid ||
-                        request.resource.data.authorId == request.auth.uid) &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only reviewer and admins can update
+                       request.resource.data.reviewerId == request.auth.uid;
       allow update: if isAuthenticated() && 
-                       ((resource.data.reviewerId == request.auth.uid ||
-                         resource.data.authorId == request.auth.uid) ||
-                        isAdmin()) &&
-                       // Prevent reviewerId/authorId modification
-                       (request.resource.data.reviewerId == resource.data.reviewerId &&
-                        request.resource.data.authorId == resource.data.authorId);
-      
-      // Only reviewer and admins can delete
+                       (resource.data.reviewerId == request.auth.uid || isAdmin());
       allow delete: if isAuthenticated() && 
-                       ((resource.data.reviewerId == request.auth.uid ||
-                         resource.data.authorId == request.auth.uid) ||
+                       (resource.data.reviewerId == request.auth.uid || isAdmin());
+    }
+    
+    // ============================================
+    // NOTIFICATIONS COLLECTION
+    // ============================================
+    // - Only target user can read/write their own notifications
+    // - Admin can create broadcast notifications
+    // - Allow authenticated users to read/write notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Allow querying notifications by userId for authenticated users
+    match /notifications/{notificationId} {
+      allow list: if isAuthenticated();
+    }
+    
+    // ============================================
+    // SUPPORT MESSAGES COLLECTION
+    // ============================================
+    // - User can create message
+    // - Admin can read/reply/delete
+    match /supportMessages/{messageId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+      
+      // Replies subcollection
+      match /replies/{replyId} {
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/supportMessages/$(messageId)).data.userId == request.auth.uid || 
+                        isAdmin());
+        allow create: if isAuthenticated() && 
+                         (get(/databases/$(database)/documents/supportMessages/$(messageId)).data.userId == request.auth.uid || 
+                          isAdmin());
+        allow update, delete: if isAdmin();
+      }
+    }
+    
+    // ============================================
+    // SUPPORT CHATS COLLECTION
+    // ============================================
+    // - User & admin can chat in real time
+    // - Both can read/write only their chatID path
+    match /supportChats/{chatId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.adminId == request.auth.uid ||
+                      isAdmin());
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || 
+                        resource.data.adminId == request.auth.uid ||
+                        isAdmin());
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/supportChats/$(chatId)).data.userId == request.auth.uid || 
+                        get(/databases/$(database)/documents/supportChats/$(chatId)).data.adminId == request.auth.uid ||
+                        isAdmin());
+        allow create: if isAuthenticated() && 
+                         (get(/databases/$(database)/documents/supportChats/$(chatId)).data.userId == request.auth.uid || 
+                          get(/databases/$(database)/documents/supportChats/$(chatId)).data.adminId == request.auth.uid ||
+                          isAdmin());
+        allow update, delete: if isAuthenticated() && 
+                                 (resource.data.senderId == request.auth.uid || isAdmin());
+      }
+    }
+    
+    // ============================================
+    // CHATS COLLECTION (User-to-User & User-to-Provider)
+    // ============================================
+    // - User can chat with property owners or providers
+    // - Only participants can read/write
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && 
+                     (request.auth.uid in resource.data.participants || isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.auth.uid in request.resource.data.participants;
+      allow update: if isAuthenticated() && 
+                       (request.auth.uid in resource.data.participants || isAdmin());
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && 
+                       (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants || 
+                        isAdmin());
+        allow create: if isAuthenticated() && 
+                         request.resource.data.senderId == request.auth.uid &&
+                         request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow update, delete: if isAuthenticated() && 
+                                 (resource.data.senderId == request.auth.uid || isAdmin());
+      }
+    }
+    
+    // ============================================
+    // CONVERSATIONS COLLECTION (Legacy/Alternative Chat System)
+    // ============================================
+    // Keep existing conversations rules for backward compatibility
+    match /conversations/{conversationId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.participants.hasAny([request.auth.uid]);
+      allow update, delete: if isAuthenticated() && 
+                                (resource.data.participants.hasAny([request.auth.uid]) || isAdmin());
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants.hasAny([request.auth.uid]) || isAdmin());
+        allow create: if isAuthenticated() && 
+                         request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if isAuthenticated() && 
+                                  (resource.data.senderId == request.auth.uid || isAdmin());
+      }
+    }
+    
+    // ============================================
+    // SERVICE REQUESTS COLLECTION (Legacy)
+    // ============================================
+    // Keep for backward compatibility with renovation service requests
+    match /serviceRequests/{requestId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.providerId == request.auth.uid ||
+                      isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || 
+                        resource.data.providerId == request.auth.uid ||
+                        isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // ============================================
+    // RENTAL REQUESTS COLLECTION
+    // ============================================
+    // - User can create their own rental requests
+    // - Owner can read/update requests for their properties
+    // - User can read their own requests
+    // - Admin can read/write all
+    match /rentalRequests/{requestId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      isOwnerOfProperty(resource.data.propertyId) ||
+                      isAdmin());
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+                       (isOwnerOfProperty(resource.data.propertyId) || isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || 
+                        isOwnerOfProperty(resource.data.propertyId) ||
                         isAdmin());
     }
     
     // ============================================
-    // TRANSACTIONS COLLECTION
+    // BUY/SELL REQUESTS COLLECTION
     // ============================================
-    match /transactions/{transactionId} {
-      // Only transaction owner and admins can read
+    // - User can create their own purchase offers
+    // - Owner can read/update offers for their properties
+    // - User can read their own offers
+    // - Admin can read/write all
+    match /buySellRequests/{requestId} {
       allow read: if isAuthenticated() && 
-                     (resource.data.userId == request.auth.uid || isAdmin());
-      
-      // Only system (via admin functions) can create transactions
-      allow create: if isAdmin();
-      
-      // Only admins can update transactions
-      allow update: if isAdmin();
-      
-      // Only admins can delete transactions
-      allow delete: if isAdmin();
-    }
-    
-    // ============================================
-    // ORDERS COLLECTION (E-commerce)
-    // ============================================
-    match /orders/{orderId} {
-      // Only order owner and admins can read
-      allow read: if isAuthenticated() && 
-                     (resource.data.userId == request.auth.uid || isAdmin());
-      
-      // Authenticated users can create orders
+                     (resource.data.userId == request.auth.uid || 
+                      isOwnerOfProperty(resource.data.propertyId) ||
+                      isAdmin());
       allow create: if isAuthenticated() && 
-                       request.resource.data.userId == request.auth.uid &&
-                       request.resource.data.createdAt == request.time;
-      
-      // Only order owner and admins can update
+                       request.resource.data.userId == request.auth.uid;
       allow update: if isAuthenticated() && 
-                       (resource.data.userId == request.auth.uid || isAdmin()) &&
-                       // Prevent userId modification
-                       request.resource.data.userId == resource.data.userId;
-      
-      // Only admins can delete orders
-      allow delete: if isAdmin();
+                       (isOwnerOfProperty(resource.data.propertyId) || isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || 
+                        isOwnerOfProperty(resource.data.propertyId) ||
+                        isAdmin());
     }
     
     // ============================================
-    // PRODUCTS COLLECTION (E-commerce)
+    // CONSTRUCTION PROJECTS COLLECTION
     // ============================================
-    match /products/{productId} {
-      // Public read for active products, admins can read all
-      allow read: if !isAuthenticated() && resource.data.status == 'published' ||
-                     isAuthenticated() && 
-                     (resource.data.status == 'published' || isAdmin());
+    // - Client can create/read/update their own projects
+    // - Provider can read/update projects assigned to them
+    // - Client can cancel if status is Pending
+    // - Admin can read/write all
+    match /constructionProjects/{projectId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid ||
+                      resource.data.clientId == request.auth.uid ||
+                      resource.data.providerId == request.auth.uid ||
+                      isAdmin());
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.userId == request.auth.uid ||
+                        request.resource.data.clientId == request.auth.uid);
+      allow update: if isAuthenticated() && 
+                       (resource.data.providerId == request.auth.uid ||
+                        resource.data.userId == request.auth.uid ||
+                        resource.data.clientId == request.auth.uid ||
+                        isAdmin()) &&
+                       // Client can only cancel if status is Pending
+                       (resource.data.providerId != request.auth.uid ||
+                        resource.data.status == 'Pending' ||
+                        request.resource.data.status == 'Cancelled' ||
+                        isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid ||
+                        resource.data.clientId == request.auth.uid ||
+                        isAdmin());
       
-      // Only admins can create products
-      allow create: if isAdmin() && 
-                       request.resource.data.createdAt == request.time;
-      
-      // Only admins can update products
-      allow update: if isAdmin();
-      
-      // Only admins can delete products
-      allow delete: if isAdmin();
+      // Project updates subcollection
+      match /projectUpdates/{updateId} {
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.userId == request.auth.uid ||
+                        get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.clientId == request.auth.uid ||
+                        get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.providerId == request.auth.uid ||
+                        isAdmin());
+        allow create: if isAuthenticated() && 
+                         (get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.providerId == request.auth.uid ||
+                          get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.userId == request.auth.uid ||
+                          get(/databases/$(database)/documents/constructionProjects/$(projectId)).data.clientId == request.auth.uid ||
+                          isAdmin());
+        allow update, delete: if isAdmin();
+      }
     }
     
     // ============================================
-    // BRANDS COLLECTION (E-commerce)
+    // RENOVATION PROJECTS COLLECTION
     // ============================================
-    match /brands/{brandId} {
-      // Public read access
-      allow read: if true;
+    // - Client can create/read/update their own projects
+    // - Provider can read/update projects assigned to them
+    // - Client can cancel if status is Pending
+    // - Admin can read/write all
+    match /renovationProjects/{projectId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid ||
+                      resource.data.clientId == request.auth.uid ||
+                      resource.data.providerId == request.auth.uid ||
+                      isAdmin());
+      allow create: if isAuthenticated() && 
+                       (request.resource.data.userId == request.auth.uid ||
+                        request.resource.data.clientId == request.auth.uid);
+      allow update: if isAuthenticated() && 
+                       (resource.data.providerId == request.auth.uid ||
+                        resource.data.userId == request.auth.uid ||
+                        resource.data.clientId == request.auth.uid ||
+                        isAdmin()) &&
+                       // Client can only cancel if status is Pending
+                       (resource.data.providerId != request.auth.uid ||
+                        resource.data.status == 'Pending' ||
+                        request.resource.data.status == 'Cancelled' ||
+                        isAdmin());
+      allow delete: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid ||
+                        resource.data.clientId == request.auth.uid ||
+                        isAdmin());
       
-      // Only admins can create/update/delete brands
-      allow create, update, delete: if isAdmin();
+      // Project updates subcollection
+      match /projectUpdates/{updateId} {
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.userId == request.auth.uid ||
+                        get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.clientId == request.auth.uid ||
+                        get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.providerId == request.auth.uid ||
+                        isAdmin());
+        allow create: if isAuthenticated() && 
+                         (get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.providerId == request.auth.uid ||
+                          get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.userId == request.auth.uid ||
+                          get(/databases/$(database)/documents/renovationProjects/$(projectId)).data.clientId == request.auth.uid ||
+                          isAdmin());
+        allow update, delete: if isAdmin();
+      }
     }
     
-    // ============================================
-    // COLLECTIONS COLLECTION (E-commerce)
-    // ============================================
-    match /collections/{collectionId} {
-      // Public read access
-      allow read: if true;
-      
-      // Only admins can create/update/delete collections
-      allow create, update, delete: if isAdmin();
+    // Helper function to check if user owns a property
+    function isOwnerOfProperty(propertyId) {
+      let propertyData = get(/databases/$(database)/documents/properties/$(propertyId)).data;
+      return propertyData.ownerId == request.auth.uid;
     }
     
     // ============================================
     // DEFAULT DENY RULE
     // ============================================
-    // Deny all other collections by default (security best practice)
+    // Deny all other collections by default
     match /{document=**} {
       allow read, write: if false;
     }

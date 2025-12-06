@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  updateDoc,
+  doc,
+  getDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import constructionRequestService from '../services/constructionRequestService';
-import { Building2, Calendar, DollarSign, MapPin, User, FileText, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Building2, Calendar, DollarSign, MapPin, User, FileText, AlertCircle } from 'lucide-react';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
-import Modal from '../components/common/Modal';
 
 /**
  * ProviderConstructionPanel Component
@@ -27,16 +34,12 @@ const ProviderConstructionPanel = () => {
   const currentUser = auth?.currentUser || contextUser;
 
   // State management
-  const [requests, setRequests] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [clientNames, setClientNames] = useState({}); // Cache client names by userId
   const [propertyNames, setPropertyNames] = useState({}); // Cache property titles by propertyId
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [updatingStatus, setUpdatingStatus] = useState({}); // Track which request is being updated
-  const [showActionModal, setShowActionModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [actionType, setActionType] = useState(null); // 'accept', 'reject', 'complete'
-  const [processing, setProcessing] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState({}); // Track which project is being updated
 
   /**
    * Fetch client name from users collection
@@ -128,73 +131,136 @@ const ProviderConstructionPanel = () => {
   };
 
   /**
-   * Load construction requests for provider
+   * Setup real-time listener for construction projects
+   * Queries "constructionProjects" collection where providerId == currentUser.uid
+   * Uses onSnapshot() for real-time updates
+   * Handles collection not existing gracefully
    */
   useEffect(() => {
+    // Wait for auth to load
     if (authLoading) {
       return;
     }
 
+    // Check if user is authenticated
     if (!currentUser || !currentUser.uid) {
       setLoading(false);
-      setError('Please log in to view your construction requests.');
+      setError('Please log in to view your construction projects.');
       return;
     }
 
-    const loadRequests = async () => {
-      try {
-        setLoading(true);
+    const providerId = currentUser.uid;
+    console.log('Setting up real-time listener for provider:', providerId);
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Create query filtered by providerId
+      // Collection will be automatically created if it doesn't exist
+      const projectsQuery = query(
+        collection(db, 'constructionProjects'),
+        where('providerId', '==', providerId)
+      );
+
+      // Setup real-time listener using onSnapshot
+      const unsubscribe = onSnapshot(
+        projectsQuery,
+        async (snapshot) => {
+          console.log(`Received ${snapshot.docs.length} projects from snapshot`);
+
+          // Handle empty collection gracefully
+          if (snapshot.empty) {
+            console.log('No construction projects assigned to provider');
+            setProjects([]);
+            setLoading(false);
+            return;
+          }
+
+          // Map documents to array with id
+          const projectsList = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+
+          // Fetch client names and property titles for all projects
+          const fetchPromises = projectsList.map(async (project) => {
+            const clientNamePromise = project.userId
+              ? fetchClientName(project.userId)
+              : Promise.resolve('No Client');
+
+            const propertyTitlePromise = project.propertyId
+              ? fetchPropertyTitle(project.propertyId)
+              : Promise.resolve('No Property');
+
+            const [clientName, propertyTitle] = await Promise.all([
+              clientNamePromise,
+              propertyTitlePromise,
+            ]);
+
+            return { project, clientName, propertyTitle };
+          });
+
+          const results = await Promise.all(fetchPromises);
+
+          // Update caches
+          const newClientNames = {};
+          const newPropertyNames = {};
+
+          results.forEach(({ project, clientName, propertyTitle }) => {
+            if (project.userId && clientName) {
+              newClientNames[project.userId] = clientName;
+            }
+            if (project.propertyId && propertyTitle) {
+              newPropertyNames[project.propertyId] = propertyTitle;
+            }
+          });
+
+          setClientNames((prev) => ({ ...prev, ...newClientNames }));
+          setPropertyNames((prev) => ({ ...prev, ...newPropertyNames }));
+          setProjects(projectsList);
+          setLoading(false);
+        },
+        (err) => {
+          // Error callback for onSnapshot
+          console.error('Error in onSnapshot:', err);
+
+          // Handle collection not existing or permission errors gracefully
+          if (err.code === 'permission-denied') {
+            setError('Permission denied. Please check Firestore security rules.');
+            toast.error('Permission denied. Please contact administrator.');
+          } else if (err.code === 'not-found' || err.message?.includes('not found')) {
+            // Collection doesn't exist - this is okay, show empty state
+            console.log('Collection does not exist yet. Showing empty state.');
+            setProjects([]);
+            setError(null);
+          } else {
+            setError(err.message || 'Failed to load construction projects');
+            toast.error('Failed to load construction projects. Please try again.');
+          }
+          setLoading(false);
+        }
+      );
+
+      // Cleanup function to unsubscribe from listener
+      return () => {
+        console.log('Unsubscribing from construction projects listener');
+        unsubscribe();
+      };
+    } catch (err) {
+      console.error('Error setting up listener:', err);
+
+      // Handle collection not existing gracefully
+      if (err.code === 'not-found' || err.message?.includes('not found')) {
+        console.log('Collection does not exist yet. Showing empty state.');
+        setProjects([]);
         setError(null);
-
-        const providerId = currentUser.uid;
-        const requestsList = await constructionRequestService.getByProvider(providerId);
-
-        // Fetch client names and property titles
-        const fetchPromises = requestsList.map(async (request) => {
-          const clientNamePromise = request.userId
-            ? fetchClientName(request.userId)
-            : Promise.resolve('No Client');
-
-          const propertyTitlePromise = request.propertyId
-            ? fetchPropertyTitle(request.propertyId)
-            : Promise.resolve('New Construction');
-
-          const [clientName, propertyTitle] = await Promise.all([
-            clientNamePromise,
-            propertyTitlePromise,
-          ]);
-
-          return { request, clientName, propertyTitle };
-        });
-
-        const results = await Promise.all(fetchPromises);
-
-        // Update caches
-        const newClientNames = {};
-        const newPropertyNames = {};
-
-        results.forEach(({ request, clientName, propertyTitle }) => {
-          if (request.userId && clientName) {
-            newClientNames[request.userId] = clientName;
-          }
-          if (request.propertyId && propertyTitle) {
-            newPropertyNames[request.propertyId] = propertyTitle;
-          }
-        });
-
-        setClientNames((prev) => ({ ...prev, ...newClientNames }));
-        setPropertyNames((prev) => ({ ...prev, ...newPropertyNames }));
-        setRequests(requestsList);
-      } catch (err) {
-        console.error('Error loading construction requests:', err);
-        setError(err.message || 'Failed to load construction requests');
-        toast.error('Failed to load construction requests. Please try again.');
-      } finally {
-        setLoading(false);
+      } else {
+        setError(err.message || 'Failed to setup real-time listener');
+        toast.error('Failed to setup real-time listener.');
       }
-    };
-
-    loadRequests();
+      setLoading(false);
+    }
   }, [currentUser, authLoading]);
 
   /**
@@ -303,66 +369,35 @@ const ProviderConstructionPanel = () => {
   };
 
   /**
-   * Handle action (accept/reject/complete)
+   * Handle status update
+   * Updates the project document in Firestore with new status and updatedAt timestamp
+   * Uses updateDoc() and serverTimestamp()
+   * @param {string} projectId - Project document ID
+   * @param {string} newStatus - New status value
    */
-  const handleAction = (request, action) => {
-    setSelectedRequest(request);
-    setActionType(action);
-    setShowActionModal(true);
-  };
-
-  /**
-   * Confirm action
-   */
-  const confirmAction = async () => {
-    if (!selectedRequest) return;
-
+  const handleStatusUpdate = async (projectId, newStatus) => {
     try {
-      setProcessing(true);
-      const providerId = currentUser.uid;
+      setUpdatingStatus((prev) => ({ ...prev, [projectId]: true }));
 
-      if (actionType === 'accept') {
-        await constructionRequestService.updateStatus(
-          selectedRequest.id,
-          'Accepted',
-          providerId
-        );
-        toast.success('Request accepted successfully!');
-      } else if (actionType === 'reject') {
-        await constructionRequestService.updateStatus(
-          selectedRequest.id,
-          'Rejected',
-          providerId
-        );
-        toast.success('Request rejected.');
-      } else if (actionType === 'complete') {
-        await constructionRequestService.updateStatus(
-          selectedRequest.id,
-          'Completed',
-          providerId
-        );
-        toast.success('Request marked as completed!');
-      } else if (actionType === 'inprogress') {
-        await constructionRequestService.updateStatus(
-          selectedRequest.id,
-          'In Progress',
-          providerId
-        );
-        toast.success('Request marked as in progress!');
-      }
+      // Update project document in Firestore
+      const projectRef = doc(db, 'constructionProjects', projectId);
+      await updateDoc(projectRef, {
+        status: newStatus,
+        updatedAt: serverTimestamp(),
+      });
 
-      // Reload requests
-      const requestsList = await constructionRequestService.getByProvider(providerId);
-      setRequests(requestsList);
-
-      setShowActionModal(false);
-      setSelectedRequest(null);
-      setActionType(null);
-    } catch (error) {
-      console.error('Error updating request status:', error);
-      toast.error(error.message || 'Failed to update request status.');
+      // Show success toast confirming update
+      toast.success(`Project status updated to ${newStatus} successfully!`);
+      console.log(`Project ${projectId} status updated to ${newStatus}`);
+    } catch (err) {
+      console.error('Error updating project status:', err);
+      toast.error(err.message || 'Failed to update project status. Please try again.');
     } finally {
-      setProcessing(false);
+      setUpdatingStatus((prev) => {
+        const newState = { ...prev };
+        delete newState[projectId];
+        return newState;
+      });
     }
   };
 
@@ -391,9 +426,8 @@ const ProviderConstructionPanel = () => {
     );
   }
 
-  // AUTO-FIX: use requests length instead of undefined projects in error state check
   // Error state (only show if there's an actual error, not just empty collection)
-  if (error && requests.length === 0) {
+  if (error && projects.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md mx-auto px-4">
@@ -422,11 +456,11 @@ const ProviderConstructionPanel = () => {
         </div>
 
         {/* Empty State */}
-        {requests.length === 0 ? (
+        {projects.length === 0 ? (
           <div className="bg-surface rounded-base shadow-lg p-12 text-center">
             <Building2 className="w-16 h-16 mx-auto text-muted mb-4" />
-            <h2 className="text-2xl font-bold text-textMain mb-2">No Requests Available</h2>
-            <p className="text-textSecondary">No construction requests available yet.</p>
+            <h2 className="text-2xl font-bold text-textMain mb-2">No Projects Assigned</h2>
+            <p className="text-textSecondary">No construction requests assigned to you yet.</p>
           </div>
         ) : (
           /* Projects Table - Desktop View */
@@ -466,21 +500,20 @@ const ProviderConstructionPanel = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-surface divide-y divide-gray-200">
-                  {requests.map((request) => {
-                    const clientName = request.userId
-                      ? clientNames[request.userId] || 'Loading...'
+                  {projects.map((project) => {
+                    const clientName = project.userId
+                      ? clientNames[project.userId] || 'Loading...'
                       : 'No Client';
 
-                    const propertyTitle = request.propertyId
-                      ? propertyNames[request.propertyId] || 'Loading...'
-                      : 'New Construction';
+                    const propertyTitle = project.propertyId
+                      ? propertyNames[project.propertyId] || 'Loading...'
+                      : 'No Property';
 
-                    const isPending = request.status === 'Pending' && !request.isAssigned;
-                    const isAssigned = request.isAssigned || request.providerId === currentUser.uid;
-                    const isUpdating = updatingStatus[request.id] || false;
+                    const availableStatuses = getAvailableStatuses(project.status);
+                    const isUpdating = updatingStatus[project.id] || false;
 
                     return (
-                      <tr key={request.id} className="hover:bg-background transition-colors">
+                      <tr key={project.id} className="hover:bg-background transition-colors">
                         {/* Client Name */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-textMain">
@@ -500,7 +533,7 @@ const ProviderConstructionPanel = () => {
                         {/* Project Type */}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-textMain">
-                            {request.projectType || 'Not specified'}
+                            {project.projectType || 'Not specified'}
                           </div>
                         </td>
 
@@ -508,9 +541,9 @@ const ProviderConstructionPanel = () => {
                         <td className="px-6 py-4">
                           <div
                             className="text-sm text-textSecondary max-w-xs truncate"
-                            title={request.description}
+                            title={project.description}
                           >
-                            {request.description || 'No description'}
+                            {project.description || 'No description'}
                           </div>
                         </td>
 
@@ -518,7 +551,7 @@ const ProviderConstructionPanel = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-textMain">
                             <DollarSign className="w-4 h-4 mr-1 flex-shrink-0" />
-                            {formatBudget(request.budget)}
+                            {formatBudget(project.budget)}
                           </div>
                         </td>
 
@@ -526,7 +559,7 @@ const ProviderConstructionPanel = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-textSecondary">
                             <Calendar className="w-4 h-4 mr-1 flex-shrink-0" />
-                            {formatDate(request.startDate)}
+                            {formatDate(project.startDate)}
                           </div>
                         </td>
 
@@ -534,67 +567,34 @@ const ProviderConstructionPanel = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-textSecondary">
                             <Calendar className="w-4 h-4 mr-1 flex-shrink-0" />
-                            {formatDate(request.endDate)}
+                            {formatDate(project.endDate)}
                           </div>
                         </td>
 
                         {/* Status Badge */}
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={getStatusBadgeClasses(request.status)}>
-                            {request.status || 'Pending'}
+                          <span className={getStatusBadgeClasses(project.status)}>
+                            {project.status || 'Unknown'}
                           </span>
                         </td>
 
-                        {/* Actions */}
+                        {/* Update Status Dropdown */}
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end gap-2">
-                            {isPending && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
-                                  onClick={() => handleAction(request, 'accept')}
-                                  disabled={isUpdating}
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-1" />
-                                  Accept
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="bg-error/10 text-error border-error/30 hover:bg-error/20"
-                                  onClick={() => handleAction(request, 'reject')}
-                                  disabled={isUpdating}
-                                >
-                                  <XCircle className="w-4 h-4 mr-1" />
-                                  Reject
-                                </Button>
-                              </>
-                            )}
-                            {isAssigned && request.status === 'Accepted' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="bg-green-100 text-green-800 border-green-300 hover:bg-green-200"
-                                onClick={() => handleAction(request, 'inprogress')}
-                                disabled={isUpdating}
-                              >
-                                Start
-                              </Button>
-                            )}
-                            {isAssigned && request.status === 'In Progress' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="bg-green-100 text-green-800 border-green-300 hover:bg-green-200"
-                                onClick={() => handleAction(request, 'complete')}
-                                disabled={isUpdating}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                Complete
-                              </Button>
-                            )}
+                            <select
+                              value={project.status || 'Pending'}
+                              onChange={(e) => handleStatusUpdate(project.id, e.target.value)}
+                              disabled={isUpdating}
+                              className={`px-3 py-1 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-muted text-sm font-medium transition-colors ${
+                                isUpdating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                              }`}
+                            >
+                              {availableStatuses.map((status) => (
+                                <option key={status} value={status}>
+                                  {status}
+                                </option>
+                              ))}
+                            </select>
                             {isUpdating && <LoadingSpinner size="sm" />}
                           </div>
                         </td>
@@ -607,107 +607,72 @@ const ProviderConstructionPanel = () => {
 
             {/* Mobile Card View (hidden on desktop) */}
             <div className="md:hidden divide-y divide-gray-200">
-              {requests.map((request) => {
-                const clientName = request.userId
-                  ? clientNames[request.userId] || 'Loading...'
+              {projects.map((project) => {
+                const clientName = project.userId
+                  ? clientNames[project.userId] || 'Loading...'
                   : 'No Client';
 
-                const propertyTitle = request.propertyId
-                  ? propertyNames[request.propertyId] || 'Loading...'
-                  : 'New Construction';
+                const propertyTitle = project.propertyId
+                  ? propertyNames[project.propertyId] || 'Loading...'
+                  : 'No Property';
 
-                const isPending = request.status === 'Pending' && !request.isAssigned;
-                const isAssigned = request.isAssigned || request.providerId === currentUser.uid;
-                const isUpdating = updatingStatus[request.id] || false;
+                const availableStatuses = getAvailableStatuses(project.status);
+                const isUpdating = updatingStatus[project.id] || false;
 
                 return (
-                  <div key={request.id} className="p-4 space-y-3">
+                  <div key={project.id} className="p-4 space-y-3">
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="text-sm font-semibold text-textMain">
-                          {request.projectType || 'Construction Project'}
+                          {project.projectType || 'Construction Project'}
                         </h3>
                         <p className="text-xs text-textSecondary mt-1">
                           {clientName} - {propertyTitle}
                         </p>
                       </div>
-                      <span className={getStatusBadgeClasses(request.status)}>
-                        {request.status || 'Pending'}
+                      <span className={getStatusBadgeClasses(project.status)}>
+                        {project.status || 'Unknown'}
                       </span>
                     </div>
 
-                    {request.description && (
+                    {project.description && (
                       <div>
                         <p className="text-xs text-textSecondary mb-1">Description</p>
-                        <p className="text-sm text-textMain">{request.description}</p>
+                        <p className="text-sm text-textMain">{project.description}</p>
                       </div>
                     )}
 
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-textSecondary">Budget</p>
-                        <p className="font-medium text-textMain">{formatBudget(request.budget)}</p>
+                        <p className="font-medium text-textMain">{formatBudget(project.budget)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-textSecondary">Start Date</p>
-                        <p className="font-medium text-textMain">{formatDate(request.startDate)}</p>
+                        <p className="font-medium text-textMain">{formatDate(project.startDate)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-textSecondary">End Date</p>
-                        <p className="font-medium text-textMain">{formatDate(request.endDate)}</p>
+                        <p className="font-medium text-textMain">{formatDate(project.endDate)}</p>
                       </div>
                     </div>
 
-                    {/* Actions */}
+                    {/* Status Update Dropdown */}
                     <div className="pt-2 border-t border-muted">
-                      <div className="flex gap-2">
-                        {isPending && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 bg-primary/10 text-primary border-primary/30"
-                              onClick={() => handleAction(request, 'accept')}
-                              disabled={isUpdating}
-                            >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              Accept
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="flex-1 bg-error/10 text-error border-error/30"
-                              onClick={() => handleAction(request, 'reject')}
-                              disabled={isUpdating}
-                            >
-                              <XCircle className="w-4 h-4 mr-1" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        {isAssigned && request.status === 'Accepted' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 bg-green-100 text-green-800"
-                            onClick={() => handleAction(request, 'inprogress')}
-                            disabled={isUpdating}
-                          >
-                            Start
-                          </Button>
-                        )}
-                        {isAssigned && request.status === 'In Progress' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 bg-green-100 text-green-800"
-                            onClick={() => handleAction(request, 'complete')}
-                            disabled={isUpdating}
-                          >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Complete
-                          </Button>
-                        )}
+                      <label className="block text-xs text-textSecondary mb-2">Update Status:</label>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={project.status || 'Pending'}
+                          onChange={(e) => handleStatusUpdate(project.id, e.target.value)}
+                          disabled={isUpdating}
+                          className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-muted text-sm font-medium transition-colors"
+                        >
+                          {availableStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
                         {isUpdating && <LoadingSpinner size="sm" />}
                       </div>
                     </div>
@@ -717,74 +682,6 @@ const ProviderConstructionPanel = () => {
             </div>
           </div>
         )}
-
-        {/* Action Confirmation Modal */}
-        <Modal
-          isOpen={showActionModal}
-          onClose={() => {
-            setShowActionModal(false);
-            setSelectedRequest(null);
-            setActionType(null);
-          }}
-          title={
-            actionType === 'accept'
-              ? 'Accept Request'
-              : actionType === 'reject'
-              ? 'Reject Request'
-              : actionType === 'complete'
-              ? 'Mark Request as Completed'
-              : 'Start Project'
-          }
-          size="md"
-        >
-          <div className="space-y-4">
-            <p className="text-textMain">
-              Are you sure you want to{' '}
-              {actionType === 'accept'
-                ? 'accept'
-                : actionType === 'reject'
-                ? 'reject'
-                : actionType === 'complete'
-                ? 'mark as completed'
-                : 'start'}{' '}
-              this construction request?
-              {(actionType === 'accept' || actionType === 'complete') && ' The user will be notified.'}
-            </p>
-            <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowActionModal(false);
-                  setSelectedRequest(null);
-                  setActionType(null);
-                }}
-                disabled={processing}
-              >
-                Cancel
-              </Button>
-              <Button
-                className={
-                  actionType === 'accept'
-                    ? 'bg-primary hover:bg-primary/90 text-white'
-                    : actionType === 'reject'
-                    ? 'bg-error hover:bg-error text-white'
-                    : 'bg-green-600 hover:bg-green-700 text-white'
-                }
-                onClick={confirmAction}
-                loading={processing}
-                disabled={processing}
-              >
-                {actionType === 'accept'
-                  ? 'Accept'
-                  : actionType === 'reject'
-                  ? 'Reject'
-                  : actionType === 'complete'
-                  ? 'Mark Completed'
-                  : 'Start'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
       </div>
     </div>
   );

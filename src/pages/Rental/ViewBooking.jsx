@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import propertyService from '../../services/propertyService';
 import { Calendar, MapPin, DollarSign, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, User } from 'lucide-react';
 import Button from '../../components/common/Button';
@@ -352,6 +352,7 @@ const ViewBooking = () => {
 };
 
 export default ViewBooking;
+
 
 
 

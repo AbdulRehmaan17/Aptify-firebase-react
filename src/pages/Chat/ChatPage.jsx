@@ -8,7 +8,7 @@ import { ArrowLeft, User } from 'lucide-react';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import toast from 'react-hot-toast';
 
 const ChatPage = () => {
@@ -189,6 +189,7 @@ const ChatPage = () => {
 };
 
 export default ChatPage;
+
 
 
 

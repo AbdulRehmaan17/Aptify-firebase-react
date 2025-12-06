@@ -6,7 +6,7 @@ import './index.css';
 
 // Global error handlers - MUST be set up before any imports that might throw
 window.addEventListener('error', (e) => {
-  console.error('🔥 Global Error:', e.error);
+  console.error('🔥 Runtime Error:', e.error);
   console.error('🔥 Error Details:', {
     message: e.message,
     filename: e.filename,
@@ -15,7 +15,7 @@ window.addEventListener('error', (e) => {
     stack: e.error?.stack,
   });
 
-  // Show error in UI if root element exists
+  // Show error in UI if root element exists and is empty
   const rootElement = document.getElementById('root');
   if (rootElement && rootElement.children.length === 0) {
     rootElement.innerHTML = `
@@ -61,16 +61,18 @@ if (!rootElement) {
     );
   } catch (error) {
     console.error('🔥 Failed to render app:', error);
+    const errorMessage = error?.message || error?.toString() || 'An unexpected error occurred during initialization';
+    const errorStack = error?.stack || error?.toString() || '';
     rootElement.innerHTML = `
       <div style="padding: 20px; text-align: center; font-family: system-ui; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
         <div>
           <h1 style="color: #dc2626; margin-bottom: 10px;">Failed to Load Application</h1>
-          <p style="color: #6b7280; margin-bottom: 20px;">${error.message || 'An unexpected error occurred during initialization'}</p>
-          <pre style="background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: left; font-size: 12px; max-width: 600px; overflow: auto; margin: 0 auto 20px;">${error.stack || error.toString()}</pre>
+          <p style="color: #6b7280; margin-bottom: 20px;">${errorMessage}</p>
+          <pre style="background: #f3f4f6; padding: 10px; border-radius: 6px; text-align: left; font-size: 12px; max-width: 600px; overflow: auto; margin: 0 auto 20px;">${errorStack}</pre>
           <button onclick="window.location.reload()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; margin-right: 10px;">
             Reload Page
           </button>
-          <button onclick="console.clear(); console.log('Error:', ${JSON.stringify(error.toString())})" style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          <button onclick="console.clear(); console.error('Error:', ${JSON.stringify(errorMessage)})" style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer;">
             View Error in Console
           </button>
         </div>

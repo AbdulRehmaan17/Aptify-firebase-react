@@ -5,7 +5,7 @@ import { uploadMultipleImages, deleteImage } from '../../firebase/storageFunctio
 import propertyService from '../../services/propertyService';
 import { sendNotification } from '../../utils/notificationHelpers';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import { MapPin, DollarSign, Home, Bed, Bath, Square, Car, CheckCircle, XCircle, Upload, X, ArrowLeft } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';

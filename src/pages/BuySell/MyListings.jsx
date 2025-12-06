@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import propertyService from '../../services/propertyService';
 import { Plus, Edit2, Trash2, Eye, MapPin, DollarSign, Home, ToggleLeft, ToggleRight } from 'lucide-react';
 import Button from '../../components/common/Button';
@@ -275,6 +275,7 @@ const MyListings = () => {
 };
 
 export default MyListings;
+
 
 
 

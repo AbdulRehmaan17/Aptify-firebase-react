@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Phone, MapPin, CheckCircle } from 'lucide-react';
+import { collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import supportTicketService from '../services/supportTicketService';
+import notificationService from '../services/notificationService';
+import useSubmitForm from '../hooks/useSubmitForm';
 import toast from 'react-hot-toast';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -21,69 +24,56 @@ const Contact = () => {
   });
   const [errors, setErrors] = useState({});
 
+  // Use standardized submit hook
+  const {
+    handleSubmit: handleSubmitForm,
+    confirmSubmit,
+    cancelSubmit,
+    loading,
+    showConfirm,
+    showSuccess,
+  } = useSubmitForm('supportMessages', {
+    prepareData: async (data, user) => {
+      // Notify all admins
+      try {
+        const adminsSnapshot = await getDocs(
+          query(collection(db, 'users'), where('role', '==', 'admin'))
+        );
+        const adminPromises = adminsSnapshot.docs.map((adminDoc) =>
+          notificationService.create(
+            adminDoc.id,
+            'New Support Message',
+            `New support message from ${data.name}: "${data.subject}"`,
+            'info',
+            '/admin'
+          )
+        );
+        await Promise.all(adminPromises);
+      } catch (notifError) {
+        console.error('Error notifying admins:', notifError);
+        // Don't fail the form submission if notification fails
+      }
 
-  // Create support chat instead of support message
-  const [loading, setLoading] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  const handleSubmitForm = async (data, e) => {
-    e.preventDefault();
-    if (!validateForm()) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    if (!user) {
-      toast.error('Please log in to submit a support request');
-      navigate('/login');
-      return;
-    }
-
-    setShowConfirm(true);
-  };
-
-  const confirmSubmit = async () => {
-    if (!user) {
-      toast.error('Please log in to submit a support request');
-      return;
-    }
-
-    setLoading(true);
-    setShowConfirm(false);
-
-    try {
-      // Create support ticket (this will also create chat room automatically)
-      const ticket = await supportTicketService.create({
-        userId: user.uid,
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        message: `${formData.subject ? `Subject: ${formData.subject}\n\n` : ''}${formData.message.trim()}`,
+      return {
+        userId: user?.uid || null,
+        name: data.name.trim(),
+        email: data.email.trim(),
+        phone: data.phone.trim() || null,
+        subject: data.subject.trim(),
+        message: data.message.trim(),
+        status: 'open',
         priority: 'medium',
-      });
-
-      setShowSuccess(true);
-      toast.success('Support ticket created successfully!');
-      
-      // Redirect to chats if chat was created, otherwise to contact page
-      setTimeout(() => {
-        if (ticket.chatId) {
-          navigate(`/chats?chatId=${ticket.chatId}`);
-        } else {
-          navigate('/contact');
-        }
-      }, 2000);
-    } catch (error) {
-      console.error('Error submitting support ticket:', error);
-      toast.error(error.message || 'Failed to submit support ticket');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const cancelSubmit = () => {
-    setShowConfirm(false);
-  };
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+    },
+    successMessage: 'Message sent successfully! We will get back to you soon.',
+    notificationTitle: 'Message Sent',
+    notificationMessage: 'Your message has been received. We will get back to you soon.',
+    notificationType: 'info',
+    redirectPath: '/',
+    redirectDelay: 1500,
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -107,6 +97,12 @@ const Contact = () => {
   };
 
   const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!validateForm()) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
     handleSubmitForm(formData, e);
   };
 

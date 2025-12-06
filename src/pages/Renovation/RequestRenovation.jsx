@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import notificationService from '../../services/notificationService';
 import { uploadMultipleImages } from '../../firebase/storageFunctions';
 import { useSubmitSuccess } from '../../hooks/useNotifyAndRedirect';

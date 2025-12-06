@@ -9,31 +9,26 @@ import {
   updateDoc,
   doc,
   getDoc,
-  setDoc,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
-import { getOrCreateChat } from '../utils/chatHelpers';
 
 /**
  * Hook to fetch and send messages in a chat
- * @param {string} chatId - Chat document ID (optional, can be created on first message)
- * @param {string} otherUserId - Other user ID (required if chatId is not provided)
- * @returns {Object} - { messages, loading, sendMessage, sending, chatId: actualChatId }
+ * @param {string} chatId - Chat document ID
+ * @returns {Object} - { messages, loading, sendMessage, sending }
  */
-export function useChatMessages(chatId, otherUserId = null) {
-  const { user } = useAuth();
+export function useChatMessages(chatId) {
+  const { currentUser } = useAuth();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [actualChatId, setActualChatId] = useState(chatId);
 
   // Fetch messages
   useEffect(() => {
-    const finalChatId = actualChatId || chatId;
-    if (!finalChatId || !db) {
+    if (!chatId || !db) {
       setLoading(false);
       return;
     }
@@ -41,7 +36,7 @@ export function useChatMessages(chatId, otherUserId = null) {
     setLoading(true);
 
     try {
-      const messagesRef = collection(db, 'chats', finalChatId, 'messages');
+      const messagesRef = collection(db, 'chats', chatId, 'messages');
       const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'));
 
       const unsubscribe = onSnapshot(
@@ -58,7 +53,7 @@ export function useChatMessages(chatId, otherUserId = null) {
           console.error('Error fetching messages:', error);
           // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-            const fallbackQuery = query(collection(db, 'chats', finalChatId, 'messages'));
+            const fallbackQuery = query(collection(db, 'chats', chatId, 'messages'));
 
             const fallbackUnsubscribe = onSnapshot(
               fallbackQuery,
@@ -96,12 +91,12 @@ export function useChatMessages(chatId, otherUserId = null) {
       console.error('Error setting up messages listener:', error);
       setLoading(false);
     }
-  }, [actualChatId, chatId]);
+  }, [chatId]);
 
   // Send message function
   const sendMessage = useCallback(
     async (text, attachments = []) => {
-      if (!chatId || !user || !db || !text.trim()) {
+      if (!chatId || !currentUser || !db || !text.trim()) {
         throw new Error('Missing required parameters');
       }
 
@@ -115,7 +110,7 @@ export function useChatMessages(chatId, otherUserId = null) {
             try {
               const storageRef = ref(
                 storage,
-                `user_uploads/${user.uid}/chats/${chatId}/${Date.now()}_${file.name}`
+                `user_uploads/${currentUser.uid}/chats/${chatId}/${Date.now()}_${file.name}`
               );
               await uploadBytes(storageRef, file);
               const url = await getDownloadURL(storageRef);
@@ -132,90 +127,50 @@ export function useChatMessages(chatId, otherUserId = null) {
           }
         }
 
-        // Auto-create chat room if needed
-        let finalChatId = actualChatId || chatId;
-        if (!finalChatId && otherUserId) {
-          // Create chat room on first message
-          finalChatId = await getOrCreateChat(user.uid, otherUserId);
-          setActualChatId(finalChatId);
-        }
-        
-        if (!finalChatId) {
-          throw new Error('Chat ID or other user ID is required');
-        }
-
         // Get chat document to find receiver
-        const chatRef = doc(db, 'chats', finalChatId);
+        const chatRef = doc(db, 'chats', chatId);
         const chatSnap = await getDoc(chatRef);
-        
-        // Auto-create chat if it doesn't exist
-        if (!chatSnap.exists()) {
-          if (otherUserId) {
-            // Create chat room
-            await setDoc(chatRef, {
-              participants: [user.uid, otherUserId].sort(),
-              lastMessage: '',
-              updatedAt: serverTimestamp(),
-              createdAt: serverTimestamp(),
-              unreadFor: {
-                [user.uid]: false,
-                [otherUserId]: false,
-              },
-            });
-          } else {
-            throw new Error('Chat not found and cannot create without other user ID');
-          }
-        }
-        
-        const chatData = chatSnap.exists() ? chatSnap.data() : {
-          participants: [user.uid, otherUserId].sort(),
-          unreadFor: {},
-        };
+        const chatData = chatSnap.data();
         const participants = chatData?.participants || [];
-        const receiverId = participants.find((uid) => uid !== user.uid);
-        
-        if (!receiverId) {
-          throw new Error('Receiver not found in chat');
-        }
+        const receiverId = participants.find((uid) => uid !== currentUser.uid);
 
-        // Add message to subcollection with proper structure
-        const messagesRef = collection(db, 'chats', finalChatId, 'messages');
+        // Add message to subcollection
+        const messagesRef = collection(db, 'chats', chatId, 'messages');
         await addDoc(messagesRef, {
-          chatRoomId: finalChatId,
-          senderId: user.uid,
+          senderId: currentUser.uid,
+          receiverId: receiverId,
           text: text.trim(),
           attachments: attachmentUrls,
           createdAt: serverTimestamp(),
-          read: false,
-          seenBy: [user.uid], // Sender has seen their own message
         });
 
         // Update parent chat document
-        const textSnippet = text.trim().substring(0, 50) + (text.trim().length > 50 ? '...' : '');
         const unreadFor = {
           ...(chatData?.unreadFor || {}),
-          [receiverId]: true,
-          [user.uid]: false, // Mark as read for sender
+          [receiverId]: (chatData?.unreadFor?.[receiverId] || 0) + 1,
+          [currentUser.uid]: 0, // Mark as read for sender
         };
 
         await updateDoc(chatRef, {
-          lastMessage: textSnippet,
+          lastMessage: text.trim().substring(0, 100),
           updatedAt: serverTimestamp(),
           unreadFor: unreadFor,
         });
 
         // Send notification to receiver
-        try {
-          await notificationService.sendNotification(
-            receiverId,
-            'New Message',
-            textSnippet,
-            'info',
-            `/chat?chatId=${finalChatId}`
-          );
-        } catch (notifError) {
-          console.error('Error sending notification:', notifError);
-          // Don't fail message send if notification fails
+        if (receiverId) {
+          try {
+            await notificationService.sendNotification(
+              receiverId,
+              'New Chat Message',
+              text.trim().substring(0, 50) + (text.trim().length > 50 ? '...' : ''),
+              'admin',
+              `/chats?chatId=${chatId}`
+            );
+          } catch (notifError) {
+            console.error('Error sending notification:', notifError);
+            // Don't fail message send if notification fails
+          }
         }
       } catch (error) {
         console.error('Error sending message:', error);
@@ -224,29 +179,25 @@ export function useChatMessages(chatId, otherUserId = null) {
         setSending(false);
       }
     },
-    [actualChatId, chatId, otherUserId, user]
+    [chatId, currentUser]
   );
 
   // Mark chat as read when messages are loaded
   useEffect(() => {
-    const finalChatId = actualChatId || chatId;
-    if (!finalChatId || !user || !db || messages.length === 0) return;
+    if (!chatId || !currentUser || !db || messages.length === 0) return;
 
     const markAsRead = async () => {
       try {
-        const chatRef = doc(db, 'chats', finalChatId);
+        const chatRef = doc(db, 'chats', chatId);
         const chatSnap = await getDoc(chatRef);
-        if (!chatSnap.exists()) return;
-        
         const chatData = chatSnap.data();
 
-        if (chatData?.unreadFor?.[user.uid] === true) {
+        if (chatData?.unreadFor?.[currentUser.uid]) {
           await updateDoc(chatRef, {
             unreadFor: {
               ...chatData.unreadFor,
-              [user.uid]: false,
+              [currentUser.uid]: 0,
             },
-            updatedAt: serverTimestamp(),
           });
         }
       } catch (error) {
@@ -255,8 +206,8 @@ export function useChatMessages(chatId, otherUserId = null) {
     };
 
     markAsRead();
-  }, [actualChatId, chatId, user, messages.length]);
+  }, [chatId, currentUser, messages.length]);
 
-  return { messages, loading, sendMessage, sending, chatId: actualChatId || chatId };
+  return { messages, loading, sendMessage, sending };
 }
 

@@ -36,7 +36,7 @@ import toast from 'react-hot-toast';
  */
 export const useSubmitForm = (collectionName, options = {}) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -77,7 +77,7 @@ export const useSubmitForm = (collectionName, options = {}) => {
       event.preventDefault();
     }
 
-    if (!user) {
+    if (!currentUser) {
       toast.error('Please log in to submit this form.');
       navigate('/auth');
       return;
@@ -104,11 +104,11 @@ export const useSubmitForm = (collectionName, options = {}) => {
       // Prepare data using custom function or default
       let dataToSubmit;
       if (prepareData) {
-        dataToSubmit = await prepareData(pendingFormData, user);
+        dataToSubmit = await prepareData(pendingFormData, currentUser);
       } else {
         dataToSubmit = {
           ...pendingFormData,
-          userId: user.uid,
+          userId: currentUser.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
@@ -118,7 +118,7 @@ export const useSubmitForm = (collectionName, options = {}) => {
 
       // Use custom submit function if provided, otherwise use default Firestore write
       if (submitFunction) {
-        docId = await submitFunction(dataToSubmit, user);
+        docId = await submitFunction(dataToSubmit, currentUser);
       } else if (collectionName && db) {
         const docRef = await addDoc(collection(db, collectionName), dataToSubmit);
         docId = docRef.id;
@@ -129,10 +129,10 @@ export const useSubmitForm = (collectionName, options = {}) => {
       // Create notification for user
       try {
         if (createNotification) {
-          await createNotification(user.uid, docId, dataToSubmit);
+          await createNotification(currentUser.uid, docId, dataToSubmit);
         } else {
           await notificationService.create(
-            user.uid,
+            currentUser.uid,
             notificationTitle,
             notificationMessage,
             notificationType,

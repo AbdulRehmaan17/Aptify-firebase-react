@@ -30,121 +30,142 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    let mounted = true;
+
     // Listen to auth state changes
     const unsubscribeAuth = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
-        console.log('Auth state changed:', firebaseUser?.uid);
-        setCurrentUser(firebaseUser);
-        setError(null);
+        if (!mounted) return;
 
-        if (firebaseUser && db) {
-          // Always call createOrUpdateUserProfile to ensure lastLogin is updated and Google photoURL is synced
-          await createOrUpdateUserProfile(firebaseUser);
+        try {
+          console.log('Auth state changed:', firebaseUser?.uid);
+          setCurrentUser(firebaseUser);
+          setError(null);
+
+          if (!firebaseUser) {
+            // User logged out
+            setUserProfile(null);
+            setCurrentUserRole('user');
+            if (mounted) {
+              setLoading(false);
+            }
+            return;
+          }
+
+          // Guard: Ensure db is available before making Firestore calls
+          if (!db) {
+            console.warn('Firestore db is not initialized, skipping profile fetch');
+            if (mounted) {
+              setLoading(false);
+            }
+            return;
+          }
+
+          // Always call createOrUpdateUserProfile to ensure lastLogin is updated
+          // Don't await - let it run in background, but handle errors
+          createOrUpdateUserProfile(firebaseUser).catch((profileError) => {
+            console.error('Error in createOrUpdateUserProfile:', profileError);
+            // Don't block auth state change if profile update fails
+          });
           
           // Fetch user profile from Firestore
           try {
+            if (!mounted || !db) return;
+
             const userDocRef = doc(db, 'users', firebaseUser.uid);
             const userDoc = await getDoc(userDocRef);
 
+            if (!mounted) return;
+
             if (userDoc.exists()) {
               const profileData = userDoc.data();
-              
-              // AUTO-FIX: Sync Google photoURL if user logged in with Google
-              const isGoogleUser = firebaseUser.providerData?.some(
-                (provider) => provider.providerId === 'google.com'
-              );
-              
-              // If Google user and has photoURL, ensure it's synced to profile
-              if (isGoogleUser && firebaseUser.photoURL && profileData.photoURL !== firebaseUser.photoURL) {
-                try {
-                  const { updateDoc, serverTimestamp } = await import('firebase/firestore');
-                  await updateDoc(userDocRef, {
-                    photoURL: firebaseUser.photoURL,
-                    displayName: firebaseUser.displayName || profileData.displayName || profileData.name,
-                    updatedAt: serverTimestamp(),
-                  });
-                  // Re-fetch after update
-                  const updatedDoc = await getDoc(userDocRef);
-                  if (updatedDoc.exists()) {
-                    const updatedData = updatedDoc.data();
-                    setUserProfile({ id: updatedDoc.id, ...updatedData });
-                    setCurrentUserRole(updatedData.role || 'user');
-                  } else {
-                    setUserProfile({ id: userDoc.id, ...profileData });
-                    setCurrentUserRole(profileData.role || 'user');
-                  }
-                } catch (syncError) {
-                  console.error('Error syncing Google photoURL:', syncError);
-                  // Continue with existing profile data even if sync fails
-                  setUserProfile({ id: userDoc.id, ...profileData });
-                  setCurrentUserRole(profileData.role || 'user');
-                }
-              } else {
-                setUserProfile({ id: userDoc.id, ...profileData });
-                setCurrentUserRole(profileData.role || 'user');
-              }
+              setUserProfile({ id: userDoc.id, ...profileData });
+              setCurrentUserRole(profileData.role || 'user');
             } else {
               // If still doesn't exist after createOrUpdateUserProfile, wait a bit and retry
               setTimeout(async () => {
-                const retryDoc = await getDoc(userDocRef);
-                if (retryDoc.exists()) {
-                  const profileData = retryDoc.data();
-                  setUserProfile({ id: retryDoc.id, ...profileData });
-                  setCurrentUserRole(profileData.role || 'user');
+                if (!mounted || !db) return;
+                try {
+                  const retryDoc = await getDoc(userDocRef);
+                  if (mounted && retryDoc.exists()) {
+                    const profileData = retryDoc.data();
+                    setUserProfile({ id: retryDoc.id, ...profileData });
+                    setCurrentUserRole(profileData.role || 'user');
+                  }
+                } catch (retryErr) {
+                  console.error('Error retrying user profile fetch:', retryErr);
                 }
               }, 500);
             }
           } catch (err) {
             console.error('Error fetching user profile:', err);
-            setError('Failed to load user profile.');
+            // Don't set error state - profile fetch failure shouldn't block auth
+          } finally {
+            if (mounted) {
+              setLoading(false);
+            }
           }
-        } else {
-          setUserProfile(null);
-          setCurrentUserRole('user');
+        } catch (err) {
+          console.error('Unexpected error in auth state change handler:', err);
+          if (mounted) {
+            setError(err.message || 'An unexpected error occurred');
+            setLoading(false);
+          }
         }
-
-        setLoading(false);
       },
       (err) => {
         console.error('Auth state change error:', err);
-        setError(err.message);
-        setLoading(false);
+        if (mounted) {
+          setError(err.message || 'Authentication error');
+          setLoading(false);
+        }
       }
     );
 
     // Cleanup subscription on unmount
     return () => {
+      mounted = false;
       unsubscribeAuth();
     };
   }, []);
 
   // Listen to notifications for unread count
   useEffect(() => {
-    if (!currentUser || !db) {
+    // Guard: Ensure user and db are available
+    if (!currentUser || !currentUser.uid || !db) {
       setUnreadCount(0);
       return;
     }
 
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', currentUser.uid),
-      where('read', '==', false)
-    );
+    try {
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('userId', '==', currentUser.uid),
+        where('read', '==', false)
+      );
 
-    const unsubscribeNotifications = onSnapshot(
-      notificationsQuery,
-      (snapshot) => {
-        setUnreadCount(snapshot.size);
-      },
-      (err) => {
-        console.error('Error listening to notifications:', err);
-        setUnreadCount(0);
-      }
-    );
+      const unsubscribeNotifications = onSnapshot(
+        notificationsQuery,
+        (snapshot) => {
+          setUnreadCount(snapshot.size);
+        },
+        (err) => {
+          console.error('Error listening to notifications:', err);
+          // Handle permission errors gracefully
+          if (err.code === 'permission-denied') {
+            console.warn('Permission denied when fetching notifications. Check Firestore rules.');
+          }
+          setUnreadCount(0);
+        }
+      );
 
-    return () => unsubscribeNotifications();
-  }, [currentUser]);
+      return () => unsubscribeNotifications();
+    } catch (err) {
+      console.error('Error setting up notifications listener:', err);
+      setUnreadCount(0);
+    }
+  }, [currentUser, db]);
 
   // Login function
   const handleLogin = async (email, password) => {
@@ -175,11 +196,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Signup function
-  const handleSignup = async (email, password, name, phone = '') => {
+  const handleSignup = async (email, password, name) => {
     try {
       setLoading(true);
       setError(null);
-      const result = await signup(email, password, name, phone);
+      const result = await signup(email, password, name);
       
       if (!result.success) {
         setError(result.error);
@@ -300,56 +321,23 @@ export const AuthProvider = ({ children }) => {
 
   // Get user role
   const getUserRole = () => {
-    return userProfile?.role || currentUserRole || 'user';
+    return userProfile?.role || 'customer';
   };
 
-  // Check if user is admin or superadmin
+  // Check if user is admin
   const isAdmin = () => {
-    const role = getUserRole();
-    return role === 'admin' || role === 'superadmin';
+    return getUserRole() === 'admin';
   };
 
-  // Check if user is superadmin
-  const isSuperAdmin = () => {
-    return getUserRole() === 'superadmin';
-  };
-
-  // Check if user is provider (constructor, renovator, or provider)
+  // Check if user is provider
   const isProvider = () => {
     const role = getUserRole();
     return role === 'constructor' || role === 'renovator' || role === 'provider';
   };
 
-  // Check if user is constructor
-  const isConstructor = () => {
-    return getUserRole() === 'constructor';
-  };
-
-  // Check if user is renovator
-  const isRenovator = () => {
-    return getUserRole() === 'renovator';
-  };
-
-  // Get redirect path based on user role
-  const getRedirectPath = () => {
-    const role = getUserRole();
-    switch (role) {
-      case 'admin':
-      case 'superadmin':
-        return '/admin';
-      case 'provider':
-        return '/provider-dashboard';
-      case 'constructor':
-        return '/constructor-dashboard';
-      case 'renovator':
-        return '/renovator-dashboard';
-      default:
-        return '/dashboard';
-    }
-  };
-
   const value = {
     currentUser,
+    user: currentUser, // Alias for backward compatibility
     userProfile,
     loading,
     error,
@@ -363,11 +351,7 @@ export const AuthProvider = ({ children }) => {
     createOrUpdateUserProfile: handleCreateOrUpdateUserProfile,
     getUserRole,
     isAdmin,
-    isSuperAdmin,
     isProvider,
-    isConstructor,
-    isRenovator,
-    getRedirectPath,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -183,20 +183,31 @@ class PropertyService {
     try {
       checkFirebaseServices();
 
-      // Fetch all properties and filter/sort client-side to avoid index issues
-      // This approach works well for small to medium datasets
-      console.log('Fetching all properties (client-side filtering)...');
-      console.log('Filters received:', filters);
+      // Try to fetch with proper filters first (more efficient and permission-safe)
+      console.log('Fetching properties with filters:', filters);
 
-      // Fetch ALL properties without any where clauses or orderBy to avoid index issues
-      let q = query(collection(db, PROPERTIES_COLLECTION));
+      let q;
+      
+      // If status filter is provided, use it (more permission-safe)
+      if (filters.status) {
+        q = query(
+          collection(db, PROPERTIES_COLLECTION),
+          where('status', '==', filters.status)
+        );
+      } else {
+        // If no status filter, only fetch published by default (permission-safe)
+        q = query(
+          collection(db, PROPERTIES_COLLECTION),
+          where('status', '==', 'published')
+        );
+      }
 
-      // Don't apply any orderBy or where clauses - fetch everything and filter client-side
-      const snapshot = await getDocs(q);
-      console.log(`Fetched ${snapshot.docs.length} total properties from Firestore`);
+      try {
+        const snapshot = await getDocs(q);
+        console.log(`Fetched ${snapshot.docs.length} properties from Firestore`);
 
-      // Convert to array
-      let results = snapshot.docs.map((doc) => {
+        // Convert to array
+        let results = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -309,71 +320,112 @@ class PropertyService {
         results = results.slice(0, options.limit);
       }
 
-      console.log(`Returning ${results.length} properties after filtering and sorting`);
-      return results;
+        console.log(`Returning ${results.length} properties after filtering and sorting`);
+        return results;
+      } catch (queryError) {
+        console.error('Error with filtered query:', queryError);
+        
+        // If permission or index error, try fetching all and filtering client-side
+        if (queryError.code === 'permission-denied' || queryError.message?.includes('index')) {
+          console.warn('Permission/index error, falling back to client-side filtering...');
+          
+          // Fallback: fetch all published properties (should be allowed by rules)
+          try {
+            let fallbackQ = query(
+              collection(db, PROPERTIES_COLLECTION),
+              where('status', '==', 'published')
+            );
+            
+            const fallbackSnapshot = await getDocs(fallbackQ);
+            let results = fallbackSnapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+              status: doc.data().status || 'published',
+            }));
+            
+            // Apply remaining filters client-side
+            if (filters.type) {
+              results = results.filter((p) => p.type === filters.type.toLowerCase());
+            }
+            
+            if (filters.city) {
+              results = results.filter((p) => p.address?.city === filters.city);
+            }
+            
+            if (filters.ownerId) {
+              results = results.filter((p) => p.ownerId === filters.ownerId);
+            }
+            
+            if (typeof filters.minPrice === 'number') {
+              results = results.filter((p) => (p.price || 0) >= filters.minPrice);
+            }
+            
+            if (typeof filters.maxPrice === 'number') {
+              results = results.filter((p) => (p.price || 0) <= filters.maxPrice);
+            }
+            
+            if (typeof filters.minBedrooms === 'number') {
+              results = results.filter((p) => (p.bedrooms || 0) >= filters.minBedrooms);
+            }
+            
+            if (typeof filters.minBathrooms === 'number') {
+              results = results.filter((p) => (p.bathrooms || 0) >= filters.minBathrooms);
+            }
+            
+            if (typeof filters.minArea === 'number') {
+              results = results.filter((p) => (p.areaSqFt || 0) >= filters.minArea);
+            }
+            
+            if (filters.furnished !== undefined) {
+              results = results.filter((p) => Boolean(p.furnished) === Boolean(filters.furnished));
+            }
+            
+            if (filters.parking !== undefined) {
+              results = results.filter((p) => Boolean(p.parking) === Boolean(filters.parking));
+            }
+            
+            if (filters.featured !== undefined) {
+              results = results.filter((p) => Boolean(p.featured) === Boolean(filters.featured));
+            }
+
+            // Apply sorting client-side
+            const sortBy = options.sortBy || 'createdAt';
+            const sortOrder = options.sortOrder || 'desc';
+
+            if (sortBy === 'createdAt' && sortOrder === 'desc') {
+              results.sort((a, b) => {
+                const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
+                const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
+                return bTime - aTime;
+              });
+            } else if (sortBy === 'createdAt' && sortOrder === 'asc') {
+              results.sort((a, b) => {
+                const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
+                const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
+                return aTime - bTime;
+              });
+            } else if (sortBy === 'price' && sortOrder === 'desc') {
+              results.sort((a, b) => (b.price || 0) - (a.price || 0));
+            } else if (sortBy === 'price' && sortOrder === 'asc') {
+              results.sort((a, b) => (a.price || 0) - (b.price || 0));
+            }
+
+            // Apply limit after filtering
+            if (options.limit) {
+              results = results.slice(0, options.limit);
+            }
+
+            return results;
+          } catch (fallbackError) {
+            console.error('Fallback query also failed:', fallbackError);
+            throw new Error('Failed to fetch properties. Please check your Firestore permissions.');
+          }
+        }
+        
+        throw new Error(queryError.message || 'Failed to fetch properties');
+      }
     } catch (error) {
       console.error('Error fetching properties:', error);
-
-      // If it's an index error, try a simpler query without status filter
-      if (error.message && error.message.includes('index')) {
-        console.warn('Index error detected, trying simpler query...');
-        try {
-          // Fallback: fetch all and filter client-side
-          let q = query(collection(db, PROPERTIES_COLLECTION));
-          const sortBy = options.sortBy || 'createdAt';
-          const sortOrder = options.sortOrder || 'desc';
-          q = query(q, orderBy(sortBy, sortOrder));
-
-          if (options.limit) {
-            q = query(q, limit(options.limit * 2)); // Get more to filter
-          }
-
-          const snapshot = await getDocs(q);
-          let results = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-          // Apply filters client-side
-          if (filters.status) {
-            results = results.filter((p) => p.status === filters.status);
-          } else {
-            results = results.filter((p) => p.status === 'published');
-          }
-
-          if (filters.type) {
-            results = results.filter((p) => p.type === filters.type.toLowerCase());
-          }
-
-          if (filters.city) {
-            results = results.filter((p) => p.address?.city === filters.city);
-          }
-
-          if (typeof filters.minPrice === 'number') {
-            results = results.filter((p) => p.price >= filters.minPrice);
-          }
-
-          if (typeof filters.maxPrice === 'number') {
-            results = results.filter((p) => p.price <= filters.maxPrice);
-          }
-
-          if (typeof filters.minBedrooms === 'number') {
-            results = results.filter((p) => p.bedrooms >= filters.minBedrooms);
-          }
-
-          if (typeof filters.minBathrooms === 'number') {
-            results = results.filter((p) => p.bathrooms >= filters.minBathrooms);
-          }
-
-          // Apply limit after filtering
-          if (options.limit) {
-            results = results.slice(0, options.limit);
-          }
-
-          return results;
-        } catch (fallbackError) {
-          console.error('Fallback query also failed:', fallbackError);
-          throw new Error(error.message || 'Failed to fetch properties');
-        }
-      }
-
       throw new Error(error.message || 'Failed to fetch properties');
     }
   }

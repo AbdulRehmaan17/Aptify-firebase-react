@@ -1,5 +1,5 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from './firebase';
+import { storage } from './index';
 
 /**
  * Upload an image file to Firebase Storage
@@ -147,6 +147,7 @@ export const getImageUrl = async (storagePath) => {
     throw error;
   }
 };
+
 
 
 

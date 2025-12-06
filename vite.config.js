@@ -9,12 +9,8 @@ export default defineConfig({
   },
   // Ensure environment variables are loaded
   envPrefix: 'VITE_',
-  // Dev server configuration
+  // Clear cache on build issues
   server: {
     hmr: true,
-    // Open the app in the system browser instead of the editor
-    open: true,
-    // Explicitly choose the browser; change to 'edge' or 'firefox' if preferred
-    browser: 'chrome',
   },
 });

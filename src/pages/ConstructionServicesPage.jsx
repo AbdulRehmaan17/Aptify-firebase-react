@@ -1,25 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Building2, Hammer, Wrench, HardHat, ArrowRight, CheckCircle } from 'lucide-react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
-import LoadingSpinner from '../components/common/LoadingSpinner';
 
 /**
  * ConstructionServicesPage Component
  *
  * Main landing page for construction services.
- * Lists all available construction service categories from providers.
+ * Provides information about construction services and links to construction providers.
  */
 const ConstructionServicesPage = () => {
   const { user } = useAuth();
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  // Default categories if none found
-  const defaultServices = [
+  const services = [
     {
       icon: <Building2 className="w-8 h-8" />,
       title: 'New Construction',
@@ -44,66 +38,6 @@ const ConstructionServicesPage = () => {
       description: 'Transform your existing property with comprehensive remodeling solutions.',
     },
   ];
-
-  // Icon mapping for categories
-  const categoryIcons = {
-    'New Construction': <Building2 className="w-8 h-8" />,
-    'Extension': <Hammer className="w-8 h-8" />,
-    'Remodeling': <Wrench className="w-8 h-8" />,
-    'Finishing': <HardHat className="w-8 h-8" />,
-    'Grey Structure': <HardHat className="w-8 h-8" />,
-    'Commercial': <Building2 className="w-8 h-8" />,
-    'Residential': <Building2 className="w-8 h-8" />,
-    'Interior Design': <Wrench className="w-8 h-8" />,
-    'Architectural Design': <Building2 className="w-8 h-8" />,
-  };
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setLoading(true);
-        // Fetch all approved construction providers
-        const providersQuery = query(
-          collection(db, 'providers'),
-          where('type', '==', 'construction'),
-          where('isApproved', '==', true)
-        );
-
-        const snapshot = await getDocs(providersQuery);
-        const allSpecializations = new Set();
-
-        snapshot.docs.forEach((doc) => {
-          const data = doc.data();
-          const specs = Array.isArray(data.specialization)
-            ? data.specialization
-            : data.specialization
-              ? [data.specialization]
-              : [];
-          specs.forEach((spec) => {
-            if (spec) allSpecializations.add(spec);
-          });
-        });
-
-        // Convert to array and create service objects
-        const categoryList = Array.from(allSpecializations).map((category) => ({
-          icon: categoryIcons[category] || <Building2 className="w-8 h-8" />,
-          title: category,
-          description: `Professional ${category.toLowerCase()} services from verified providers.`,
-        }));
-
-        setCategories(categoryList.length > 0 ? categoryList : defaultServices);
-      } catch (error) {
-        console.error('Error fetching construction categories:', error);
-        setCategories(defaultServices);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCategories();
-  }, []);
-
-  const services = categories.length > 0 ? categories : defaultServices;
 
   const features = [
     'Expert construction professionals',
@@ -175,24 +109,18 @@ const ConstructionServicesPage = () => {
             </p>
           </div>
 
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <LoadingSpinner size="lg" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {services.map((service, index) => (
-                <div
-                  key={index}
-                  className="bg-surface rounded-base shadow-lg p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-muted"
-                >
-                  <div className="text-primary mb-4">{service.icon}</div>
-                  <h3 className="text-xl font-semibold text-textMain mb-2">{service.title}</h3>
-                  <p className="text-textSecondary">{service.description}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {services.map((service, index) => (
+              <div
+                key={index}
+                className="bg-surface rounded-base shadow-lg p-6 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-muted"
+              >
+                <div className="text-primary mb-4">{service.icon}</div>
+                <h3 className="text-xl font-semibold text-textMain mb-2">{service.title}</h3>
+                <p className="text-textSecondary">{service.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -1,37 +1,44 @@
-// Main Firebase exports - re-export from firebase.js for convenience
-export { auth, db, storage, googleProvider, isFirebaseInitialized, getFirebaseInitError } from './firebase';
+// Main Firebase exports - centralized export point
+// Import all Firebase services
+import { app, firebaseConfig } from './config';
+import { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from './auth';
+import { db } from './firestore';
+import { getStorage } from 'firebase/storage';
 
-// Auth functions
-export {
-  login,
-  signup,
-  loginWithGoogle,
-  handleGoogleRedirect,
-  logout,
-  createOrUpdateUserProfile,
-  resetPassword,
-  getCurrentUser,
-} from './authFunctions';
+// Export all Firebase services
+export { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult };
+export { db };
+export { firebaseConfig, app };
 
-// Firestore functions
-export {
-  addDocAutoId,
-  getDocById,
-  updateDocById,
-  deleteDocById,
-  fetchCollection,
-  docExists,
-  batchUpdate,
-} from './firestoreFunctions';
+// Storage initialization - only if app exists
+let storage = null;
+try {
+  if (app) {
+    storage = getStorage(app);
+  }
+} catch (error) {
+  console.error('Failed to initialize Firebase Storage:', error);
+}
 
-// Storage functions
-export {
-  uploadImage,
-  uploadMultipleImages,
-  deleteImage,
-  deleteMultipleImages,
-  getImageUrl,
-} from './storageFunctions';
+export { storage };
 
+// Helper functions
+export const isFirebaseInitialized = () => {
+  return !!app && !!auth && !!db && !!storage;
+};
 
-
+export const getFirebaseInitError = () => {
+  if (!app) {
+    return new Error('Firebase app not initialized');
+  }
+  if (!auth) {
+    return new Error('Firebase Auth not initialized');
+  }
+  if (!db) {
+    return new Error('Firebase Firestore not initialized');
+  }
+  if (!storage) {
+    return new Error('Firebase Storage not initialized');
+  }
+  return null;
+};

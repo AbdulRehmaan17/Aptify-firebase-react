@@ -1,15 +1,12 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MapPin, Bed, Bath, Square, Heart, ShoppingCart } from 'lucide-react';
+import { MapPin, Bed, Bath, Square } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext';
-import userService from '../../services/userService';
 import Button from '../common/Button';
 import toast from 'react-hot-toast';
 
 const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
   const { user } = useAuth();
-  const { addToCart } = useCart();
   const navigate = useNavigate();
 
   const formatPrice = (price) => {
@@ -60,52 +57,8 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
       return;
     }
 
-    try {
-      if (isFavorite) {
-        await userService.removeFromFavorites(user.uid, property.id);
-        await userService.removeFromWishlist(user.uid, property.id);
-        toast.success('Removed from favorites');
-      } else {
-        await userService.addToFavorites(user.uid, property.id);
-        await userService.addToWishlist(user.uid, property.id, 'property');
-        toast.success('Added to favorites');
-      }
-      if (onFavoriteToggle) {
-        onFavoriteToggle(property.id, !isFavorite);
-      }
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      toast.error('Failed to update favorites');
-    }
-  };
-
-  const handleAddToCart = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!user) {
-      toast.error('Please sign in to add to cart');
-      return;
-    }
-
-    // Only allow adding properties for sale to cart
-    if (property.type !== 'sale') {
-      toast.error('Only properties for sale can be added to cart');
-      return;
-    }
-
-    try {
-      addToCart({
-        itemId: property.id,
-        itemType: 'property',
-        name: property.title,
-        price: property.price,
-        image: getImageUrl(),
-        quantity: 1,
-      });
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      toast.error('Failed to add to cart');
+    if (onFavoriteToggle) {
+      onFavoriteToggle(property.id, !isFavorite);
     }
   };
 
@@ -125,7 +78,7 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
       className="block"
       onClick={handleCardClick}
     >
-      <div className="bg-surface shadow-soft rounded-lg border border-muted p-4 hover:shadow-md hover:border-primary transition group">
+      <div className="bg-card shadow-sm rounded-lg border border-muted p-4 hover:shadow-md hover:border-primary transition group">
         {/* Image */}
         <div className="relative h-48 sm:h-56 overflow-hidden bg-muted rounded-lg mb-4">
           <img
@@ -144,9 +97,9 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
           {/* Status Badge */}
           <div className="absolute top-2 left-2">
             <span
-              className={`px-2 py-1 rounded-base text-xs font-semibold ${
+              className={`px-2 py-1 rounded text-xs font-semibold ${
                 property.status === 'published'
-                  ? 'bg-primary text-white'
+                  ? 'bg-success text-white'
                   : property.status === 'pending'
                     ? 'bg-accent text-white'
                     : 'bg-textSecondary text-white'
@@ -157,7 +110,7 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
           </div>
           {/* Type Badge */}
           <div className="absolute top-2 right-2">
-            <span className="px-2 py-1 rounded-base text-xs font-semibold bg-primary text-white capitalize">
+            <span className="px-2 py-1 rounded text-xs font-semibold bg-primary text-white capitalize">
               {property.type || 'Property'}
             </span>
           </div>
@@ -165,11 +118,11 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
           {user && (
             <button
               onClick={handleFavoriteToggle}
-              className="absolute bottom-2 right-2 p-2 bg-surface rounded-full shadow-md hover:bg-error/10 transition-colors"
+              className="absolute bottom-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-red-50 transition-colors"
               aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             >
               <svg
-                className={`w-5 h-5 ${isFavorite ? 'text-error fill-current' : 'text-textSecondary'}`}
+                className={`w-5 h-5 ${isFavorite ? 'text-red-500 fill-current' : 'text-gray-400'}`}
                 fill={isFavorite ? 'currentColor' : 'none'}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -256,29 +209,17 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 mt-2">
-            {property.type === 'sale' && (
-              <Button
-                className="flex-1"
-                variant="outline"
-                onClick={handleAddToCart}
-              >
-                <ShoppingCart className="w-4 h-4 mr-1" />
-                Add to Cart
-              </Button>
-            )}
-            <Button
-              className={property.type === 'sale' ? 'flex-1' : 'w-full'}
-              variant="primary"
-              onClick={(e) => {
-                e.preventDefault();
-                // Navigate is handled by the Link wrapper
-              }}
-            >
-              View Details
-            </Button>
-          </div>
+          {/* Action Button */}
+          <Button
+            className="w-full mt-2"
+            variant="primary"
+            onClick={(e) => {
+              e.preventDefault();
+              // Navigate is handled by the Link wrapper
+            }}
+          >
+            View Details
+          </Button>
         </div>
       </div>
     </Link>

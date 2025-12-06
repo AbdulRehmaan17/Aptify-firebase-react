@@ -12,7 +12,7 @@ import {
   getDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../../firebase/firebase';
+import { db } from '../../firebase';
 import notificationService from '../../services/notificationService';
 import { getOrCreateChat } from '../../utils/chatHelpers';
 import reviewsService from '../../services/reviewsService';

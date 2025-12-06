@@ -10,7 +10,7 @@ import {
   writeBatch,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase';
 
 const NOTIFICATIONS_COLLECTION = 'notifications';
 
@@ -196,15 +196,6 @@ class NotificationService {
       console.error('Error deleting notification:', error);
       throw new Error(error.message || 'Failed to delete notification');
     }
-  }
-
-  /**
-   * Delete a notification (alias for delete)
-   * @param {string} notificationId - Notification document ID
-   * @returns {Promise<void>}
-   */
-  async deleteNotification(notificationId) {
-    return this.delete(notificationId);
   }
 
   /**

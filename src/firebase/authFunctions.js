@@ -2,43 +2,41 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   sendPasswordResetEmail,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
+  updateProfile as updateFirebaseProfile,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, googleProvider } from './auth';
+import { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from './auth';
 import { db } from './firestore';
 
 /**
  * Login with email and password
+ * @param {string} email - User email
+ * @param {string} password - User password
+ * @returns {Promise<{success: boolean, user?: User, error?: string}>}
  */
 export const login = async (email, password) => {
   try {
     if (!auth) {
-      return {
-        success: false,
-        error:
-          'Authentication service is not initialized. Please check your Firebase configuration.',
-      };
+      return { success: false, error: 'Firebase auth is not initialized' };
     }
 
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return { success: true, user: result.user };
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return { success: true, user: userCredential.user };
   } catch (error) {
-    let errorMessage = 'Failed to sign in. Please try again.';
-
-    // Provide user-friendly error messages
+    console.error('Login error:', error);
+    let errorMessage = 'Failed to login';
+    
     switch (error.code) {
       case 'auth/user-not-found':
         errorMessage = 'No account found with this email address.';
         break;
       case 'auth/wrong-password':
-        errorMessage = 'Incorrect password. Please try again.';
+      case 'auth/invalid-credential':
+        errorMessage = 'Invalid email or password.';
         break;
       case 'auth/invalid-email':
         errorMessage = 'Invalid email address.';
@@ -49,308 +47,293 @@ export const login = async (email, password) => {
       case 'auth/too-many-requests':
         errorMessage = 'Too many failed attempts. Please try again later.';
         break;
-      case 'auth/network-request-failed':
-        errorMessage = 'Network error. Please check your connection.';
-        break;
       default:
-        errorMessage = error.message || errorMessage;
+        errorMessage = error.message || 'Failed to login';
     }
-
+    
     return { success: false, error: errorMessage };
   }
 };
 
 /**
  * Sign up with email and password
+ * @param {string} email - User email
+ * @param {string} password - User password
+ * @param {string} name - User display name
+ * @returns {Promise<{success: boolean, user?: User, error?: string}>}
  */
-export const signup = async (email, password, name, phone = '') => {
+export const signup = async (email, password, name) => {
   try {
     if (!auth) {
-      return {
-        success: false,
-        error:
-          'Authentication service is not initialized. Please check your Firebase configuration.',
-      };
-    }
-    if (!db) {
-      return {
-        success: false,
-        error: 'Database service is not initialized. Please check your Firebase configuration.',
-      };
+      return { success: false, error: 'Firebase auth is not initialized' };
     }
 
-    const result = await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
 
-    // Create user document in Firestore using createOrUpdateUserProfile
-    try {
-      await createOrUpdateUserProfile(result.user, { name, phone });
-    } catch (firestoreError) {
-      console.error('Error creating user document:', firestoreError);
-      // Don't fail registration if Firestore write fails, user is already created in Auth
+    // Update Firebase Auth profile with display name
+    if (name) {
+      await updateFirebaseProfile(user, { displayName: name });
     }
 
-    return { success: true, user: result.user };
+    // Create user profile in Firestore
+    const profileResult = await createOrUpdateUserProfile(user);
+    if (!profileResult.success) {
+      console.error('Failed to create user profile:', profileResult.error);
+      // Don't fail signup if profile creation fails - user is already created in Auth
+    }
+
+    return { success: true, user };
   } catch (error) {
-    let errorMessage = 'Failed to create account. Please try again.';
-
-    // Provide user-friendly error messages
+    console.error('Signup error:', error);
+    let errorMessage = 'Failed to create account';
+    
     switch (error.code) {
       case 'auth/email-already-in-use':
-        errorMessage = 'An account with this email already exists. Please sign in instead.';
+        errorMessage = 'This email is already registered. Please sign in instead.';
         break;
       case 'auth/invalid-email':
         errorMessage = 'Invalid email address.';
         break;
-      case 'auth/operation-not-allowed':
-        errorMessage = 'Email/password accounts are not enabled. Please contact support.';
-        break;
       case 'auth/weak-password':
         errorMessage = 'Password is too weak. Please use a stronger password.';
         break;
-      case 'auth/network-request-failed':
-        errorMessage = 'Network error. Please check your connection.';
+      case 'auth/operation-not-allowed':
+        errorMessage = 'Email/password accounts are not enabled.';
         break;
       default:
-        errorMessage = error.message || errorMessage;
+        errorMessage = error.message || 'Failed to create account';
     }
-
+    
     return { success: false, error: errorMessage };
   }
 };
 
 /**
- * Sign in with Google using popup method
- * Falls back to redirect if popup is blocked
+ * Login with Google (popup)
+ * @param {boolean} useRedirect - Whether to use redirect flow
+ * @returns {Promise<{success: boolean, user?: User, redirect?: boolean, error?: string}>}
  */
 export const loginWithGoogle = async (useRedirect = false) => {
   try {
     if (!auth) {
-      return {
-        success: false,
-        error:
-          'Authentication service is not initialized. Please check your Firebase configuration.',
-      };
+      return { success: false, error: 'Firebase auth is not initialized' };
     }
 
-    let result;
+    if (!googleProvider) {
+      return { success: false, error: 'Google provider is not initialized' };
+    }
 
+    let user;
     if (useRedirect) {
-      // Use redirect method (fallback for popup blockers)
+      // Redirect flow
       await signInWithRedirect(auth, googleProvider);
-      // Note: The result will be handled by getRedirectResult in the component
       return { success: true, redirect: true };
     } else {
-      // Try popup method first
-      try {
-        result = await signInWithPopup(auth, googleProvider);
-      } catch (popupError) {
-        // If popup is blocked, fall back to redirect
-        if (
-          popupError.code === 'auth/popup-blocked' ||
-          popupError.code === 'auth/popup-closed-by-user'
-        ) {
-          console.log('Popup blocked or closed, falling back to redirect method');
-          await signInWithRedirect(auth, googleProvider);
-          return { success: true, redirect: true, message: 'Redirecting to Google sign in...' };
-        }
-        throw popupError;
+      // Popup flow
+      const result = await signInWithPopup(auth, googleProvider);
+      user = result.user;
+      
+      // Create or update user profile
+      const profileResult = await createOrUpdateUserProfile(user);
+      if (!profileResult.success) {
+        console.error('Failed to create/update user profile:', profileResult.error);
+        // Don't fail login if profile update fails
       }
+      
+      return { success: true, user };
     }
-
-    // If we have a result (popup succeeded), create/update user document
-    if (result && result.user) {
-      await createOrUpdateUserProfile(result.user);
-      return { success: true, user: result.user };
-    }
-
-    return { success: true, redirect: true };
   } catch (error) {
-    let errorMessage = 'Failed to sign in with Google. Please try again.';
-
-    // Provide user-friendly error messages
+    console.error('Google login error:', error);
+    let errorMessage = 'Failed to login with Google';
+    
     switch (error.code) {
-      case 'auth/popup-blocked':
-        errorMessage =
-          'Popup was blocked by your browser. Please allow popups and try again, or use the redirect method.';
-        break;
       case 'auth/popup-closed-by-user':
-        errorMessage = 'Sign in was cancelled. Please try again.';
+        errorMessage = 'Login popup was closed. Please try again.';
         break;
       case 'auth/cancelled-popup-request':
-        errorMessage = 'Only one popup request is allowed at a time. Please wait and try again.';
+        errorMessage = 'Another login popup is already open.';
         break;
-      case 'auth/account-exists-with-different-credential':
-        errorMessage =
-          'An account already exists with this email using a different sign-in method.';
-        break;
-      case 'auth/operation-not-allowed':
-        errorMessage = 'Google sign-in is not enabled. Please contact support.';
-        break;
-      case 'auth/network-request-failed':
-        errorMessage = 'Network error. Please check your connection and try again.';
-        break;
-      case 'auth/auth-domain-config-required':
-        errorMessage = 'Authentication domain not configured. Please contact support.';
+      case 'auth/popup-blocked':
+        errorMessage = 'Popup was blocked by browser. Please allow popups and try again.';
         break;
       default:
-        errorMessage = error.message || errorMessage;
+        errorMessage = error.message || 'Failed to login with Google';
     }
-
-    console.error('Google sign-in error:', error);
+    
     return { success: false, error: errorMessage };
   }
 };
 
 /**
- * Handle redirect result after Google sign-in
- * Call this in your Auth component's useEffect on mount
+ * Handle Google redirect result
+ * @returns {Promise<{success: boolean, user?: User, error?: string}>}
  */
 export const handleGoogleRedirect = async () => {
   try {
     if (!auth) {
-      return { success: false, error: 'Authentication service is not initialized.' };
+      return { success: false, error: 'Firebase auth is not initialized' };
     }
 
     const result = await getRedirectResult(auth);
-
-    if (result && result.user) {
-      await createOrUpdateUserProfile(result.user);
-      return { success: true, user: result.user };
+    
+    if (!result) {
+      return { success: false, error: 'No redirect result found' };
     }
 
-    return { success: false, error: null }; // No redirect result
+    const user = result.user;
+    
+    // Create or update user profile
+    const profileResult = await createOrUpdateUserProfile(user);
+    if (!profileResult.success) {
+      console.error('Failed to create/update user profile:', profileResult.error);
+      // Don't fail redirect if profile update fails
+    }
+    
+    return { success: true, user };
   } catch (error) {
-    let errorMessage = 'Failed to complete Google sign-in.';
-
+    console.error('Google redirect error:', error);
+    let errorMessage = 'Failed to complete Google sign-in';
+    
     switch (error.code) {
       case 'auth/account-exists-with-different-credential':
-        errorMessage =
-          'An account already exists with this email using a different sign-in method.';
-        break;
-      case 'auth/network-request-failed':
-        errorMessage = 'Network error. Please check your connection.';
+        errorMessage = 'An account already exists with this email. Please sign in with your original method.';
         break;
       default:
-        errorMessage = error.message || errorMessage;
+        errorMessage = error.message || 'Failed to complete Google sign-in';
     }
-
+    
     return { success: false, error: errorMessage };
   }
 };
 
 /**
  * Logout current user
+ * @returns {Promise<{success: boolean, error?: string}>}
  */
 export const logout = async () => {
   try {
     if (!auth) {
-      return { success: false, error: 'Authentication service is not initialized.' };
+      return { success: false, error: 'Firebase auth is not initialized' };
     }
 
     await signOut(auth);
     return { success: true };
   } catch (error) {
-    let errorMessage = 'Failed to sign out. Please try again.';
-
-    switch (error.code) {
-      case 'auth/network-request-failed':
-        errorMessage = 'Network error. Please check your connection.';
-        break;
-      default:
-        errorMessage = error.message || errorMessage;
-    }
-
-    return { success: false, error: errorMessage };
+    console.error('Logout error:', error);
+    return { success: false, error: error.message || 'Failed to logout' };
   }
 };
 
 /**
  * Create or update user profile in Firestore
- * @param {Object} user - Firebase Auth user object
- * @param {Object} additionalData - Additional data to include (name, phone, etc.)
+ * @param {User} user - Firebase user object
+ * @param {Object} additionalData - Additional user data to include
+ * @returns {Promise<{success: boolean, error?: string}>}
  */
 export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
-  if (!db) {
-    console.warn('Database not initialized, skipping user document creation');
-    return;
-  }
-
   try {
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    const providerId = user.providerData?.[0]?.providerId || 'password';
-    const isNewUser = !userDoc.exists();
-
-    if (isNewUser) {
-      // Create new user document with all required fields
-      await setDoc(userDocRef, {
-        uid: user.uid,
-        name: additionalData.name || user.displayName || user.email?.split('@')[0] || '',
-        email: user.email || '',
-        phone: additionalData.phone || '',
-        photoURL: user.photoURL || '',
-        role: 'user', // Default role
-        provider: providerId,
-        providerType: null,
-        isProviderApproved: false,
-        walletBalance: 0,
-        totalBookings: 0,
-        totalReviews: 0,
-        createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp(),
-      });
-    } else {
-      // Update existing user document with latest info and lastLogin
-      const existingData = userDoc.data();
-      
-      // AUTO-FIX: Always sync Google photoURL if user logged in with Google
-      // Prioritize Google photoURL over existing Firestore photoURL for Google auth users
-      let photoURLToUse = existingData.photoURL || '';
-      if (providerId === 'google.com' && user.photoURL) {
-        // If user logged in with Google and has a photoURL, always sync it
-        photoURLToUse = user.photoURL;
-      } else if (user.photoURL && !existingData.photoURL) {
-        // If user has photoURL from auth but Firestore doesn't have one, use auth photoURL
-        photoURLToUse = user.photoURL;
-      }
-      
-      const updateData = {
-        name: additionalData.name || user.displayName || existingData.name || user.email?.split('@')[0] || '',
-        email: user.email || existingData.email || '',
-        photoURL: photoURLToUse,
-        displayName: user.displayName || existingData.displayName || existingData.name || '',
-        provider: providerId,
-        lastLogin: serverTimestamp(),
-      };
-      
-      // Only update phone if provided and different
-      if (additionalData.phone !== undefined && additionalData.phone !== existingData.phone) {
-        updateData.phone = additionalData.phone;
-      }
-      
-      await setDoc(userDocRef, updateData, { merge: true });
+    // Guard: Ensure user and db are available
+    if (!user || !user.uid) {
+      console.warn('Cannot create/update user profile: user or uid is null');
+      return { success: false, error: 'User not authenticated' };
     }
-  } catch (firestoreError) {
-    console.error('Error creating/updating user document:', firestoreError);
-    // Don't fail auth if Firestore write fails
+
+    if (!db) {
+      console.warn('Cannot create/update user profile: Firestore db is not initialized');
+      return { success: false, error: 'Firestore not initialized' };
+    }
+
+    // Guard: Ensure auth is ready - wait a bit if needed
+    if (!auth || !auth.currentUser) {
+      // If auth.currentUser is null but we have user, it might be during signup
+      // Continue anyway as the user object is provided
+      console.log('Auth may not be fully initialized, but proceeding with provided user object');
+    }
+
+    const userRef = doc(db, 'users', user.uid);
+    
+    try {
+      const userDoc = await getDoc(userRef);
+
+      const profileData = {
+        email: user.email || '',
+        displayName: user.displayName || additionalData.name || user.email?.split('@')[0] || 'User',
+        name: user.displayName || additionalData.name || user.email?.split('@')[0] || 'User',
+        photoURL: user.photoURL || additionalData.photoURL || null,
+        phoneNumber: user.phoneNumber || additionalData.phone || additionalData.phoneNumber || null,
+        phone: user.phoneNumber || additionalData.phone || additionalData.phoneNumber || null,
+        lastLogin: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        ...additionalData,
+      };
+
+      if (userDoc.exists()) {
+        // Update existing profile - preserve existing fields
+        const existingData = userDoc.data();
+        await setDoc(
+          userRef,
+          {
+            ...profileData,
+            createdAt: existingData.createdAt || serverTimestamp(),
+            role: existingData.role || additionalData.role || 'customer',
+            // Preserve existing fields if not provided
+            phone: existingData.phone || profileData.phone,
+            phoneNumber: existingData.phoneNumber || profileData.phoneNumber,
+            addresses: existingData.addresses || [],
+          },
+          { merge: true }
+        );
+      } else {
+        // Create new profile
+        await setDoc(userRef, {
+          ...profileData,
+          createdAt: serverTimestamp(),
+          role: additionalData.role || 'customer',
+          phone: profileData.phone,
+          phoneNumber: profileData.phoneNumber,
+          addresses: [],
+        });
+      }
+
+      return { success: true };
+    } catch (firestoreError) {
+      // Handle Firestore permission errors specifically
+      if (firestoreError.code === 'permission-denied') {
+        console.error('Firestore permission denied when creating/updating user profile:', firestoreError);
+        return { 
+          success: false, 
+          error: 'Permission denied. Please check Firestore security rules.' 
+        };
+      }
+      throw firestoreError; // Re-throw other errors
+    }
+  } catch (error) {
+    console.error('Error creating/updating user profile:', error);
+    return { 
+      success: false, 
+      error: error.message || 'Failed to create/update user profile' 
+    };
   }
 };
 
 /**
  * Send password reset email
+ * @param {string} email - User email
+ * @returns {Promise<{success: boolean, error?: string}>}
  */
 export const resetPassword = async (email) => {
   try {
     if (!auth) {
-      return { success: false, error: 'Authentication service is not initialized.' };
+      return { success: false, error: 'Firebase auth is not initialized' };
     }
 
     await sendPasswordResetEmail(auth, email);
     return { success: true };
   } catch (error) {
-    let errorMessage = 'Failed to send password reset email.';
-
+    console.error('Password reset error:', error);
+    let errorMessage = 'Failed to send password reset email';
+    
     switch (error.code) {
       case 'auth/user-not-found':
         errorMessage = 'No account found with this email address.';
@@ -358,32 +341,21 @@ export const resetPassword = async (email) => {
       case 'auth/invalid-email':
         errorMessage = 'Invalid email address.';
         break;
-      case 'auth/network-request-failed':
-        errorMessage = 'Network error. Please check your connection.';
+      case 'auth/too-many-requests':
+        errorMessage = 'Too many requests. Please try again later.';
         break;
       default:
-        errorMessage = error.message || errorMessage;
+        errorMessage = error.message || 'Failed to send password reset email';
     }
-
+    
     return { success: false, error: errorMessage };
   }
 };
 
 /**
- * Get current authenticated user
- */
-export const getCurrentUser = () => {
-  if (!auth) {
-    return null;
-  }
-  return auth.currentUser;
-};
-
-/**
  * Update user password
- * Requires reauthentication for security
- * @param {Object} user - Firebase Auth user object
- * @param {string} currentPassword - Current password for reauthentication
+ * @param {User} user - Firebase user object
+ * @param {string} currentPassword - Current password
  * @param {string} newPassword - New password
  * @returns {Promise<{success: boolean, error?: string}>}
  */
@@ -393,35 +365,32 @@ export const updateUserPassword = async (user, currentPassword, newPassword) => 
       return { success: false, error: 'User not authenticated' };
     }
 
-    // Reauthenticate user
+    // Re-authenticate user with current password
     const credential = EmailAuthProvider.credential(user.email, currentPassword);
     await reauthenticateWithCredential(user, credential);
 
     // Update password
     await updatePassword(user, newPassword);
-
+    
     return { success: true };
   } catch (error) {
+    console.error('Password update error:', error);
     let errorMessage = 'Failed to update password';
-
+    
     switch (error.code) {
       case 'auth/wrong-password':
-        errorMessage = 'Current password is incorrect';
+        errorMessage = 'Current password is incorrect.';
         break;
       case 'auth/weak-password':
-        errorMessage = 'Password is too weak';
+        errorMessage = 'New password is too weak. Please use a stronger password.';
         break;
       case 'auth/requires-recent-login':
-        errorMessage = 'Please log out and log back in before changing your password';
-        break;
-      case 'auth/invalid-credential':
-        errorMessage = 'Invalid credentials';
+        errorMessage = 'Please log out and log back in before changing your password.';
         break;
       default:
-        errorMessage = error.message || errorMessage;
+        errorMessage = error.message || 'Failed to update password';
     }
-
+    
     return { success: false, error: errorMessage };
   }
 };
-

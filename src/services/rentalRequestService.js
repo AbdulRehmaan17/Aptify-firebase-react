@@ -34,14 +34,12 @@ class RentalRequestService {
       }
 
       const request = {
-        requesterId: requestData.userId || requestData.requesterId, // Support both field names
-        userId: requestData.userId || requestData.requesterId, // Keep for backward compatibility
-        ownerId: requestData.ownerId || null, // Will be set from property
+        userId: requestData.userId,
         propertyId: requestData.propertyId,
         startDate: requestData.startDate,
         endDate: requestData.endDate,
         message: requestData.message || '',
-        status: requestData.status || 'pending',
+        status: requestData.status || 'Pending',
         totalCost: requestData.totalCost || null,
         useWallet: requestData.useWallet || false,
         createdAt: serverTimestamp(),
@@ -91,14 +89,7 @@ class RentalRequestService {
       if (!db) {
         throw new Error('Firestore database is not initialized');
       }
-      
-      // AUTO-FIX: Validate userId before querying
-      if (!userId) {
-        console.warn('[RentalRequestService] getByUser called without userId');
-        return [];
-      }
 
-      // AUTO-FIX: Query both userId and requesterId for backward compatibility
       const q = query(
         collection(db, RENTAL_REQUESTS_COLLECTION),
         where('userId', '==', userId),
@@ -106,15 +97,9 @@ class RentalRequestService {
       );
 
       const snapshot = await getDocs(q);
-      // AUTO-FIX: Properly map documents with null checks
-      return snapshot.docs
-        .map((doc) => {
-          if (!doc.exists()) return null;
-          return { id: doc.id, ...doc.data() };
-        })
-        .filter((doc) => doc !== null);
+      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
-      console.error('[RentalRequestService] Error fetching user rental requests:', error);
+      console.error('Error fetching user rental requests:', error);
       throw new Error(error.message || 'Failed to fetch rental requests');
     }
   }
@@ -191,13 +176,12 @@ class RentalRequestService {
   /**
    * Update request status
    * @param {string} requestId - Request document ID
-   * @param {string} status - New status: 'Accepted', 'Rejected', 'Completed', 'Pending'
+   * @param {string} status - New status: 'Accepted', 'Rejected', 'Pending'
    * @param {string} propertyTitle - Property title for notification
    * @param {string} userId - User ID to notify
-   * @param {string} chatId - Optional chat ID to include in notification link
    * @returns {Promise<void>}
    */
-  async updateStatus(requestId, status, propertyTitle, userId, chatId = null) {
+  async updateStatus(requestId, status, propertyTitle, userId) {
     try {
       if (!db) {
         throw new Error('Firestore database is not initialized');
@@ -209,31 +193,21 @@ class RentalRequestService {
         updatedAt: serverTimestamp(),
       });
 
-      // Notify user based on status
-      const notificationLink = chatId ? `/chat?chatId=${chatId}` : `/account`;
-      
+      // Notify user
       if (status === 'Accepted') {
-        await notificationService.sendNotification(
+        await notificationService.create(
           userId,
           'Rental Request Accepted',
-          `Your rental request for "${propertyTitle}" has been accepted! You can now chat with the owner.`,
+          `Your rental request for "${propertyTitle}" has been accepted!`,
           'success',
-          notificationLink
+          `/account`
         );
       } else if (status === 'Rejected') {
-        await notificationService.sendNotification(
+        await notificationService.create(
           userId,
           'Rental Request Rejected',
           `Your rental request for "${propertyTitle}" has been rejected.`,
           'info',
-          `/account`
-        );
-      } else if (status === 'Completed') {
-        await notificationService.sendNotification(
-          userId,
-          'Rental Completed',
-          `Your rental for "${propertyTitle}" has been marked as completed.`,
-          'success',
           `/account`
         );
       }

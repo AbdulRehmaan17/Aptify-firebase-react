@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Home,
@@ -14,10 +14,6 @@ import {
 } from 'lucide-react';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
-import propertyService from '../services/propertyService';
-import PropertyCard from '../components/property/PropertyCard';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import toast from 'react-hot-toast';
 
 /**
  * RentalServicesPage Component
@@ -27,41 +23,6 @@ import toast from 'react-hot-toast';
  */
 const RentalServicesPage = () => {
   const { user } = useAuth();
-  const [properties, setProperties] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    const fetchRentalProperties = async () => {
-      try {
-        setLoading(true);
-        const filters = { type: 'rent', status: 'published' };
-        const sortOptions = { sortBy: 'createdAt', sortOrder: 'desc', limit: 12 };
-        
-        let propertiesData;
-        if (searchTerm.trim()) {
-          propertiesData = await propertyService.search(searchTerm, filters);
-        } else {
-          propertiesData = await propertyService.getAll(filters, sortOptions);
-        }
-        
-        // Filter to ensure only rental properties
-        propertiesData = (propertiesData || []).filter(
-          (p) => p.type?.toLowerCase() === 'rent' || p.listingType?.toLowerCase() === 'rent'
-        );
-        
-        setProperties(propertiesData);
-      } catch (error) {
-        console.error('Error fetching rental properties:', error);
-        toast.error('Failed to load rental properties');
-        setProperties([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRentalProperties();
-  }, [searchTerm]);
 
   const features = [
     'Verified rental property listings',
@@ -74,73 +35,6 @@ const RentalServicesPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Search Section */}
-      <section className="bg-surface py-8 border-b border-muted">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search rental properties by location, city, or address..."
-                className="w-full px-4 py-3 border border-muted rounded-base focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
-            <Button
-              onClick={() => {}}
-              className="bg-primary hover:bg-primaryDark text-white"
-            >
-              <Search className="w-4 h-4 mr-2" />
-              Search
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Properties Section */}
-      {loading ? (
-        <div className="min-h-screen flex items-center justify-center">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : (
-        <section className="py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="mb-8">
-              <h2 className="text-3xl font-display font-bold text-textMain mb-2">
-                Available Rental Properties
-              </h2>
-              <p className="text-lg text-textSecondary">
-                {properties.length} propert{properties.length !== 1 ? 'ies' : 'y'} available for rent
-              </p>
-            </div>
-
-            {properties.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {properties.map((property) => (
-                  <PropertyCard key={property.id} property={property} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 bg-surface rounded-lg">
-                <Home className="w-16 h-16 text-textSecondary mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-textMain mb-2">
-                  No Rental Properties Found
-                </h3>
-                <p className="text-textSecondary mb-6">
-                  {searchTerm ? 'Try adjusting your search criteria' : 'Check back soon for new listings'}
-                </p>
-                {user && (
-                  <Button asChild>
-                    <Link to="/post-property?type=rent">List Your Property</Link>
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
       {/* Hero Section */}
       <section className="relative py-20 overflow-hidden">
         {/* Background Image with Overlay */}
