@@ -134,3 +134,6 @@ The navbar user menu dropdown is now fully functional with:
 
 The dropdown now behaves exactly as expected, opening when the user clicks their icon/name and closing when clicking outside or pressing ESC.
 
+
+
+

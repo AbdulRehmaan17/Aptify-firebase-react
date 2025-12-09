@@ -6,6 +6,7 @@ import PropertyCard from '../components/property/PropertyCard';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
+import { runDiagnostics, printDiagnostics } from '../utils/firebaseDiagnostics';
 
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -104,11 +105,28 @@ const Home = () => {
     const fetchProperties = async () => {
       try {
         setLoading(true);
+        
+        // Debug: Check Firebase initialization
+        const { db } = await import('../firebase');
+        if (!db) {
+          console.error('❌ Firestore db is not initialized!');
+          toast.error('Firebase is not configured. Please check your environment variables.');
+          const demoProperties = getDemoProperties();
+          setFeaturedProducts(demoProperties);
+          setNewArrivals(demoProperties.slice(0, 6));
+          setLoading(false);
+          return;
+        }
+        
+        console.log('✅ Firestore db is initialized, fetching properties...');
+        
         // Fetch featured properties (properties with featured: true)
         const featured = await propertyService.getAll(
             { featured: true, status: 'published' },
             { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }
         );
+        
+        console.log(`📊 Featured properties fetched: ${featured.length}`);
 
         // If no featured properties, fallback to latest published properties
         let featuredProperties = featured;
@@ -118,11 +136,16 @@ const Home = () => {
             { status: 'published' },
             { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }
           );
+          console.log(`📊 Latest properties fetched: ${featuredProperties.length}`);
         }
 
         // If still no properties, use demo properties
         if (featuredProperties.length === 0) {
-          console.log('No properties found, displaying demo properties');
+          console.warn('⚠️ No properties found in Firestore, displaying demo properties');
+          console.warn('   Possible issues:');
+          console.warn('   1. Firestore collection is empty');
+          console.warn('   2. Firestore security rules are blocking access');
+          console.warn('   3. Properties are not published (status !== "published")');
           featuredProperties = getDemoProperties();
         }
 
@@ -131,6 +154,8 @@ const Home = () => {
           { status: 'published' },
           { sortBy: 'createdAt', sortOrder: 'desc', limit: 6 }
         );
+        
+        console.log(`📊 New properties fetched: ${newProperties.length}`);
 
         // If no new properties, use demo properties (different set)
         const displayNewProperties = newProperties.length > 0 
@@ -140,7 +165,21 @@ const Home = () => {
         setFeaturedProducts(featuredProperties);
         setNewArrivals(displayNewProperties);
       } catch (error) {
-        console.error('Error fetching properties:', error);
+        console.error('❌ Error fetching properties:', error);
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          stack: error.stack,
+        });
+        
+        if (error.code === 'permission-denied') {
+          toast.error('Permission denied. Please check Firestore security rules.');
+        } else if (error.code === 'failed-precondition') {
+          toast.error('Firestore index required. Please create the index in Firebase Console.');
+        } else {
+          toast.error(`Failed to load properties: ${error.message || 'Unknown error'}`);
+        }
+        
         // On error, show demo properties
         const demoProperties = getDemoProperties();
         setFeaturedProducts(demoProperties);

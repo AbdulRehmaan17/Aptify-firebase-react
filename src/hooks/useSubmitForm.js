@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 
 /**
  * useSubmitForm Hook
- * 
+ *
  * Standardized form submission hook with:
  * - Confirmation modal before submit
  * - Success modal after submit
@@ -17,7 +17,7 @@ import toast from 'react-hot-toast';
  * - Auto-redirect to /account after 2s
  * - Loading states
  * - Notification creation
- * 
+ *
  * @param {string} collectionName - Firestore collection name (or null if using custom submit function)
  * @param {Object} options - Configuration options
  * @param {Function} options.submitFunction - Custom submit function (overrides default Firestore write)
@@ -31,7 +31,7 @@ import toast from 'react-hot-toast';
  * @param {Function} options.onSuccess - Optional callback after successful submission
  * @param {Function} options.onError - Optional error handler
  * @param {Function} options.createNotification - Optional function to create custom notifications
- * 
+ *
  * @returns {Object} - { handleSubmit, loading, showConfirm, setShowConfirm, showSuccess, setShowSuccess }
  */
 export const useSubmitForm = (collectionName, options = {}) => {
@@ -190,4 +190,3 @@ export const useSubmitForm = (collectionName, options = {}) => {
 };
 
 export default useSubmitForm;
-

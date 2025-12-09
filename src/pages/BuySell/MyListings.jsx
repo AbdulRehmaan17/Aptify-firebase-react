@@ -198,8 +198,8 @@ const MyListings = () => {
                     </span>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       (listing.listingType || listing.type) === 'sell'
-                        ? 'bg-green-100 text-green-600'
-                        : 'bg-blue-100 text-blue-600'
+                        ? 'bg-primary/20 text-primary'
+                        : 'bg-primary/20 text-primary'
                     }`}>
                       {(listing.listingType || listing.type) === 'sell' ? 'For Sale' : 'Want to Buy'}
                     </span>

@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+  doc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '../../firebase/firebase';
 import { MessageSquare, User, Check, CheckCheck } from 'lucide-react';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -186,7 +196,9 @@ const ConversationList = ({ onSelectConversation, selectedChatId }) => {
           <div className="flex flex-col items-center justify-center h-full p-8 text-center">
             <MessageSquare className="w-16 h-16 text-textSecondary mb-4" />
             <p className="text-textSecondary">No conversations yet</p>
-            <p className="text-sm text-textSecondary mt-2">Start a new conversation to get started</p>
+            <p className="text-sm text-textSecondary mt-2">
+              Start a new conversation to get started
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-muted">
@@ -239,4 +251,3 @@ const ConversationList = ({ onSelectConversation, selectedChatId }) => {
 };
 
 export default ConversationList;
-

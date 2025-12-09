@@ -1,7 +1,13 @@
 // Main Firebase exports - centralized export point
 // Import all Firebase services
 import { app, firebaseConfig } from './config';
-import { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from './auth';
+import {
+  auth,
+  googleProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+} from './auth';
 import { db } from './firestore';
 import { getStorage } from 'firebase/storage';
 

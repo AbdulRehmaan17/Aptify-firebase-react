@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUserRole, setCurrentUserRole] = useState('user');
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Safe AuthContext: register single auth listener, store loading state, no direct navigate in listener
   useEffect(() => {
     // Check if auth is available
     if (!auth) {
@@ -30,115 +31,71 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-    let mounted = true;
+    // Register exactly one auth listener and clean it up
+    // CRITICAL: Do NOT call navigate() here - only update state
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      // Update state only — do NOT navigate here
+      setCurrentUser(user || null);
+      setError(null);
 
-    // Listen to auth state changes
-    const unsubscribeAuth = onAuthStateChanged(
-      auth,
-      async (firebaseUser) => {
-        if (!mounted) return;
-
+      if (user) {
         try {
-          console.log('Auth state changed:', firebaseUser?.uid);
-          setCurrentUser(firebaseUser);
-          setError(null);
-
-          if (!firebaseUser) {
-            // User logged out
-            setUserProfile(null);
-            setCurrentUserRole('user');
-            if (mounted) {
-              setLoading(false);
-            }
-            return;
-          }
-
-          // Guard: Ensure db is available before making Firestore calls
-          if (!db) {
-            console.warn('Firestore db is not initialized, skipping profile fetch');
-            if (mounted) {
-              setLoading(false);
-            }
-            return;
-          }
-
-          // Always call createOrUpdateUserProfile to ensure lastLogin is updated
-          // Don't await - let it run in background, but handle errors
-          createOrUpdateUserProfile(firebaseUser).catch((profileError) => {
-            console.error('Error in createOrUpdateUserProfile:', profileError);
-            // Don't block auth state change if profile update fails
-          });
-          
-          // Fetch user profile from Firestore
-          try {
-            if (!mounted || !db) return;
-
-            const userDocRef = doc(db, 'users', firebaseUser.uid);
-            const userDoc = await getDoc(userDocRef);
-
-            if (!mounted) return;
-
-            if (userDoc.exists()) {
-              const profileData = userDoc.data();
-              setUserProfile({ id: userDoc.id, ...profileData });
+          // Use userProfiles collection per Firestore rules
+          if (db) {
+            const snap = await getDoc(doc(db, 'userProfiles', user.uid));
+            if (snap.exists()) {
+              const profileData = snap.data();
+              setUserProfile({ id: snap.id, ...profileData });
               setCurrentUserRole(profileData.role || 'user');
             } else {
-              // If still doesn't exist after createOrUpdateUserProfile, wait a bit and retry
-              setTimeout(async () => {
-                if (!mounted || !db) return;
-                try {
-                  const retryDoc = await getDoc(userDocRef);
-                  if (mounted && retryDoc.exists()) {
-                    const profileData = retryDoc.data();
-                    setUserProfile({ id: retryDoc.id, ...profileData });
-                    setCurrentUserRole(profileData.role || 'user');
-                  }
-                } catch (retryErr) {
-                  console.error('Error retrying user profile fetch:', retryErr);
+              // Try users collection as fallback for backward compatibility
+              try {
+                const usersSnap = await getDoc(doc(db, 'users', user.uid));
+                if (usersSnap.exists()) {
+                  const profileData = usersSnap.data();
+                  setUserProfile({ id: usersSnap.id, ...profileData });
+                  setCurrentUserRole(profileData.role || 'user');
+                } else {
+                  setUserProfile(null);
+                  setCurrentUserRole('user');
                 }
-              }, 500);
+              } catch (e) {
+                console.error('Failed to load user profile from users collection', e);
+                setUserProfile(null);
+                setCurrentUserRole('user');
+              }
             }
-          } catch (err) {
-            console.error('Error fetching user profile:', err);
-            // Don't set error state - profile fetch failure shouldn't block auth
-          } finally {
-            if (mounted) {
-              setLoading(false);
-            }
+          } else {
+            setUserProfile(null);
+            setCurrentUserRole('user');
           }
-        } catch (err) {
-          console.error('Unexpected error in auth state change handler:', err);
-          if (mounted) {
-            setError(err.message || 'An unexpected error occurred');
-            setLoading(false);
-          }
+        } catch (e) {
+          console.error('Failed to load user profile', e);
+          setUserProfile(null);
+          setCurrentUserRole('user');
         }
-      },
-      (err) => {
-        console.error('Auth state change error:', err);
-        if (mounted) {
-          setError(err.message || 'Authentication error');
-          setLoading(false);
-        }
+      } else {
+        // User logged out
+        setUserProfile(null);
+        setCurrentUserRole('user');
       }
-    );
 
-    // Cleanup subscription on unmount
-    return () => {
-      mounted = false;
-      unsubscribeAuth();
-    };
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Listen to notifications for unread count
   useEffect(() => {
-    // Guard: Ensure user and db are available
-    if (!currentUser || !currentUser.uid || !db) {
+    // Guard: Ensure user is authenticated and db is available
+    if (!currentUser || !currentUser.uid || !db || !auth?.currentUser) {
       setUnreadCount(0);
       return;
     }
 
     try {
+      // Notifications require authentication per rules
       const notificationsQuery = query(
         collection(db, 'notifications'),
         where('userId', '==', currentUser.uid),
@@ -154,7 +111,7 @@ export const AuthProvider = ({ children }) => {
           console.error('Error listening to notifications:', err);
           // Handle permission errors gracefully
           if (err.code === 'permission-denied') {
-            console.warn('Permission denied when fetching notifications. Check Firestore rules.');
+            console.warn('Permission denied when fetching notifications. User may not be authenticated.');
           }
           setUnreadCount(0);
         }
@@ -173,7 +130,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const result = await login(email, password);
-      
+
       if (!result.success) {
         setError(result.error);
         setLoading(false);
@@ -201,7 +158,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const result = await signup(email, password, name);
-      
+
       if (!result.success) {
         setError(result.error);
         setLoading(false);
@@ -224,7 +181,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const result = await loginWithGoogle(useRedirect);
-      
+
       if (!result.success) {
         setError(result.error);
         setLoading(false);
@@ -254,7 +211,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const result = await handleGoogleRedirect();
-      
+
       if (!result.success) {
         if (result.error) {
           setError(result.error);
@@ -280,7 +237,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       const result = await logout();
-      
+
       if (!result.success) {
         setError(result.error);
         setLoading(false);
@@ -304,12 +261,12 @@ export const AuthProvider = ({ children }) => {
   const handleCreateOrUpdateUserProfile = async (user) => {
     try {
       await createOrUpdateUserProfile(user);
-      // Refresh user profile
+      // Refresh user profile (using userProfiles per rules)
       if (user && db) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          setUserProfile({ id: userDoc.id, ...userDoc.data() });
+        const userProfileRef = doc(db, 'userProfiles', user.uid);
+        const userProfileDoc = await getDoc(userProfileRef);
+        if (userProfileDoc.exists()) {
+          setUserProfile({ id: userProfileDoc.id, ...userProfileDoc.data() });
         }
       }
       return { success: true };
@@ -353,6 +310,33 @@ export const AuthProvider = ({ children }) => {
     isAdmin,
     isProvider,
   };
+
+  // AUTO-FIXED: Show loading state while auth is initializing to prevent blank screens
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            display: 'inline-block',
+            width: '48px',
+            height: '48px',
+            border: '4px solid #E2E8F0',
+            borderTop: '4px solid #0D9488',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '16px'
+          }}></div>
+          <p style={{ color: '#475569', fontSize: '16px' }}>Loading...</p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      </div>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -21,6 +21,7 @@ export async function addProjectUpdate(collectionName, projectId, status, update
     }
 
     const updateData = {
+      projectId, // Store projectId for collectionGroup queries
       status,
       updatedBy,
       note: note.trim(),
@@ -28,7 +29,7 @@ export async function addProjectUpdate(collectionName, projectId, status, update
     };
 
     const updateRef = await addDoc(
-      collection(db, collectionName, projectId, 'updates'),
+      collection(db, collectionName, projectId, 'projectUpdates'),
       updateData
     );
 

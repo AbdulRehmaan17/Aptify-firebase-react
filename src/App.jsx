@@ -1,16 +1,16 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import ProtectedRoute from './components/common/ProtectedRoute';
+import LoadingSpinner from './components/common/LoadingSpinner';
 import Home from './pages/Home';
 import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
 import PostPropertyPage from './pages/PostPropertyPage';
 import Auth from './pages/Auth';
-import AdminPanel from './pages/AdminPanel';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import MyAccount from './pages/MyAccount';
@@ -21,7 +21,10 @@ import RequestConstruction from './pages/RequestConstruction';
 import ConstructionList from './pages/ConstructionList';
 import ConstructionProviders from './pages/ConstructionProviders';
 import ConstructionDashboard from './pages/ConstructionDashboard';
-import ConstructorDashboard from './pages/ConstructorDashboard';
+import ConstructorDashboard from './pages/constructor/ConstructorDashboard';
+import ConstructorProjects from './pages/constructor/ConstructorProjects';
+import ConstructorProjectDetails from './pages/constructor/ConstructorProjectDetails';
+import ConstructorProfile from './pages/constructor/ConstructorProfile';
 import ProviderConstructionPanel from './pages/ProviderConstructionPanel';
 import RegisterConstructor from './pages/RegisterConstructor';
 import ProviderOptions from './pages/providers/ProviderOptions';
@@ -32,7 +35,6 @@ import RenovationRequestForm from './pages/RenovationRequestForm';
 import RequestRenovation from './pages/RequestRenovation';
 import RenovationProviders from './pages/RenovationProviders';
 import RenovationDashboard from './pages/RenovationDashboard';
-import RenovatorDashboard from './pages/RenovatorDashboard';
 import ProviderRenovationPanel from './pages/ProviderRenovationPanel';
 import RegisterRenovator from './pages/RegisterRenovator';
 import RentPage from './pages/RentPage';
@@ -47,10 +49,17 @@ import BrowseRentals from './pages/BrowseRentals';
 import Dashboard from './pages/Dashboard';
 import NotificationsPage from './pages/NotificationsPage';
 import UserChatsPage from './pages/UserChatsPage';
-import Chat from './pages/Chat';
 import Chatbot from './pages/Chatbot';
 import OwnerDashboard from './pages/OwnerDashboard';
 import PaymentMock from './pages/PaymentMock';
+
+// Lazy load heavy pages for better performance
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const Chat = lazy(() => import('./pages/Chat'));
+const RenovatorDashboard = lazy(() => import('./pages/renovator/RenovatorDashboard'));
+const RenovatorProjects = lazy(() => import('./pages/renovator/RenovatorProjects'));
+const RenovatorProjectDetails = lazy(() => import('./pages/renovator/RenovatorProjectDetails'));
+const RenovatorProfile = lazy(() => import('./pages/renovator/RenovatorProfile'));
 
 function App() {
   return (
@@ -113,7 +122,9 @@ function App() {
                 path="/chat"
                 element={
                   <ProtectedRoute>
-                    <Chat />
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <Chat />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -161,7 +172,9 @@ function App() {
                 path="/admin"
                 element={
                   <ProtectedRoute adminOnly>
-                    <AdminPanel />
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <AdminPanel />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -293,7 +306,9 @@ function App() {
                 path="/renovator-dashboard"
                 element={
                   <ProtectedRoute>
-                    <RenovatorDashboard />
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <RenovatorDashboard />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -324,6 +339,102 @@ function App() {
                 }
               />
 
+              {/* Constructor Module Routes */}
+              <Route
+                path="/constructor/dashboard"
+                element={
+                  <ProtectedRoute constructorOnly>
+                    <ConstructorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/constructor/projects"
+                element={
+                  <ProtectedRoute constructorOnly>
+                    <ConstructorProjects />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/constructor/projects/:id"
+                element={
+                  <ProtectedRoute constructorOnly>
+                    <ConstructorProjectDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/constructor/profile"
+                element={
+                  <ProtectedRoute constructorOnly>
+                    <ConstructorProfile />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Renovator Module Routes */}
+              <Route
+                path="/renovator/dashboard"
+                element={
+                  <ProtectedRoute renovatorOnly>
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <RenovatorDashboard />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovator/projects"
+                element={
+                  <ProtectedRoute renovatorOnly>
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <RenovatorProjects />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovator/project/:id"
+                element={
+                  <ProtectedRoute renovatorOnly>
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <RenovatorProjectDetails />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovator/profile"
+                element={
+                  <ProtectedRoute renovatorOnly>
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <RenovatorProfile />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovator/chat"
+                element={
+                  <ProtectedRoute renovatorOnly>
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <Chat />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovator/notifications"
+                element={
+                  <ProtectedRoute renovatorOnly>
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <NotificationsPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+
               {/* 404 Route */}
               <Route
                 path="*"
@@ -332,7 +443,7 @@ function App() {
                     <div className="text-center">
                       <h1 className="text-4xl font-bold text-textMain mb-4">404</h1>
                       <p className="text-textSecondary mb-8">Page not found</p>
-                      <a href="/" className="text-blue-600 hover:underline">
+                      <a href="/" className="text-primary hover:underline">
                         Go back home
                       </a>
                     </div>
@@ -352,7 +463,7 @@ function App() {
               },
               success: {
                 style: {
-                  background: '#10B981',
+                  background: '#0D9488', // primary teal
                 },
               },
               error: {

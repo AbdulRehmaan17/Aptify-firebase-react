@@ -1,0 +1,45 @@
+{
+  "test_date": "2024-12-19",
+  "tests": [
+    {
+      "test": "Open /auth — does it render without blinking?",
+      "result": "pending",
+      "note": "Requires manual testing or headless browser. Auth.jsx has been fixed with loading guards and redirectedRef."
+    },
+    {
+      "test": "/properties loads items?",
+      "result": "pending",
+      "note": "Requires manual testing. Properties collection has public read access in Firestore rules."
+    },
+    {
+      "test": "/construction-providers shows approved providers?",
+      "result": "pending",
+      "note": "Requires manual testing. Query filters by isApproved == true."
+    },
+    {
+      "test": "login redirect with ?next= returns to intended page?",
+      "result": "pending",
+      "note": "Requires manual testing. Auth.jsx preserves next param and redirects after login."
+    },
+    {
+      "test": "Chat opens and does not throw permission error?",
+      "result": "pending",
+      "note": "Requires manual testing. Chat collection requires authentication per Firestore rules."
+    },
+    {
+      "test": "No permission-denied messages in console?",
+      "result": "pending",
+      "note": "Requires manual testing. All Firestore calls now use handleFirestoreError for user-friendly messages."
+    }
+  ],
+  "fixes_applied": [
+    "AuthContext: Single auth listener, no navigate() in listener",
+    "Auth.jsx: Redirect only after loading is false, redirectedRef prevents double redirects",
+    "ProtectedRoute: Wait for loading before rendering",
+    "Firestore rules: Public read for properties, serviceProviders, reviews",
+    "Error handling: handleFirestoreError utility for user-friendly toasts",
+    "onSnapshot: Cleanup functions added, loading guards implemented"
+  ],
+  "status": "pending_manual_verification"
+}
+

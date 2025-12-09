@@ -1,8 +1,10 @@
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db, storage, auth } from '../firebase';
 
-const USERS_COLLECTION = 'users';
+// Use userProfiles collection per Firestore rules (owner-only access)
+const USER_PROFILES_COLLECTION = 'userProfiles';
+const USERS_COLLECTION = 'users'; // For backward compatibility, but prefer userProfiles
 
 /**
  * User Service Class
@@ -17,7 +19,29 @@ class UserService {
   async getProfile(userId) {
     try {
       if (!userId) throw new Error('User ID is required');
+      
+      // Ensure user is authenticated and can only read their own profile
+      if (!auth || !auth.currentUser || auth.currentUser.uid !== userId) {
+        throw new Error('Permission denied: You can only access your own profile');
+      }
 
+      if (!db) {
+        throw new Error('Firestore database is not initialized');
+      }
+
+      // Try userProfiles first (per Firestore rules)
+      try {
+        const userProfileRef = doc(db, USER_PROFILES_COLLECTION, userId);
+        const userProfileSnap = await getDoc(userProfileRef);
+
+        if (userProfileSnap.exists()) {
+          return { id: userProfileSnap.id, ...userProfileSnap.data() };
+        }
+      } catch (profileError) {
+        console.warn('Error fetching from userProfiles, trying users collection:', profileError);
+      }
+
+      // Fallback to users collection for backward compatibility
       const userRef = doc(db, USERS_COLLECTION, userId);
       const userSnap = await getDoc(userRef);
 
@@ -28,6 +52,9 @@ class UserService {
       return { id: userSnap.id, ...userSnap.data() };
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      if (error.code === 'permission-denied') {
+        throw new Error('Permission denied: You can only access your own profile');
+      }
       throw new Error(error.message || 'Failed to fetch user profile');
     }
   }
@@ -42,9 +69,28 @@ class UserService {
   async updateProfile(userId, updates) {
     try {
       if (!userId) throw new Error('User ID is required');
+      
+      // Ensure user is authenticated and can only update their own profile
+      if (!auth || !auth.currentUser || auth.currentUser.uid !== userId) {
+        throw new Error('Permission denied: You can only update your own profile');
+      }
 
-      const userRef = doc(db, USERS_COLLECTION, userId);
-      const userSnap = await getDoc(userRef);
+      if (!db) {
+        throw new Error('Firestore database is not initialized');
+      }
+
+      // Try userProfiles first (per Firestore rules)
+      let userRef = null;
+      let userSnap = null;
+      
+      try {
+        userRef = doc(db, USER_PROFILES_COLLECTION, userId);
+        userSnap = await getDoc(userRef);
+      } catch (profileError) {
+        console.warn('Error accessing userProfiles, trying users collection:', profileError);
+        userRef = doc(db, USERS_COLLECTION, userId);
+        userSnap = await getDoc(userRef);
+      }
 
       if (!userSnap.exists()) {
         throw new Error('User profile not found');

@@ -24,13 +24,24 @@ class AdminService {
    */
   async getAllUsers() {
     try {
+      if (!db) {
+        const error = new Error('Firestore database is not initialized');
+        console.error('❌ ERROR [getAllUsers]: Firestore db is null!');
+        throw error;
+      }
+      
+      console.log('🔍 Fetching all users from Firestore...');
       const usersSnapshot = await getDocs(collection(db, 'users'));
+      console.log(`✅ Fetched ${usersSnapshot.docs.length} users`);
+      
       return usersSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
     } catch (error) {
-      console.error('Error fetching users:', error);
+      console.error('❌ ERROR [getAllUsers]:', error);
+      console.error('   Error Code:', error.code);
+      console.error('   Error Message:', error.message);
       throw new Error(error.message || 'Failed to fetch users');
     }
   }
@@ -73,13 +84,24 @@ class AdminService {
    */
   async getAllProviders() {
     try {
+      if (!db) {
+        const error = new Error('Firestore database is not initialized');
+        console.error('❌ ERROR [getAllProviders]: Firestore db is null!');
+        throw error;
+      }
+      
+      console.log('🔍 Fetching all service providers from Firestore...');
       const providersSnapshot = await getDocs(collection(db, 'serviceProviders'));
+      console.log(`✅ Fetched ${providersSnapshot.docs.length} providers`);
+      
       return providersSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
     } catch (error) {
-      console.error('Error fetching providers:', error);
+      console.error('❌ ERROR [getAllProviders]:', error);
+      console.error('   Error Code:', error.code);
+      console.error('   Error Message:', error.message);
       throw new Error(error.message || 'Failed to fetch providers');
     }
   }

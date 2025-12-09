@@ -4,6 +4,23 @@ import App from './App';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import './index.css';
 
+// Import diagnostics tool (only in dev mode)
+if (import.meta.env.DEV) {
+  import('./utils/firestoreDiagnostics').then(({ runFirestoreDiagnostics }) => {
+    // Make it available globally for manual testing
+    window.runFirestoreDiagnostics = runFirestoreDiagnostics;
+    console.log('💡 Firestore diagnostics available. Run: window.runFirestoreDiagnostics()');
+    
+    // Auto-run after a delay to ensure Firebase is initialized
+    setTimeout(() => {
+      console.log('🔍 Auto-running Firestore diagnostics...');
+      runFirestoreDiagnostics().catch(console.error);
+    }, 3000);
+  }).catch(err => {
+    console.warn('Could not load diagnostics tool:', err);
+  });
+}
+
 // Global error handlers - MUST be set up before any imports that might throw
 window.addEventListener('error', (e) => {
   console.error('🔥 Runtime Error:', e.error);
@@ -61,7 +78,8 @@ if (!rootElement) {
     );
   } catch (error) {
     console.error('🔥 Failed to render app:', error);
-    const errorMessage = error?.message || error?.toString() || 'An unexpected error occurred during initialization';
+    const errorMessage =
+      error?.message || error?.toString() || 'An unexpected error occurred during initialization';
     const errorStack = error?.stack || error?.toString() || '';
     rootElement.innerHTML = `
       <div style="padding: 20px; text-align: center; font-family: system-ui; min-height: 100vh; display: flex; align-items: center; justify-content: center;">

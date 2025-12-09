@@ -48,7 +48,10 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/services" className="text-textSecondary hover:text-white transition-colors">
+                  <Link
+                    to="/services"
+                    className="text-textSecondary hover:text-white transition-colors"
+                  >
                     Renovation Services
                   </Link>
                 </li>
@@ -61,12 +64,18 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/about" className="text-textSecondary hover:text-white transition-colors">
+                  <Link
+                    to="/about"
+                    className="text-textSecondary hover:text-white transition-colors"
+                  >
                     About Us
                   </Link>
                 </li>
                 <li>
-                  <Link to="/contact" className="text-textSecondary hover:text-white transition-colors">
+                  <Link
+                    to="/contact"
+                    className="text-textSecondary hover:text-white transition-colors"
+                  >
                     Contact
                   </Link>
                 </li>
@@ -78,12 +87,18 @@ const Footer = () => {
               <h3 className="text-lg font-semibold mb-4 text-white">Services</h3>
               <ul className="space-y-2">
                 <li>
-                  <Link to="/help" className="text-textSecondary hover:text-white transition-colors">
+                  <Link
+                    to="/help"
+                    className="text-textSecondary hover:text-white transition-colors"
+                  >
                     Help Center
                   </Link>
                 </li>
                 <li>
-                  <Link to="/services" className="text-textSecondary hover:text-white transition-colors">
+                  <Link
+                    to="/services"
+                    className="text-textSecondary hover:text-white transition-colors"
+                  >
                     Renovation Services
                   </Link>
                 </li>
@@ -101,7 +116,10 @@ const Footer = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/contact" className="text-textSecondary hover:text-white transition-colors">
+                  <Link
+                    to="/contact"
+                    className="text-textSecondary hover:text-white transition-colors"
+                  >
                     Contact Support
                   </Link>
                 </li>
@@ -135,9 +153,7 @@ const Footer = () => {
         {/* Newsletter */}
         <div className="py-8 border-t border-textMain">
           <div className="max-w-md mx-auto text-center lg:max-w-none lg:text-left">
-            <h3 className="text-lg font-semibold mb-4 text-white">
-              Subscribe to Our Newsletter
-            </h3>
+            <h3 className="text-lg font-semibold mb-4 text-white">Subscribe to Our Newsletter</h3>
             <p className="text-white/80 text-sm mb-4">
               Get the latest updates on new property listings, renovation service offers, and real
               estate insights.

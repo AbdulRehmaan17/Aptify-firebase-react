@@ -26,14 +26,17 @@ import { db, storage } from '../firebase';
 // Safety check for Firebase services
 const checkFirebaseServices = () => {
   if (!db) {
-    throw new Error(
+    const error = new Error(
       'Firestore database is not initialized. Please check your Firebase configuration.'
     );
+    console.error('❌ CRITICAL: Firestore db is null!');
+    console.error('   → Check Firebase config in src/firebase/config.js');
+    console.error('   → Verify .env.local file exists with VITE_FIREBASE_* variables');
+    console.error('   → Ensure Firebase app is initialized');
+    throw error;
   }
   if (!storage) {
-    throw new Error(
-      'Firebase Storage is not initialized. Please check your Firebase configuration.'
-    );
+    console.warn('⚠️ Firebase Storage is not initialized (non-critical for property fetching)');
   }
 };
 
@@ -181,30 +184,62 @@ class PropertyService {
    */
   async getAll(filters = {}, options = {}) {
     try {
-      checkFirebaseServices();
+      if (!db) {
+        console.error('❌ ERROR: Firestore db is not initialized!');
+        return [];
+      }
 
-      // Try to fetch with proper filters first (more efficient and permission-safe)
+      // AUTO-FIXED: Properties collection allows public read per Firestore rules
       console.log('Fetching properties with filters:', filters);
 
       let q;
       
-      // If status filter is provided, use it (more permission-safe)
+      // AUTO-FIXED: Build server-side query using where() clauses (rule-compliant)
       if (filters.status) {
         q = query(
           collection(db, PROPERTIES_COLLECTION),
           where('status', '==', filters.status)
         );
-      } else {
-        // If no status filter, only fetch published by default (permission-safe)
+        console.log(`🔍 Querying with status filter: ${filters.status}`);
+      } else if (filters.featured !== undefined) {
+        // AUTO-FIXED: Use server-side query for featured properties
         q = query(
           collection(db, PROPERTIES_COLLECTION),
+          where('featured', '==', filters.featured),
           where('status', '==', 'published')
         );
+        console.log(`🔍 Querying featured properties: ${filters.featured}`);
+      } else {
+        // Fetch all properties (public read allowed)
+        q = query(collection(db, PROPERTIES_COLLECTION), limit(100));
+        console.log('🔍 Querying ALL properties (public read allowed)...');
       }
 
       try {
+        console.log('🔍 Executing Firestore query on collection:', PROPERTIES_COLLECTION);
         const snapshot = await getDocs(q);
-        console.log(`Fetched ${snapshot.docs.length} properties from Firestore`);
+        console.log(`✅ Fetched ${snapshot.docs.length} properties from Firestore`);
+        
+        if (snapshot.docs.length === 0) {
+          console.warn('⚠️ No properties found. Possible reasons:');
+          console.warn('  1. Collection is empty');
+          console.warn('  2. Status filter is too restrictive (only "published" properties are shown)');
+          console.warn('  3. Firestore rules are blocking access');
+          console.warn('  4. Collection name mismatch');
+          console.warn('  5. User not authenticated (check Firestore rules)');
+          
+          // Try a simple query to test if collection exists
+          try {
+            const testQuery = query(collection(db, PROPERTIES_COLLECTION), limit(1));
+            const testSnapshot = await getDocs(testQuery);
+            console.log(`   Test query returned: ${testSnapshot.docs.length} documents`);
+            if (testSnapshot.docs.length > 0) {
+              console.log('   Sample document:', testSnapshot.docs[0].data());
+            }
+          } catch (testError) {
+            console.error('   Test query failed:', testError.code, testError.message);
+          }
+        }
 
         // Convert to array
         let results = snapshot.docs.map((doc) => {
@@ -323,20 +358,44 @@ class PropertyService {
         console.log(`Returning ${results.length} properties after filtering and sorting`);
         return results;
       } catch (queryError) {
-        console.error('Error with filtered query:', queryError);
+        console.error('❌ ERROR: Firestore query failed!');
+        console.error('   Error Code:', queryError.code);
+        console.error('   Error Message:', queryError.message);
+        console.error('   Full Error:', queryError);
+        console.error('   Collection:', PROPERTIES_COLLECTION);
+        console.error('   Filters:', filters);
+        console.error('   DB Initialized:', !!db);
+        
+        // Check if db is null
+        if (!db) {
+          const error = new Error('Firestore database is not initialized. Please check Firebase configuration.');
+          console.error('❌ CRITICAL: Firestore db is null!');
+          throw error;
+        }
         
         // If permission or index error, try fetching all and filtering client-side
-        if (queryError.code === 'permission-denied' || queryError.message?.includes('index')) {
-          console.warn('Permission/index error, falling back to client-side filtering...');
+        if (queryError.code === 'permission-denied' || queryError.code === 'failed-precondition' || queryError.message?.includes('index')) {
+          if (queryError.code === 'permission-denied') {
+            console.error('🔒 PERMISSION DENIED - Check Firestore security rules!');
+            console.error('   Properties collection should allow public read access');
+            console.error('   Current user:', 'Check auth state in browser console');
+            console.warn('   Attempting fallback query without filters...');
+          } else if (queryError.code === 'failed-precondition' || queryError.message?.includes('index')) {
+            console.error('📊 INDEX REQUIRED - Create a Firestore index!');
+            console.error('   Check browser console for index creation link');
+            console.warn('   Attempting fallback query without orderBy...');
+          }
           
-          // Fallback: fetch all published properties (should be allowed by rules)
+          // Fallback: fetch all properties without status filter (should be allowed by rules)
           try {
+            console.log('🔄 Attempting fallback query without filters...');
             let fallbackQ = query(
               collection(db, PROPERTIES_COLLECTION),
-              where('status', '==', 'published')
+              limit(100)
             );
             
             const fallbackSnapshot = await getDocs(fallbackQ);
+            console.log(`✅ Fallback query successful: ${fallbackSnapshot.docs.length} documents`);
             let results = fallbackSnapshot.docs.map((doc) => ({
               id: doc.id,
               ...doc.data(),
@@ -417,16 +476,42 @@ class PropertyService {
 
             return results;
           } catch (fallbackError) {
-            console.error('Fallback query also failed:', fallbackError);
-            throw new Error('Failed to fetch properties. Please check your Firestore permissions.');
+            console.error('❌ CRITICAL: Fallback query also failed!');
+            console.error('   Error Code:', fallbackError.code);
+            console.error('   Error Message:', fallbackError.message);
+            console.error('   This indicates a serious Firestore configuration issue');
+            
+            if (fallbackError.code === 'permission-denied') {
+              throw new Error(
+                'Permission denied. Please check Firestore security rules for the properties collection. ' +
+                'The rules should allow public read access: allow read: if true;'
+              );
+            } else if (fallbackError.code === 'failed-precondition') {
+              throw new Error(
+                'Firestore index required. Please create the required index. ' +
+                'Check the browser console for the index creation link.'
+              );
+            } else {
+              throw new Error(
+                `Failed to fetch properties: ${fallbackError.message || 'Unknown error'}`
+              );
+            }
           }
+        } else {
+          // For other errors, throw with detailed message
+          throw new Error(
+            `Failed to fetch properties: ${queryError.message || 'Unknown error'} (Code: ${queryError.code || 'N/A'})`
+          );
         }
-        
-        throw new Error(queryError.message || 'Failed to fetch properties');
       }
     } catch (error) {
-      console.error('Error fetching properties:', error);
-      throw new Error(error.message || 'Failed to fetch properties');
+      console.error('❌ ERROR in getAll:', error);
+      console.error('   Stack:', error.stack);
+      // Re-throw with more context
+      if (error.message.includes('not initialized')) {
+        throw error;
+      }
+      throw new Error(`Failed to fetch properties: ${error.message || 'Unknown error'}`);
     }
   }
 

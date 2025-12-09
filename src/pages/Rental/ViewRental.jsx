@@ -201,7 +201,7 @@ const ViewRental = () => {
               <div className="mt-6 space-y-2">
                 <div className="flex items-center space-x-2">
                   {rental.furnished ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <CheckCircle className="w-5 h-5 text-primary" />
                   ) : (
                     <XCircle className="w-5 h-5 text-textSecondary" />
                   )}
@@ -209,7 +209,7 @@ const ViewRental = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   {rental.parking ? (
-                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <CheckCircle className="w-5 h-5 text-primary" />
                   ) : (
                     <XCircle className="w-5 h-5 text-textSecondary" />
                   )}
@@ -234,7 +234,7 @@ const ViewRental = () => {
                 <div
                   className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                     rental.available
-                      ? 'bg-green-100 text-green-600'
+                      ? 'bg-primary/20 text-primary'
                       : 'bg-red-100 text-red-600'
                   }`}
                 >

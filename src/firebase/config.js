@@ -25,13 +25,8 @@ const missingVars = requiredEnvVars.filter(
 );
 
 if (missingVars.length > 0) {
-  console.warn(
-    '⚠️ Missing Firebase environment variables:',
-    missingVars.join(', ')
-  );
-  console.warn(
-    '⚠️ Please create a .env.local file with all VITE_FIREBASE_* variables'
-  );
+  console.warn('⚠️ Missing Firebase environment variables:', missingVars.join(', '));
+  console.warn('⚠️ Please create a .env.local file with all VITE_FIREBASE_* variables');
 }
 
 // Initialize Firebase app
@@ -45,9 +40,7 @@ try {
     if (firebaseConfig.apiKey && firebaseConfig.projectId) {
       app = initializeApp(firebaseConfig);
     } else {
-      console.error(
-        '❌ Cannot initialize Firebase: Missing required configuration'
-      );
+      console.error('❌ Cannot initialize Firebase: Missing required configuration');
     }
   }
 } catch (error) {
@@ -60,4 +53,3 @@ try {
 }
 
 export { app };
-

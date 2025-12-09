@@ -87,9 +87,12 @@ class RentalRequestService {
   async getByUser(userId) {
     try {
       if (!db) {
-        throw new Error('Firestore database is not initialized');
+        const error = new Error('Firestore database is not initialized');
+        console.error('❌ ERROR [getByUser]: Firestore db is null!');
+        throw error;
       }
 
+      console.log(`🔍 Fetching rental requests for user: ${userId}`);
       const q = query(
         collection(db, RENTAL_REQUESTS_COLLECTION),
         where('userId', '==', userId),
@@ -97,9 +100,19 @@ class RentalRequestService {
       );
 
       const snapshot = await getDocs(q);
+      console.log(`✅ Fetched ${snapshot.docs.length} rental requests`);
       return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
-      console.error('Error fetching user rental requests:', error);
+      console.error('❌ ERROR [getByUser]:', error);
+      console.error('   Error Code:', error.code);
+      console.error('   Error Message:', error.message);
+      console.error('   Collection:', RENTAL_REQUESTS_COLLECTION);
+      
+      if (error.code === 'permission-denied') {
+        throw new Error('Permission denied. Please check Firestore security rules.');
+      } else if (error.code === 'failed-precondition') {
+        throw new Error('Firestore index required. Please create the required index.');
+      }
       throw new Error(error.message || 'Failed to fetch rental requests');
     }
   }

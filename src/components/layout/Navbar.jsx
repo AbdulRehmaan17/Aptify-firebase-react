@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, User, Menu, X, Home, Bell, MessageSquare } from 'lucide-react';
+import { Search, User, Menu, X, Home, Bell, MessageSquare, LayoutDashboard, Building2, Settings } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import userService from '../../services/userService';
+import { isConstructor, isRenovator } from '../../utils/authHelpers';
 import toast from 'react-hot-toast';
 import Button from '../common/Button';
 import NotificationBell from '../notification/NotificationBell';
@@ -18,6 +19,10 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [userProfile, setUserProfile] = useState(null);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [isUserConstructor, setIsUserConstructor] = useState(false);
+  const [checkingConstructor, setCheckingConstructor] = useState(false);
+  const [isUserRenovator, setIsUserRenovator] = useState(false);
+  const [checkingRenovator, setCheckingRenovator] = useState(false);
   const { currentUser, currentUserRole, loading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,6 +50,52 @@ const Navbar = () => {
       setIsProfileLoading(false);
     }
   }, [authLoading, currentUser]);
+
+  // Check if user is a constructor
+  useEffect(() => {
+    const checkConstructorStatus = async () => {
+      if (!currentUser || authLoading) {
+        setIsUserConstructor(false);
+        return;
+      }
+
+      setCheckingConstructor(true);
+      try {
+        const constructorStatus = await isConstructor(currentUser, userProfile);
+        setIsUserConstructor(constructorStatus);
+      } catch (error) {
+        console.error('Error checking constructor status:', error);
+        setIsUserConstructor(false);
+      } finally {
+        setCheckingConstructor(false);
+      }
+    };
+
+    checkConstructorStatus();
+  }, [currentUser, authLoading, userProfile]);
+
+  // Check if user is a renovator
+  useEffect(() => {
+    const checkRenovatorStatus = async () => {
+      if (!currentUser || authLoading) {
+        setIsUserRenovator(false);
+        return;
+      }
+
+      setCheckingRenovator(true);
+      try {
+        const renovatorStatus = await isRenovator(currentUser, userProfile);
+        setIsUserRenovator(renovatorStatus);
+      } catch (error) {
+        console.error('Error checking renovator status:', error);
+        setIsUserRenovator(false);
+      } finally {
+        setCheckingRenovator(false);
+      }
+    };
+
+    checkRenovatorStatus();
+  }, [currentUser, authLoading, userProfile]);
 
   // Close user menu when clicking outside or pressing Escape
   useEffect(() => {
@@ -130,7 +181,7 @@ const Navbar = () => {
 
   return (
     <nav
-      className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-50 backdrop-blur-sm bg-white/95"
+      className="bg-surface shadow-md border-b border-muted sticky top-0 z-50 backdrop-blur-sm bg-surface/95"
       role="navigation"
       aria-label="Main navigation"
     >
@@ -161,7 +212,7 @@ const Navbar = () => {
                   className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isActiveLink(link.to)
                       ? 'text-primary bg-primary/10'
-                      : 'text-gray-700 hover:text-primary hover:bg-gray-50'
+                      : 'text-textSecondary hover:text-primary hover:bg-muted'
                   }`}
                   aria-current={isActiveLink(link.to) ? 'page' : undefined}
                 >
@@ -179,7 +230,7 @@ const Navbar = () => {
             {/* Desktop Search Button */}
             <Link
               to="/properties"
-              className="hidden lg:flex items-center justify-center w-10 h-10 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-100 transition-colors"
+              className="hidden lg:flex items-center justify-center w-10 h-10 rounded-lg text-textSecondary hover:text-primary hover:bg-muted transition-colors"
               aria-label="Search properties"
             >
               <Search className="w-5 h-5" />
@@ -200,7 +251,7 @@ const Navbar = () => {
                   className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 ${
                     isUserMenuOpen
                       ? 'bg-primary/10 text-primary'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-primary'
+                      : 'text-textSecondary hover:bg-muted hover:text-primary'
                   }`}
                   aria-label="User menu"
                   aria-expanded={isUserMenuOpen}
@@ -240,64 +291,165 @@ const Navbar = () => {
                 {/* User Dropdown Menu */}
                 {isUserMenuOpen && !isProfileLoading && (
                   <div
-                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50 transform transition-all duration-200 ease-out origin-top-right"
+                    className="absolute right-0 mt-2 w-56 bg-surface rounded-xl shadow-xl border border-muted py-2 z-50 transform transition-all duration-200 ease-out origin-top-right"
                     role="menu"
                     aria-orientation="vertical"
                   >
                     {/* User Info Header */}
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-sm font-semibold text-gray-900 truncate">
+                    <div className="px-4 py-3 border-b border-muted">
+                      <p className="text-sm font-semibold text-textMain truncate">
                         {userProfile?.displayName || 'User'}
                       </p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">
-                        {currentUser.email}
-                      </p>
+                      <p className="text-xs text-textSecondary truncate mt-0.5">{currentUser.email}</p>
                     </div>
 
                     {/* Menu Items */}
                     <div className="py-1">
-                      <Link
-                        to="/account"
-                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        role="menuitem"
-                      >
-                        <User className="w-4 h-4 mr-3 text-primary" />
-                        My Account
-                      </Link>
-                      <Link
-                        to="/notifications"
-                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        role="menuitem"
-                      >
-                        <Bell className="w-4 h-4 mr-3 text-primary" />
-                        Notifications
-                      </Link>
-                      <Link
-                        to="/chats"
-                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        role="menuitem"
-                      >
-                        <MessageSquare className="w-4 h-4 mr-3 text-primary" />
-                        Messages
-                      </Link>
-                      {currentUserRole === 'admin' && (
-                        <Link
-                          to="/admin"
-                          className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                          onClick={() => setIsUserMenuOpen(false)}
-                          role="menuitem"
-                        >
-                          <Home className="w-4 h-4 mr-3 text-primary" />
-                          Admin Panel
-                        </Link>
+                      {isUserConstructor ? (
+                        <>
+                          {/* Constructor Menu Items */}
+                          <Link
+                            to="/constructor/dashboard"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <LayoutDashboard className="w-4 h-4 mr-3 text-primary" />
+                            Dashboard
+                          </Link>
+                          <Link
+                            to="/constructor/projects"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <Building2 className="w-4 h-4 mr-3 text-primary" />
+                            Projects
+                          </Link>
+                          <Link
+                            to="/chats"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <MessageSquare className="w-4 h-4 mr-3 text-primary" />
+                            Messages
+                          </Link>
+                          <Link
+                            to="/notifications"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <Bell className="w-4 h-4 mr-3 text-primary" />
+                            Notifications
+                          </Link>
+                          <Link
+                            to="/constructor/profile"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <Settings className="w-4 h-4 mr-3 text-primary" />
+                            Profile
+                          </Link>
+                        </>
+                      ) : isUserRenovator ? (
+                        <>
+                          {/* Renovator Menu Items */}
+                          <Link
+                            to="/renovator/dashboard"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <LayoutDashboard className="w-4 h-4 mr-3 text-primary" />
+                            Dashboard
+                          </Link>
+                          <Link
+                            to="/renovator/projects"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <Building2 className="w-4 h-4 mr-3 text-primary" />
+                            Projects
+                          </Link>
+                          <Link
+                            to="/renovator/chat"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <MessageSquare className="w-4 h-4 mr-3 text-primary" />
+                            Messages
+                          </Link>
+                          <Link
+                            to="/renovator/notifications"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <Bell className="w-4 h-4 mr-3 text-primary" />
+                            Notifications
+                          </Link>
+                          <Link
+                            to="/renovator/profile"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <Settings className="w-4 h-4 mr-3 text-primary" />
+                            Profile
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          {/* Normal User Menu Items */}
+                          <Link
+                            to="/account"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <User className="w-4 h-4 mr-3 text-primary" />
+                            My Account
+                          </Link>
+                          <Link
+                            to="/notifications"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <Bell className="w-4 h-4 mr-3 text-primary" />
+                            Notifications
+                          </Link>
+                          <Link
+                            to="/chats"
+                            className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            role="menuitem"
+                          >
+                            <MessageSquare className="w-4 h-4 mr-3 text-primary" />
+                            Messages
+                          </Link>
+                          {currentUserRole === 'admin' && (
+                            <Link
+                              to="/admin"
+                              className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                              onClick={() => setIsUserMenuOpen(false)}
+                              role="menuitem"
+                            >
+                              <Home className="w-4 h-4 mr-3 text-primary" />
+                              Admin Panel
+                            </Link>
+                          )}
+                        </>
                       )}
                     </div>
 
                     {/* Divider */}
-                    <div className="border-t border-gray-100 my-1" />
+                    <div className="border-t border-muted my-1" />
 
                     {/* Logout */}
                     <div className="py-1">
@@ -323,11 +475,7 @@ const Navbar = () => {
                 >
                   Sign In
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => navigate('/auth')}
-                >
+                <Button variant="primary" size="sm" onClick={() => navigate('/auth')}>
                   Sign Up
                 </Button>
               </div>
@@ -336,15 +484,11 @@ const Navbar = () => {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-gray-600 hover:text-primary hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2 rounded-lg text-textSecondary hover:text-primary hover:bg-muted transition-colors"
               aria-label="Toggle mobile menu"
               aria-expanded={isMenuOpen}
             >
-              {isMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
-              )}
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
@@ -356,7 +500,7 @@ const Navbar = () => {
             isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
-          <div className="border-t border-gray-200 bg-white py-4">
+          <div className="border-t border-muted bg-surface py-4">
             {/* Mobile Search */}
             <form onSubmit={handleSearch} className="px-4 mb-4">
               <div className="relative">
@@ -365,10 +509,10 @@ const Navbar = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search properties..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white text-gray-900 placeholder-gray-500"
+                  className="w-full pl-10 pr-4 py-2.5 border border-muted rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-surface text-textMain placeholder-textSecondary"
                   aria-label="Search properties"
                 />
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-textSecondary w-5 h-5" />
               </div>
             </form>
 
@@ -382,7 +526,7 @@ const Navbar = () => {
                   className={`flex items-center px-4 py-3 rounded-lg text-base font-medium transition-colors ${
                     isActiveLink(link.to)
                       ? 'text-primary bg-primary/10'
-                      : 'text-gray-700 hover:text-primary hover:bg-gray-50'
+                      : 'text-textSecondary hover:text-primary hover:bg-muted'
                   }`}
                   aria-current={isActiveLink(link.to) ? 'page' : undefined}
                 >
@@ -393,31 +537,134 @@ const Navbar = () => {
               {/* Mobile User Actions */}
               {currentUser && (
                 <>
-                  <div className="border-t border-gray-200 my-2" />
-                  <Link
-                    to="/account"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50 transition-colors"
-                  >
-                    <User className="w-5 h-5 mr-3 text-primary" />
-                    My Account
-                  </Link>
-                  <Link
-                    to="/notifications"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50 transition-colors"
-                  >
-                    <Bell className="w-5 h-5 mr-3 text-primary" />
-                    Notifications
-                  </Link>
-                  <Link
-                    to="/chats"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50 transition-colors"
-                  >
-                    <MessageSquare className="w-5 h-5 mr-3 text-primary" />
-                    Messages
-                  </Link>
+                  <div className="border-t border-muted my-2" />
+                  {isUserConstructor ? (
+                    <>
+                      {/* Constructor Mobile Menu Items */}
+                      <Link
+                        to="/constructor/dashboard"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <LayoutDashboard className="w-5 h-5 mr-3 text-primary" />
+                        Dashboard
+                      </Link>
+                      <Link
+                        to="/constructor/projects"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <Building2 className="w-5 h-5 mr-3 text-primary" />
+                        Projects
+                      </Link>
+                      <Link
+                        to="/chats"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <MessageSquare className="w-5 h-5 mr-3 text-primary" />
+                        Messages
+                      </Link>
+                      <Link
+                        to="/notifications"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <Bell className="w-5 h-5 mr-3 text-primary" />
+                        Notifications
+                      </Link>
+                      <Link
+                        to="/constructor/profile"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <Settings className="w-5 h-5 mr-3 text-primary" />
+                        Profile
+                      </Link>
+                    </>
+                  ) : isUserRenovator ? (
+                    <>
+                      {/* Renovator Mobile Menu Items */}
+                      <Link
+                        to="/renovator/dashboard"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <LayoutDashboard className="w-5 h-5 mr-3 text-primary" />
+                        Dashboard
+                      </Link>
+                      <Link
+                        to="/renovator/projects"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <Building2 className="w-5 h-5 mr-3 text-primary" />
+                        Projects
+                      </Link>
+                      <Link
+                        to="/renovator/chat"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <MessageSquare className="w-5 h-5 mr-3 text-primary" />
+                        Messages
+                      </Link>
+                      <Link
+                        to="/renovator/notifications"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <Bell className="w-5 h-5 mr-3 text-primary" />
+                        Notifications
+                      </Link>
+                      <Link
+                        to="/renovator/profile"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <Settings className="w-5 h-5 mr-3 text-primary" />
+                        Profile
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      {/* Normal User Mobile Menu Items */}
+                      <Link
+                        to="/account"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <User className="w-5 h-5 mr-3 text-primary" />
+                        My Account
+                      </Link>
+                      <Link
+                        to="/notifications"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <Bell className="w-5 h-5 mr-3 text-primary" />
+                        Notifications
+                      </Link>
+                      <Link
+                        to="/chats"
+                        onClick={() => setIsMenuOpen(false)}
+                        className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                      >
+                        <MessageSquare className="w-5 h-5 mr-3 text-primary" />
+                        Messages
+                      </Link>
+                      {currentUserRole === 'admin' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                        >
+                          <Home className="w-5 h-5 mr-3 text-primary" />
+                          Admin Panel
+                        </Link>
+                      )}
+                    </>
+                  )}
                   <button
                     onClick={() => {
                       handleLogout();

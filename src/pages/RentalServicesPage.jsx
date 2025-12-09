@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Home,
   Search,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Button from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
+import { requireAuthAndProfile } from '../utils/authHelpers';
 
 /**
  * RentalServicesPage Component
@@ -22,7 +23,14 @@ import { useAuth } from '../context/AuthContext';
  * Provides access to browse rental properties and submit rental requests.
  */
 const RentalServicesPage = () => {
-  const { user } = useAuth();
+  const { user, currentUser } = useAuth();
+  const navigate = useNavigate();
+
+  // Handle List Property click with auth and profile check
+  const handleListPropertyClick = async (e) => {
+    e.preventDefault();
+    await requireAuthAndProfile(navigate, currentUser, '/post-property?type=rent');
+  };
 
   const features = [
     'Verified rental property listings',
@@ -68,16 +76,14 @@ const RentalServicesPage = () => {
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>
-              {user && (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="bg-surface text-primary hover:bg-primary/10 border-card"
-                  asChild
-                >
-                  <Link to="/post-property?type=rent">List a Property for Rent</Link>
-                </Button>
-              )}
+              <Button
+                size="lg"
+                variant="outline"
+                className="bg-surface text-primary hover:bg-primary/10 border-card"
+                onClick={handleListPropertyClick}
+              >
+                List a Property for Rent
+              </Button>
             </div>
           </div>
         </div>
@@ -139,28 +145,15 @@ const RentalServicesPage = () => {
                 List your property for rent and reach verified tenants. Create detailed listings
                 with photos, property information, and rental terms to attract serious renters.
               </p>
-              {user ? (
-                <Button
-                  variant="outline"
-                  className="border-primary text-primary hover:bg-primary/10"
-                  fullWidth
-                  asChild
-                >
-                  <Link to="/post-property?type=rent">
-                    List Property for Rent
-                    <ArrowRight className="ml-2 w-5 h-5" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="border-primary text-primary hover:bg-primary/10"
-                  fullWidth
-                  asChild
-                >
-                  <Link to="/auth">Sign In to List Property</Link>
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                className="border-primary text-primary hover:bg-primary/10"
+                fullWidth
+                onClick={handleListPropertyClick}
+              >
+                List Property for Rent
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
             </div>
           </div>
         </div>
@@ -198,26 +191,14 @@ const RentalServicesPage = () => {
                 >
                   <Link to="/browse-rentals">Browse Rental Properties</Link>
                 </Button>
-                {user && (
-                  <Button
-                    variant="outline"
-                    className="border-primary text-primary hover:bg-primary/10"
-                    fullWidth
-                    asChild
-                  >
-                    <Link to="/post-property?type=rent">List Property for Rent</Link>
-                  </Button>
-                )}
-                {!user && (
-                  <Button
-                    variant="outline"
-                    className="border-primary text-primary hover:bg-primary/10"
-                    fullWidth
-                    asChild
-                  >
-                    <Link to="/auth">Sign In to List Property</Link>
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary/10"
+                  fullWidth
+                  onClick={handleListPropertyClick}
+                >
+                  List Property for Rent
+                </Button>
               </div>
             </div>
           </div>
@@ -253,26 +234,14 @@ const RentalServicesPage = () => {
             >
               <Link to="/browse-rentals">Browse Rental Properties</Link>
             </Button>
-            {user && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-surface text-primary hover:bg-primary/10 border-card"
-                asChild
-              >
-                <Link to="/list-property?type=rent">List Property for Rent</Link>
-              </Button>
-            )}
-            {!user && (
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-surface text-primary hover:bg-primary/10 border-card"
-                asChild
-              >
-                <Link to="/auth">Sign In to Get Started</Link>
-              </Button>
-            )}
+            <Button
+              size="lg"
+              variant="outline"
+              className="bg-surface text-primary hover:bg-primary/10 border-card"
+              onClick={handleListPropertyClick}
+            >
+              List Property for Rent
+            </Button>
           </div>
         </div>
       </section>

@@ -307,11 +307,11 @@ const ProviderDashboard = () => {
 
   const getStatusColor = (status) => {
     const statusMap = {
-      Pending: 'text-yellow-600 bg-yellow-100',
-      'In Progress': 'text-blue-600 bg-blue-100',
-      Accepted: 'text-green-600 bg-green-100',
-      Completed: 'text-green-600 bg-green-100',
-      Done: 'text-green-600 bg-green-100',
+      Pending: 'text-accent bg-accent/20',
+      'In Progress': 'text-primary bg-primary/20',
+      Accepted: 'text-primary bg-primary/20',
+      Completed: 'text-primary bg-primary/20',
+      Done: 'text-primary bg-primary/20',
       Rejected: 'text-red-600 bg-red-100',
       Cancelled: 'text-gray-600 bg-gray-100',
     };
@@ -413,8 +413,8 @@ const ProviderDashboard = () => {
                 <p className="text-sm font-medium text-textSecondary mb-1">Active Jobs</p>
                 <p className="text-2xl font-bold text-textMain">{stats.activeJobs}</p>
               </div>
-              <div className="bg-blue-500/10 p-3 rounded-full">
-                <Clock className="w-6 h-6 text-blue-500" />
+              <div className="bg-primary/10 p-3 rounded-full">
+                <Clock className="w-6 h-6 text-primary" />
               </div>
             </div>
           </div>
@@ -426,8 +426,8 @@ const ProviderDashboard = () => {
                 <p className="text-sm font-medium text-textSecondary mb-1">Completed Jobs</p>
                 <p className="text-2xl font-bold text-textMain">{stats.completedJobs}</p>
               </div>
-              <div className="bg-green-500/10 p-3 rounded-full">
-                <CheckCircle className="w-6 h-6 text-green-500" />
+              <div className="bg-primary/10 p-3 rounded-full">
+                <CheckCircle className="w-6 h-6 text-primary" />
               </div>
             </div>
           </div>
@@ -441,8 +441,8 @@ const ProviderDashboard = () => {
                   ${stats.earnings.toLocaleString()}
                 </p>
               </div>
-              <div className="bg-green-500/10 p-3 rounded-full">
-                <DollarSign className="w-6 h-6 text-green-500" />
+              <div className="bg-primary/10 p-3 rounded-full">
+                <DollarSign className="w-6 h-6 text-primary" />
               </div>
             </div>
           </div>
@@ -455,12 +455,12 @@ const ProviderDashboard = () => {
                 <p className="text-2xl font-bold text-textMain flex items-center">
                   {stats.averageRating > 0 ? stats.averageRating.toFixed(1) : 'N/A'}
                   {stats.averageRating > 0 && (
-                    <Star className="w-5 h-5 text-yellow-500 ml-1 fill-current" />
+                    <Star className="w-5 h-5 text-accent ml-1 fill-current" />
                   )}
                 </p>
               </div>
-              <div className="bg-yellow-500/10 p-3 rounded-full">
-                <Star className="w-6 h-6 text-yellow-500" />
+              <div className="bg-accent/10 p-3 rounded-full">
+                <Star className="w-6 h-6 text-accent" />
               </div>
             </div>
           </div>
@@ -581,7 +581,7 @@ const ProviderDashboard = () => {
                               key={i}
                               className={`w-4 h-4 ${
                                 i < (review.rating || 0)
-                                  ? 'text-yellow-500 fill-current'
+                                  ? 'text-accent fill-current'
                                   : 'text-gray-300'
                               }`}
                             />

@@ -19,6 +19,8 @@ import {
   MapPin,
   Eye,
   Trash2,
+  Wrench,
+  Hammer,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import userService from '../services/userService';
@@ -38,6 +40,8 @@ import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
+import RegisterAsRenovator from './Dashboard/sections/RegisterAsRenovator';
+import RegisterAsConstructor from './Dashboard/sections/RegisterAsConstructor';
 
 /**
  * MyAccount Component
@@ -85,6 +89,8 @@ const MyAccount = () => {
     { key: 'requests', label: 'Service Requests', icon: Calendar },
     { key: 'reviews', label: 'My Reviews', icon: Star },
     { key: 'messages', label: 'Messages', icon: MessageCircle },
+    { key: 'register-renovator', label: 'Register as Renovator', icon: Wrench },
+    { key: 'register-constructor', label: 'Register as Constructor', icon: Hammer },
     { key: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -415,7 +421,7 @@ const MyAccount = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <main className="flex-1 pb-8">
+      <main className="flex-1 pb-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-4xl font-bold text-textMain mb-8">My Account</h1>
 
@@ -463,7 +469,7 @@ const MyAccount = () => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Sidebar Tabs */}
             <aside className="lg:col-span-1">
-              <div className="bg-card rounded-lg p-4 border border-borderColor sticky top-24">
+              <div className="bg-card rounded-lg p-4 border border-borderColor sticky top-24 overflow-auto max-h-[calc(100vh-8rem)]">
                 <nav className="space-y-2">
                   {tabs.map((tab) => {
                     const Icon = tab.icon;
@@ -758,7 +764,7 @@ const MyAccount = () => {
                                       key={i}
                                       className={`w-4 h-4 ${
                                         i < (review.rating || 0)
-                                          ? 'text-yellow-400 fill-current'
+                                          ? 'text-accent fill-current'
                                           : 'text-gray-300'
                                       }`}
                                     />
@@ -826,6 +832,16 @@ const MyAccount = () => {
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* Register as Renovator Tab */}
+                {activeTab === 'register-renovator' && (
+                  <RegisterAsRenovator />
+                )}
+
+                {/* Register as Constructor Tab */}
+                {activeTab === 'register-constructor' && (
+                  <RegisterAsConstructor />
                 )}
 
                 {/* Settings Tab */}

@@ -1,0 +1,30 @@
+AUTH & FIRESTORE REPAIR SUMMARY
+================================
+
+ROOT CAUSES IDENTIFIED:
+1. Auth page infinite re-render loop from useEffect dependencies
+2. serviceProviders collection blocked by Firestore rules
+3. Missing error handling causing silent failures
+4. onSnapshot cleanup not properly returned from useEffect
+
+FIXES APPLIED:
+1. Auth.jsx: Added useRef guard, loading check, fixed useEffect deps
+2. Firestore rules: Added public read for serviceProviders
+3. Provider pages: Added db checks, isApproved filters, error handling
+4. Properties pages: Added permission-denied error handling
+5. MyRentals: Fixed onSnapshot cleanup in useEffect return
+
+EXPECTED RESULTS:
+- No more blinking on /auth page
+- Properties load without permission errors
+- Provider pages show approved providers
+- Proper error messages instead of silent failures
+- No infinite redirect loops
+
+TESTING:
+Run npm run dev and verify all routes load correctly with data.
+
+DEPLOYMENT:
+1. Deploy firestore.rules: firebase deploy --only firestore:rules
+2. Verify compound index exists for serviceProviders queries
+3. Test all routes after deployment

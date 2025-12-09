@@ -82,18 +82,14 @@ const RequestConstruction = () => {
         console.error('Error creating project update:', updateError);
       }
 
-      // Notify provider
+      // Notify provider when request is assigned
       if (selectedProvider?.userId) {
         try {
-          await notificationService.sendNotification(
+          await notificationService.notifyProviderNewRequest(
             selectedProvider.userId,
-            'New Construction Request',
-            `You have received a new construction request. Budget: ${new Intl.NumberFormat('en-PK', {
-              style: 'currency',
-              currency: 'PKR',
-            }).format(data.budget)}`,
-            'service-request',
-            `/constructor-dashboard`
+            projectId,
+            data.projectType || 'Construction Project',
+            data.budget
           );
         } catch (notifError) {
           console.error('Error creating notification:', notifError);

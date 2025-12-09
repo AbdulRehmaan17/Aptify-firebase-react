@@ -87,10 +87,7 @@ const MessageBox = ({ chatId, otherParticipantId }) => {
         console.error('Error loading messages:', error);
         // Fallback without orderBy
         if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-          const fallbackQuery = query(
-            collection(db, 'chats', chatId, 'messages'),
-            limit(100)
-          );
+          const fallbackQuery = query(collection(db, 'chats', chatId, 'messages'), limit(100));
           const fallbackUnsubscribe = onSnapshot(
             fallbackQuery,
             async (fallbackSnapshot) => {
@@ -218,7 +215,7 @@ const MessageBox = ({ chatId, otherParticipantId }) => {
       const chatDoc = await getDoc(chatRef);
       const chatData = chatDoc.exists() ? chatDoc.data() : {};
       const unreadFor = chatData.unreadFor || {};
-      
+
       await updateDoc(chatRef, {
         lastMessage: newMessage.trim(),
         updatedAt: serverTimestamp(),
@@ -326,8 +323,7 @@ const MessageBox = ({ chatId, otherParticipantId }) => {
             const isOwn = message.senderId === currentUser.uid;
             const prevMessage = index > 0 ? messages[index - 1] : null;
             const showDate =
-              !prevMessage ||
-              formatDate(prevMessage.createdAt) !== formatDate(message.createdAt);
+              !prevMessage || formatDate(prevMessage.createdAt) !== formatDate(message.createdAt);
             const isSeen = seenStatus[message.id] || false;
 
             // Mark as seen if it's from other participant
@@ -344,9 +340,7 @@ const MessageBox = ({ chatId, otherParticipantId }) => {
                     </span>
                   </div>
                 )}
-                <div
-                  className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                >
+                <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`max-w-[70%] rounded-lg px-4 py-2 ${
                       isOwn
@@ -361,9 +355,7 @@ const MessageBox = ({ chatId, otherParticipantId }) => {
                     )}
                     <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
                     <div className="flex items-center justify-end mt-1 space-x-1">
-                      <span className="text-xs opacity-75">
-                        {formatTime(message.createdAt)}
-                      </span>
+                      <span className="text-xs opacity-75">{formatTime(message.createdAt)}</span>
                       {isOwn && (
                         <span className="text-xs">
                           {isSeen ? (
@@ -413,4 +405,3 @@ const MessageBox = ({ chatId, otherParticipantId }) => {
 };
 
 export default MessageBox;
-

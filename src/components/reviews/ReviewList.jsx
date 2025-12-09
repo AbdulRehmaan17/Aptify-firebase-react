@@ -105,9 +105,7 @@ const ReviewList = ({ targetId, targetType = 'construction' }) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
         key={i}
-        className={`w-4 h-4 ${
-          i < rating ? 'text-accent fill-current' : 'text-muted'
-        }`}
+        className={`w-4 h-4 ${i < rating ? 'text-accent fill-current' : 'text-muted'}`}
       />
     ));
   };
@@ -130,7 +128,7 @@ const ReviewList = ({ targetId, targetType = 'construction' }) => {
       {/* Rating Summary */}
       <div className="bg-surface rounded-base shadow-md p-6 border border-muted">
         <h2 className="text-2xl font-display font-bold text-textMain mb-4">Reviews & Ratings</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Average Rating */}
           <div className="text-center md:text-left">
@@ -165,9 +163,7 @@ const ReviewList = ({ targetId, targetType = 'construction' }) => {
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
-                    <span className="text-sm text-textSecondary w-12 text-right">
-                      {count}
-                    </span>
+                    <span className="text-sm text-textSecondary w-12 text-right">{count}</span>
                   </div>
                 );
               })}
@@ -205,9 +201,7 @@ const ReviewList = ({ targetId, targetType = 'construction' }) => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-1">
-                  {renderStars(review.rating)}
-                </div>
+                <div className="flex items-center space-x-1">{renderStars(review.rating)}</div>
               </div>
               {review.comment && (
                 <p className="text-textSecondary leading-relaxed mt-3">{review.comment}</p>
@@ -221,4 +215,3 @@ const ReviewList = ({ targetId, targetType = 'construction' }) => {
 };
 
 export default ReviewList;
-

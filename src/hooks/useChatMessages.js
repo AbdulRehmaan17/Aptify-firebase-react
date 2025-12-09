@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   query,
+  where,
   orderBy,
   onSnapshot,
   addDoc,
@@ -9,6 +10,7 @@ import {
   updateDoc,
   doc,
   getDoc,
+  getDocs,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
@@ -79,7 +81,11 @@ export function useChatMessages(chatId) {
               }
             );
 
-            return () => fallbackUnsubscribe();
+            // Store fallback unsubscribe for cleanup
+            return () => {
+              unsubscribe();
+              fallbackUnsubscribe();
+            };
           } else {
             setLoading(false);
           }
@@ -160,13 +166,61 @@ export function useChatMessages(chatId) {
         // Send notification to receiver
         if (receiverId) {
           try {
-            await notificationService.sendNotification(
-              receiverId,
-              'New Chat Message',
-              text.trim().substring(0, 50) + (text.trim().length > 50 ? '...' : ''),
-              'admin',
-              `/chats?chatId=${chatId}`
+            // Get sender and receiver names for personalized notifications
+            let senderName = 'Someone';
+            let receiverName = 'User';
+            
+            try {
+              const senderDoc = await getDoc(doc(db, 'users', currentUser.uid));
+              if (senderDoc.exists()) {
+                const senderData = senderDoc.data();
+                senderName = senderData.displayName || senderData.name || senderData.email?.split('@')[0] || 'Someone';
+              }
+              
+              const receiverDoc = await getDoc(doc(db, 'users', receiverId));
+              if (receiverDoc.exists()) {
+                const receiverData = receiverDoc.data();
+                receiverName = receiverData.displayName || receiverData.name || receiverData.email?.split('@')[0] || 'User';
+              }
+            } catch (nameError) {
+              console.error('Error fetching user names:', nameError);
+            }
+
+            // Check if receiver is a constructor/provider
+            const serviceProvidersQuery = query(
+              collection(db, 'serviceProviders'),
+              where('userId', '==', receiverId),
+              where('serviceType', '==', 'Construction')
             );
+            const providerSnapshot = await getDocs(serviceProvidersQuery);
+            const isReceiverConstructor = !providerSnapshot.empty;
+
+            // Check if sender is a constructor/provider
+            const senderProvidersQuery = query(
+              collection(db, 'serviceProviders'),
+              where('userId', '==', currentUser.uid),
+              where('serviceType', '==', 'Construction')
+            );
+            const senderProviderSnapshot = await getDocs(senderProvidersQuery);
+            const isSenderConstructor = !senderProviderSnapshot.empty;
+
+            // Send appropriate notification based on roles
+            if (isSenderConstructor) {
+              // Provider sending to client
+              await notificationService.notifyClientNewMessage(receiverId, senderName, chatId);
+            } else if (isReceiverConstructor) {
+              // Client sending to provider
+              await notificationService.notifyProviderNewMessage(receiverId, senderName, chatId);
+            } else {
+              // Default notification for other cases
+              await notificationService.sendNotification(
+                receiverId,
+                'New Chat Message',
+                `${senderName}: ${text.trim().substring(0, 50)}${text.trim().length > 50 ? '...' : ''}`,
+                'info',
+                `/chat?chatId=${chatId}`
+              );
+            }
           } catch (notifError) {
             console.error('Error sending notification:', notifError);
             // Don't fail message send if notification fails
@@ -210,4 +264,3 @@ export function useChatMessages(chatId) {
 
   return { messages, loading, sendMessage, sending };
 }
-

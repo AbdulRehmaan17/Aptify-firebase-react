@@ -8,8 +8,15 @@ import {
   EmailAuthProvider,
   updateProfile as updateFirebaseProfile,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from './auth';
+import { doc, setDoc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+// AUTO-FIXED: Removed duplicate auth import - only import once
+import {
+  auth,
+  googleProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+} from './auth';
 import { db } from './firestore';
 
 /**
@@ -29,7 +36,7 @@ export const login = async (email, password) => {
   } catch (error) {
     console.error('Login error:', error);
     let errorMessage = 'Failed to login';
-    
+
     switch (error.code) {
       case 'auth/user-not-found':
         errorMessage = 'No account found with this email address.';
@@ -50,7 +57,7 @@ export const login = async (email, password) => {
       default:
         errorMessage = error.message || 'Failed to login';
     }
-    
+
     return { success: false, error: errorMessage };
   }
 };
@@ -87,7 +94,7 @@ export const signup = async (email, password, name) => {
   } catch (error) {
     console.error('Signup error:', error);
     let errorMessage = 'Failed to create account';
-    
+
     switch (error.code) {
       case 'auth/email-already-in-use':
         errorMessage = 'This email is already registered. Please sign in instead.';
@@ -104,7 +111,7 @@ export const signup = async (email, password, name) => {
       default:
         errorMessage = error.message || 'Failed to create account';
     }
-    
+
     return { success: false, error: errorMessage };
   }
 };
@@ -133,20 +140,20 @@ export const loginWithGoogle = async (useRedirect = false) => {
       // Popup flow
       const result = await signInWithPopup(auth, googleProvider);
       user = result.user;
-      
+
       // Create or update user profile
       const profileResult = await createOrUpdateUserProfile(user);
       if (!profileResult.success) {
         console.error('Failed to create/update user profile:', profileResult.error);
         // Don't fail login if profile update fails
       }
-      
+
       return { success: true, user };
     }
   } catch (error) {
     console.error('Google login error:', error);
     let errorMessage = 'Failed to login with Google';
-    
+
     switch (error.code) {
       case 'auth/popup-closed-by-user':
         errorMessage = 'Login popup was closed. Please try again.';
@@ -160,7 +167,7 @@ export const loginWithGoogle = async (useRedirect = false) => {
       default:
         errorMessage = error.message || 'Failed to login with Google';
     }
-    
+
     return { success: false, error: errorMessage };
   }
 };
@@ -176,33 +183,34 @@ export const handleGoogleRedirect = async () => {
     }
 
     const result = await getRedirectResult(auth);
-    
+
     if (!result) {
       return { success: false, error: 'No redirect result found' };
     }
 
     const user = result.user;
-    
+
     // Create or update user profile
     const profileResult = await createOrUpdateUserProfile(user);
     if (!profileResult.success) {
       console.error('Failed to create/update user profile:', profileResult.error);
       // Don't fail redirect if profile update fails
     }
-    
+
     return { success: true, user };
   } catch (error) {
     console.error('Google redirect error:', error);
     let errorMessage = 'Failed to complete Google sign-in';
-    
+
     switch (error.code) {
       case 'auth/account-exists-with-different-credential':
-        errorMessage = 'An account already exists with this email. Please sign in with your original method.';
+        errorMessage =
+          'An account already exists with this email. Please sign in with your original method.';
         break;
       default:
         errorMessage = error.message || 'Failed to complete Google sign-in';
     }
-    
+
     return { success: false, error: errorMessage };
   }
 };
@@ -251,9 +259,21 @@ export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
       console.log('Auth may not be fully initialized, but proceeding with provided user object');
     }
 
+    // AUTO-FIXED: Use userProfiles collection per Firestore rules (owner-only access)
+    // Also create in users collection for backward compatibility
+    const userProfileRef = doc(db, 'userProfiles', user.uid);
     const userRef = doc(db, 'users', user.uid);
-    
+
     try {
+      // Try userProfiles first (per rules)
+      let userProfileDoc = null;
+      try {
+        userProfileDoc = await getDoc(userProfileRef);
+      } catch (profileError) {
+        console.warn('Error reading userProfiles, will try users collection:', profileError);
+      }
+
+      // Also check users collection for backward compatibility
       const userDoc = await getDoc(userRef);
 
       const profileData = {
@@ -268,51 +288,53 @@ export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
         ...additionalData,
       };
 
+      // AUTO-FIXED: Update both userProfiles and users collections
+      const existingData = userProfileDoc?.exists() ? userProfileDoc.data() : (userDoc.exists() ? userDoc.data() : {});
+
+      const finalProfileData = {
+        ...profileData,
+        createdAt: existingData.createdAt || serverTimestamp(),
+        role: existingData.role || additionalData.role || 'customer',
+        phone: existingData.phone || profileData.phone,
+        phoneNumber: existingData.phoneNumber || profileData.phoneNumber,
+        addresses: existingData.addresses || [],
+      };
+
+      // Update userProfiles (per Firestore rules)
+      try {
+        await setDoc(userProfileRef, finalProfileData, { merge: true });
+      } catch (profileError) {
+        console.warn('Error updating userProfiles:', profileError);
+        // Continue to update users collection for backward compatibility
+      }
+
+      // Also update users collection for backward compatibility
       if (userDoc.exists()) {
-        // Update existing profile - preserve existing fields
-        const existingData = userDoc.data();
-        await setDoc(
-          userRef,
-          {
-            ...profileData,
-            createdAt: existingData.createdAt || serverTimestamp(),
-            role: existingData.role || additionalData.role || 'customer',
-            // Preserve existing fields if not provided
-            phone: existingData.phone || profileData.phone,
-            phoneNumber: existingData.phoneNumber || profileData.phoneNumber,
-            addresses: existingData.addresses || [],
-          },
-          { merge: true }
-        );
+        await setDoc(userRef, finalProfileData, { merge: true });
       } else {
-        // Create new profile
-        await setDoc(userRef, {
-          ...profileData,
-          createdAt: serverTimestamp(),
-          role: additionalData.role || 'customer',
-          phone: profileData.phone,
-          phoneNumber: profileData.phoneNumber,
-          addresses: [],
-        });
+        await setDoc(userRef, finalProfileData);
       }
 
       return { success: true };
     } catch (firestoreError) {
       // Handle Firestore permission errors specifically
       if (firestoreError.code === 'permission-denied') {
-        console.error('Firestore permission denied when creating/updating user profile:', firestoreError);
-        return { 
-          success: false, 
-          error: 'Permission denied. Please check Firestore security rules.' 
+        console.error(
+          'Firestore permission denied when creating/updating user profile:',
+          firestoreError
+        );
+        return {
+          success: false,
+          error: 'Permission denied. Please check Firestore security rules.',
         };
       }
       throw firestoreError; // Re-throw other errors
     }
   } catch (error) {
     console.error('Error creating/updating user profile:', error);
-    return { 
-      success: false, 
-      error: error.message || 'Failed to create/update user profile' 
+    return {
+      success: false,
+      error: error.message || 'Failed to create/update user profile',
     };
   }
 };
@@ -333,7 +355,7 @@ export const resetPassword = async (email) => {
   } catch (error) {
     console.error('Password reset error:', error);
     let errorMessage = 'Failed to send password reset email';
-    
+
     switch (error.code) {
       case 'auth/user-not-found':
         errorMessage = 'No account found with this email address.';
@@ -347,7 +369,7 @@ export const resetPassword = async (email) => {
       default:
         errorMessage = error.message || 'Failed to send password reset email';
     }
-    
+
     return { success: false, error: errorMessage };
   }
 };
@@ -371,12 +393,12 @@ export const updateUserPassword = async (user, currentPassword, newPassword) => 
 
     // Update password
     await updatePassword(user, newPassword);
-    
+
     return { success: true };
   } catch (error) {
     console.error('Password update error:', error);
     let errorMessage = 'Failed to update password';
-    
+
     switch (error.code) {
       case 'auth/wrong-password':
         errorMessage = 'Current password is incorrect.';
@@ -390,7 +412,7 @@ export const updateUserPassword = async (user, currentPassword, newPassword) => 
       default:
         errorMessage = error.message || 'Failed to update password';
     }
-    
+
     return { success: false, error: errorMessage };
   }
 };

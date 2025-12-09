@@ -1,0 +1,253 @@
+{
+  "vite_output_excerpt": [
+    "=== VITE DEV SERVER OUTPUT ===",
+    "NOTE: To capture actual Vite output, run manually: npm run dev",
+    "",
+    "Expected output format:",
+    "  VITE v5.x.x  ready in XXX ms",
+    "  ➜  Local:   http://localhost:5173/",
+    "  ➜  Network: use --host to expose",
+    "",
+    "The dev server runs continuously, so output capture requires:",
+    "1. Running 'npm run dev' in a terminal",
+    "2. Waiting for server to start (usually 2-5 seconds)",
+    "3. Capturing first 200 lines of output",
+    "",
+    "=== STATIC SCAN SUMMARY ===",
+    "useEffect hooks scanned: 132 total",
+    "navigate() calls scanned: 231 total",
+    "onSnapshot/onAuthStateChanged scanned: 146 total",
+    "",
+    "Critical issues found:",
+    "1. Memory leak: ConstructorProjectDetails.jsx:180 - fallback onSnapshot has no cleanup",
+    "2. Multiple files: Fallback onSnapshot listeners may not be properly cleaned up",
+    "3. Navigate guards: onSnapshot callbacks contain navigate() calls without mounted guards"
+  ],
+  "suspect_useEffects": [
+    {
+      "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+      "lineno": 66,
+      "snippet": "useEffect(() => { if (authLoading || !currentUser || !projectId || !db) { ... } })",
+      "problem": "Has dependency array but navigate() calls inside onSnapshot callbacks may not be guarded"
+    },
+    {
+      "file": "src/pages/renovator/RenovatorProjectDetails.jsx",
+      "lineno": 75,
+      "snippet": "useEffect(() => { if (authLoading || !currentUser || !projectId || !db) { ... } })",
+      "problem": "Has dependency array but navigate() calls inside onSnapshot callbacks may not be guarded"
+    },
+    {
+      "file": "src/pages/Auth.jsx",
+      "lineno": 43,
+      "snippet": "useEffect(() => { if (authLoading || currentUser || didRedirectRef.current) return; ... }, [])",
+      "problem": "Empty dependency array - intentional but navigate() called inside async callback"
+    }
+  ],
+  "suspect_navigate_calls": [
+    {
+      "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+      "lineno": 72,
+      "snippet": "navigate('/auth');",
+      "problem": "Called without guard inside useEffect, but has early return check"
+    },
+    {
+      "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+      "lineno": 89,
+      "snippet": "navigate('/constructor/projects');",
+      "problem": "Called inside onSnapshot callback without mounted guard"
+    },
+    {
+      "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+      "lineno": 99,
+      "snippet": "navigate('/constructor/projects');",
+      "problem": "Called inside onSnapshot callback without mounted guard"
+    },
+    {
+      "file": "src/pages/renovator/RenovatorProjectDetails.jsx",
+      "lineno": 81,
+      "snippet": "navigate('/auth');",
+      "problem": "Called without guard inside useEffect, but has early return check"
+    },
+    {
+      "file": "src/pages/renovator/RenovatorProjectDetails.jsx",
+      "lineno": 98,
+      "snippet": "navigate('/renovator/projects');",
+      "problem": "Called inside onSnapshot callback without mounted guard"
+    },
+    {
+      "file": "src/pages/renovator/RenovatorProjectDetails.jsx",
+      "lineno": 108,
+      "snippet": "navigate('/renovator/projects');",
+      "problem": "Called inside onSnapshot callback without mounted guard"
+    },
+    {
+      "file": "src/pages/Auth.jsx",
+      "lineno": 37,
+      "snippet": "navigate(redirectPath, { replace: true });",
+      "problem": "Called inside async callback, guarded by didRedirectRef"
+    },
+    {
+      "file": "src/pages/Auth.jsx",
+      "lineno": 56,
+      "snippet": "navigate(redirectPath, { replace: true });",
+      "problem": "Called inside async callback, guarded by didRedirectRef and mounted check"
+    },
+    {
+      "file": "src/pages/Auth.jsx",
+      "lineno": 117,
+      "snippet": "navigate(redirectPath, { replace: true });",
+      "problem": "Called in handleSubmit after login, guarded by didRedirectRef"
+    },
+    {
+      "file": "src/pages/Auth.jsx",
+      "lineno": 128,
+      "snippet": "navigate(redirectPath, { replace: true });",
+      "problem": "Called in handleSubmit after signup, guarded by didRedirectRef"
+    },
+    {
+      "file": "src/pages/Auth.jsx",
+      "lineno": 160,
+      "snippet": "navigate(redirectPath, { replace: true });",
+      "problem": "Called in handleGoogleLogin, guarded by didRedirectRef"
+    },
+    {
+      "file": "src/pages/ConstructionProviders.jsx",
+      "lineno": 125,
+      "snippet": "navigate('/auth');",
+      "problem": "Called in event handler, not guarded but has user check"
+    },
+    {
+      "file": "src/pages/RenovationProviders.jsx",
+      "lineno": 125,
+      "snippet": "navigate('/auth');",
+      "problem": "Called in event handler, not guarded but has user check"
+    }
+  ],
+  "suspect_onSnapshot_calls": [
+    {
+      "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+      "lineno": 180,
+      "snippet": "onSnapshot(fallbackQuery, ...)",
+      "problem": "Fallback onSnapshot inside error handler has no cleanup - memory leak"
+    },
+    {
+      "file": "src/pages/renovator/RenovatorProjectDetails.jsx",
+      "lineno": 190,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(fallbackQuery, ...)",
+      "problem": "Fallback onSnapshot stored in ref but cleanup may not handle it properly"
+    },
+    {
+      "file": "src/pages/AdminPanel.jsx",
+      "lineno": 196,
+      "snippet": "onSnapshot(fallbackQuery, ...)",
+      "problem": "Multiple fallback onSnapshot calls may not have proper cleanup"
+    },
+    {
+      "file": "src/pages/MyAccount.jsx",
+      "lineno": 183,
+      "snippet": "onSnapshot(...)",
+      "problem": "Nested onSnapshot call may not have cleanup"
+    },
+    {
+      "file": "src/components/notification/NotificationBell.jsx",
+      "lineno": 142,
+      "snippet": "fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot stored but cleanup may not handle both listeners"
+    },
+    {
+      "file": "src/pages/BuySell/Marketplace.jsx",
+      "lineno": 90,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/pages/Rental/MyBookings.jsx",
+      "lineno": 95,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/pages/BuySell/MyListings.jsx",
+      "lineno": 64,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/hooks/useChatMessages.js",
+      "lineno": 60,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/hooks/useChatList.js",
+      "lineno": 96,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/components/Search/GlobalSearch.jsx",
+      "lineno": 91,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Multiple fallback onSnapshot calls may not have proper cleanup"
+    },
+    {
+      "file": "src/pages/NotificationsPage.jsx",
+      "lineno": 81,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/pages/Chatbot.jsx",
+      "lineno": 101,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/pages/Construction/ProviderConstructionRequests.jsx",
+      "lineno": 109,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/pages/Renovation/ProviderRenovationRequests.jsx",
+      "lineno": 127,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/pages/Renovation/MyRenovations.jsx",
+      "lineno": 72,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/components/chat/MessageBox.jsx",
+      "lineno": 91,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    },
+    {
+      "file": "src/components/chat/ConversationList.jsx",
+      "lineno": 76,
+      "snippet": "const fallbackUnsubscribe = onSnapshot(...)",
+      "problem": "Fallback onSnapshot may not be cleaned up properly"
+    }
+  ],
+  "summary": {
+    "total_useEffects_scanned": 132,
+    "total_navigate_calls": 231,
+    "total_onSnapshot_calls": 146,
+    "critical_issues": [
+      "ConstructorProjectDetails.jsx:180 - Fallback onSnapshot has no cleanup (memory leak)",
+      "Multiple files: Fallback onSnapshot listeners may not be properly cleaned up",
+      "onSnapshot callbacks contain navigate() calls without mounted guards"
+    ],
+    "recommendations": [
+      "Add mounted guards to all onSnapshot callbacks that call navigate()",
+      "Ensure all fallback onSnapshot calls are stored in refs and cleaned up",
+      "Review all useEffect hooks for proper dependency arrays",
+      "Add cleanup functions for all onSnapshot listeners including fallbacks"
+    ]
+  }
+}
+

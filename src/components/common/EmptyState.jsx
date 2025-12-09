@@ -30,7 +30,9 @@ const EmptyState = ({
   className = '',
 }) => {
   return (
-    <div className={`bg-surface rounded-base shadow-md p-12 border border-muted text-center ${className}`}>
+    <div
+      className={`bg-surface rounded-base shadow-md p-12 border border-muted text-center ${className}`}
+    >
       <Icon className="w-16 h-16 text-textSecondary mx-auto mb-4" />
       <h2 className="text-xl font-semibold text-textMain mb-2">{title}</h2>
       <p className="text-textSecondary mb-6 max-w-md mx-auto">{message}</p>
@@ -114,7 +116,7 @@ export const EmptyNotifications = () => {
 export const EmptySearch = ({ searchQuery, onClear }) => {
   const message = searchQuery
     ? `No results found for "${searchQuery}". Try adjusting your search or filters.`
-    : 'Start searching to find what you\'re looking for.';
+    : "Start searching to find what you're looking for.";
 
   if (searchQuery && onClear) {
     return (
@@ -128,13 +130,7 @@ export const EmptySearch = ({ searchQuery, onClear }) => {
     );
   }
 
-  return (
-    <EmptyState
-      icon={Search}
-      title="No results found"
-      message={message}
-    />
-  );
+  return <EmptyState icon={Search} title="No results found" message={message} />;
 };
 
 export const EmptyInbox = () => {
@@ -149,11 +145,7 @@ export const EmptyInbox = () => {
 
 export const EmptyBookings = () => {
   return (
-    <EmptyState
-      icon={Package}
-      title="No bookings"
-      message="You haven't made any bookings yet."
-    />
+    <EmptyState icon={Package} title="No bookings" message="You haven't made any bookings yet." />
   );
 };
 
@@ -168,13 +160,7 @@ export const EmptyUsers = () => {
 };
 
 export const EmptyError = ({ message = 'Something went wrong. Please try again later.' }) => {
-  return (
-    <EmptyState
-      icon={AlertCircle}
-      title="Error loading data"
-      message={message}
-    />
-  );
+  return <EmptyState icon={AlertCircle} title="Error loading data" message={message} />;
 };
 
 export default EmptyState;

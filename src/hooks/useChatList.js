@@ -50,7 +50,8 @@ export default function useChatList() {
                   const userDoc = await getDoc(doc(db, 'users', otherUid));
                   if (userDoc.exists()) {
                     const userData = userDoc.data();
-                    const name = userData.name || userData.displayName || userData.email || 'Unknown';
+                    const name =
+                      userData.name || userData.displayName || userData.email || 'Unknown';
                     setUserNames((prev) => ({
                       ...prev,
                       [otherUid]: name,
@@ -71,7 +72,7 @@ export default function useChatList() {
 
           // Add user names to chats
           const chatsWithNames = chatsList.map((chat) => {
-            const otherUid = chat.participants?.find((uid) => uid !== user.uid);
+            const otherUid = chat.participants?.find((uid) => uid !== currentUser.uid);
             return {
               ...chat,
               otherParticipantId: otherUid,
@@ -89,7 +90,7 @@ export default function useChatList() {
           if (err.code === 'failed-precondition' || err.message?.includes('index')) {
             const fallbackQuery = query(
               collection(db, 'chats'),
-              where('participants', 'array-contains', user.uid)
+              where('participants', 'array-contains', currentUser.uid)
             );
 
             const fallbackUnsubscribe = onSnapshot(
@@ -116,7 +117,8 @@ export default function useChatList() {
                         const userDoc = await getDoc(doc(db, 'users', otherUid));
                         if (userDoc.exists()) {
                           const userData = userDoc.data();
-                          const name = userData.name || userData.displayName || userData.email || 'Unknown';
+                          const name =
+                            userData.name || userData.displayName || userData.email || 'Unknown';
                           setUserNames((prev) => ({
                             ...prev,
                             [otherUid]: name,
@@ -172,5 +174,3 @@ export default function useChatList() {
 
   return { chats, loading, error };
 }
-
-

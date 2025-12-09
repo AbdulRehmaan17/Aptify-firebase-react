@@ -67,7 +67,7 @@ const SellPage = () => {
             ) : (
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button size="lg" variant="secondary" asChild>
-                  <Link to="/auth">Sign Up to List Property</Link>
+                  <Link to="/auth?next=/post-property?type=sale">Sign Up to List Property</Link>
                 </Button>
                 <Button
                   size="lg"
@@ -75,7 +75,7 @@ const SellPage = () => {
                   className="bg-surface text-primary hover:bg-primary/10"
                   asChild
                 >
-                  <Link to="/auth">Sign In</Link>
+                  <Link to="/auth?next=/post-property?type=sale">Sign In</Link>
                 </Button>
               </div>
             )}

@@ -1,5 +1,11 @@
 // Re-export all Firebase services for backward compatibility
-export { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from './auth';
+export {
+  auth,
+  googleProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+} from './auth';
 export { db } from './firestore';
 export { firebaseConfig, app } from './config';
 

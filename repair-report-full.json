@@ -1,0 +1,146 @@
+{
+  "repair_date": "2024-12-19",
+  "summary": {
+    "total_files_changed": 8,
+    "total_files_deleted": 4,
+    "rules_file_replaced": true,
+    "new_utilities_created": 1
+  },
+  "files_changed": [
+    {
+      "file": "src/context/AuthContext.jsx",
+      "reason": "Stabilize auth listener - single listener, no navigate() calls, proper loading state",
+      "changes": [
+        "Replaced complex auth listener with simple pattern",
+        "Removed navigate() calls from listener",
+        "Simplified profile fetching logic",
+        "Added proper cleanup"
+      ]
+    },
+    {
+      "file": "src/pages/Auth.jsx",
+      "reason": "Prevent redirect loops - only redirect after loading is false",
+      "changes": [
+        "Added loading guard: if (loading) return",
+        "Added redirectedRef to prevent double redirects",
+        "Updated all navigate calls to use userProfile for role-based redirects"
+      ]
+    },
+    {
+      "file": "src/components/common/ProtectedRoute.jsx",
+      "reason": "Prevent rendering until auth resolved to avoid redirect loops",
+      "changes": [
+        "Simplified to wait for loading before rendering",
+        "Removed complex role checking logic",
+        "Added minimal loading placeholder",
+        "Maintained backward compatibility with adminOnly, constructorOnly, renovatorOnly props"
+      ]
+    },
+    {
+      "file": "firestore.rules",
+      "reason": "Fix permission errors - allow public reads for properties, serviceProviders, reviews",
+      "changes": [
+        "Added helper functions: isSignedIn(), isOwner(), isAdmin()",
+        "Explicit get and list permissions for public collections",
+        "Added rules for all missing collections (constructionProjects, renovationProjects, etc.)",
+        "Made write permissions explicit and secure"
+      ]
+    },
+    {
+      "file": "src/pages/Rental/MyRentals.jsx",
+      "reason": "Fix onSnapshot cleanup and error handling",
+      "changes": [
+        "Added proper cleanup function",
+        "Replaced error handling with handleFirestoreError",
+        "Fixed snapshot mapping to use safe pattern"
+      ]
+    },
+    {
+      "file": "src/utils/firestoreHelpers.js",
+      "reason": "Create shared error handler and mapping utilities",
+      "changes": [
+        "Created handleFirestoreError function for user-friendly toasts",
+        "Created mapSnapshotDocs for safe snapshot mapping",
+        "Created getDisplayName for fallback name handling"
+      ]
+    }
+  ],
+  "files_deleted": [
+    {
+      "file": "cursor-diagnostics/tests.txt",
+      "reason": "Test/diagnostic file, not imported"
+    },
+    {
+      "file": "test.txt",
+      "reason": "Test file, not imported"
+    },
+    {
+      "file": "vite-error.tmp",
+      "reason": "Temporary file from Vite output capture"
+    },
+    {
+      "file": "vite-output.tmp",
+      "reason": "Temporary file from Vite output capture"
+    }
+  ],
+  "rules_file_replaced": {
+    "file": "firestore.rules",
+    "reason": "Fix permission errors and add missing collections",
+    "key_changes": [
+      "Added helper functions for cleaner rules",
+      "Explicit get/list permissions for public collections",
+      "Added rules for 10+ missing collections",
+      "Made all write permissions explicit and secure"
+    ]
+  },
+  "new_utilities": [
+    {
+      "file": "src/utils/firestoreHelpers.js",
+      "purpose": "Shared error handling and mapping utilities",
+      "exports": [
+        "handleFirestoreError(err, context)",
+        "mapSnapshotDocs(snapshot)",
+        "getDisplayName(data)"
+      ]
+    }
+  ],
+  "critical_fixes": [
+    {
+      "issue": "Auth listener causing infinite redirect loops",
+      "fix": "Removed navigate() calls from AuthContext listener",
+      "status": "fixed"
+    },
+    {
+      "issue": "ProtectedRoute rendering before auth resolved",
+      "fix": "Added loading guard to prevent rendering until auth resolved",
+      "status": "fixed"
+    },
+    {
+      "issue": "Firestore permission errors for properties",
+      "fix": "Updated rules to allow public read with explicit get/list permissions",
+      "status": "fixed"
+    },
+    {
+      "issue": "onSnapshot listeners missing cleanup",
+      "fix": "Added cleanup functions to all onSnapshot listeners",
+      "status": "in_progress"
+    },
+    {
+      "issue": "Raw console errors instead of user-friendly messages",
+      "fix": "Created handleFirestoreError utility for toast notifications",
+      "status": "fixed"
+    }
+  ],
+  "remaining_work": [
+    "Fix all onSnapshot usages across 32 files with safe pattern",
+    "Update all snapshot mappings to use mapSnapshotDocs utility",
+    "Add mounted guards to onSnapshot callbacks that call navigate()",
+    "Fix fallback onSnapshot cleanup in ConstructorProjectDetails.jsx:180"
+  ],
+  "deployment_required": [
+    "firebase deploy --only firestore:rules",
+    "Verify compound indexes exist for filtered queries",
+    "Test all routes after deployment"
+  ]
+}
+

@@ -52,9 +52,7 @@ const ChatMessage = ({ message, isOwn, senderName }) => {
         )}
         <div
           className={`rounded-lg p-3 ${
-            isOwn
-              ? 'bg-primary text-white max-w-xs'
-              : 'bg-muted text-textMain max-w-xs'
+            isOwn ? 'bg-primary text-white max-w-xs' : 'bg-muted text-textMain max-w-xs'
           }`}
         >
           <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
@@ -66,11 +64,7 @@ const ChatMessage = ({ message, isOwn, senderName }) => {
             </div>
           )}
 
-          <span
-            className={`text-xs mt-1 block ${
-              isOwn ? 'text-white/80' : 'text-textSecondary'
-            }`}
-          >
+          <span className={`text-xs mt-1 block ${isOwn ? 'text-white/80' : 'text-textSecondary'}`}>
             {formatTime(message.createdAt)}
           </span>
         </div>
@@ -80,4 +74,3 @@ const ChatMessage = ({ message, isOwn, senderName }) => {
 };
 
 export default ChatMessage;
-

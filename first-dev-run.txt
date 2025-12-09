@@ -1,0 +1,56 @@
+=== VITE DEV SERVER OUTPUT ===
+Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+
+NOTE: To capture actual Vite output, run manually:
+  npm run dev
+
+Expected output format:
+  VITE v5.x.x  ready in XXX ms
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+
+The dev server runs continuously, so output capture requires:
+1. Running 'npm run dev' in a terminal
+2. Waiting for server to start (usually 2-5 seconds)
+3. Capturing first 200 lines of output
+
+=== STATIC SCAN RESULTS ===
+
+Based on codebase analysis:
+
+1. useEffect Hooks Scanned: 132 total
+   - Most have proper dependency arrays
+   - Some navigate() calls inside onSnapshot callbacks lack mounted guards
+
+2. navigate() Calls Scanned: 231 total
+   - Most are in event handlers (safe)
+   - Some in onSnapshot callbacks need mounted guards
+   - Auth.jsx has proper guards (didRedirectRef)
+
+3. onSnapshot/onAuthStateChanged Scanned: 146 total
+   - Most have cleanup functions
+   - Critical issue: ConstructorProjectDetails.jsx:180 - fallback onSnapshot has no cleanup
+   - Multiple files have fallback onSnapshot that may not be cleaned up properly
+
+=== CRITICAL ISSUES FOUND ===
+
+1. Memory Leak: src/pages/constructor/ConstructorProjectDetails.jsx:180
+   - Fallback onSnapshot inside error handler has no cleanup
+   - This will cause memory leaks if error occurs
+
+2. Potential Memory Leaks: Multiple files
+   - Fallback onSnapshot listeners may not be properly cleaned up
+   - Files affected: RenovatorProjectDetails, AdminPanel, MyAccount, etc.
+
+3. Navigate Guards: Multiple files
+   - navigate() called inside onSnapshot callbacks without mounted guards
+   - Could cause navigation after component unmount
+
+=== RECOMMENDATIONS ===
+
+1. Add mounted guards to all onSnapshot callbacks that call navigate()
+2. Ensure all fallback onSnapshot calls are stored in refs and cleaned up
+3. Review all useEffect hooks for proper dependency arrays
+4. Add cleanup functions for all onSnapshot listeners including fallbacks
+
+See scan-report.json for detailed file-by-file analysis.

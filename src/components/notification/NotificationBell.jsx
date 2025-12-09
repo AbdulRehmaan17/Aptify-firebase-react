@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db, auth } from '../../firebase'; // AUTO-FIXED: Added auth import
 import { useAuth } from '../../context/AuthContext';
 import { Bell, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,8 +40,8 @@ const NotificationBell = () => {
 
   // Setup real-time listener for notifications
   useEffect(() => {
-    // Guard: Ensure user, uid, and db are available
-    if (!currentUser || !currentUser.uid || !db) {
+    // Guard: Ensure user is authenticated (notifications require auth per rules)
+    if (!currentUser || !currentUser.uid || !db || !auth?.currentUser) {
       setLoading(false);
       setNotifications([]);
       return;
@@ -53,7 +53,8 @@ const NotificationBell = () => {
     let fallbackUnsubscribe = null;
 
     try {
-      // Try with orderBy first
+      // Notifications require authentication per Firestore rules
+      // Query must filter by userId matching current user
       const notificationsQuery = query(
         collection(db, 'notifications'),
         where('userId', '==', userId),
@@ -81,10 +82,7 @@ const NotificationBell = () => {
           // Show toast for new notifications
           if (notifs.length > 0) {
             const latestNotification = notifs[0];
-            if (
-              latestNotification.id !== lastNotificationId.current &&
-              !latestNotification.read
-            ) {
+            if (latestNotification.id !== lastNotificationId.current && !latestNotification.read) {
               lastNotificationId.current = latestNotification.id;
 
               // Show toast based on type
@@ -124,7 +122,7 @@ const NotificationBell = () => {
         },
         (error) => {
           console.error('Error fetching notifications:', error);
-          
+
           // Handle permission errors
           if (error.code === 'permission-denied') {
             console.warn('Permission denied when fetching notifications. Check Firestore rules.');
@@ -132,7 +130,7 @@ const NotificationBell = () => {
             setLoading(false);
             return;
           }
-          
+
           // Fallback without orderBy for index errors
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
             try {
@@ -388,4 +386,3 @@ const NotificationBell = () => {
 };
 
 export default NotificationBell;
-

@@ -98,14 +98,19 @@ const BrowseRentals = () => {
 
         setProperties(propertiesData);
       } catch (error) {
+        // AUTO-FIXED: Handle permission errors gracefully
         console.error('Error fetching rental properties:', error);
         console.error('Error details:', {
           message: error.message,
           code: error.code,
           stack: error.stack,
         });
-        toast.error(`Failed to load rental properties: ${error.message || 'Unknown error'}`);
-        setProperties([]);
+        if (error.code === 'permission-denied') {
+          toast.error('Permission denied. Properties are publicly readable - check Firestore rules.');
+        } else {
+          toast.error(`Failed to load properties: ${error.message || 'Unknown error'}`);
+        }
+        setProperties([]); // AUTO-FIXED: Safe fallback
       } finally {
         setLoading(false);
       }

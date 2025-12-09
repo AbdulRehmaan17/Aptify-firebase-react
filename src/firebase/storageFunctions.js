@@ -20,10 +20,10 @@ export const uploadImage = async (file, path, fileName = null) => {
 
     // Generate file name if not provided
     const finalFileName = fileName || file.name || `image_${Date.now()}`;
-    
+
     // Ensure path ends with /
     const normalizedPath = path.endsWith('/') ? path : `${path}/`;
-    
+
     // Create storage reference
     const storageRef = ref(storage, `${normalizedPath}${finalFileName}`);
 
@@ -32,7 +32,7 @@ export const uploadImage = async (file, path, fileName = null) => {
 
     // Get download URL
     const downloadURL = await getDownloadURL(storageRef);
-    
+
     return downloadURL;
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -82,7 +82,7 @@ export const deleteImage = async (imageUrl) => {
 
     // Extract storage path from URL if full URL is provided
     let storagePath = imageUrl;
-    
+
     // If it's a full URL, extract the path
     if (imageUrl.includes('firebasestorage.googleapis.com')) {
       // Extract path from URL
@@ -147,10 +147,3 @@ export const getImageUrl = async (storagePath) => {
     throw error;
   }
 };
-
-
-
-
-
-
-

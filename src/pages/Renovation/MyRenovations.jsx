@@ -146,10 +146,10 @@ const MyRenovations = () => {
 
   const getStatusColor = (status) => {
     const statusMap = {
-      Pending: 'text-yellow-600 bg-yellow-100',
-      Accepted: 'text-green-600 bg-green-100',
-      'In Progress': 'text-blue-600 bg-blue-100',
-      Completed: 'text-green-600 bg-green-100',
+      Pending: 'text-accent bg-accent/20',
+      Accepted: 'text-primary bg-primary/20',
+      'In Progress': 'text-primary bg-primary/20',
+      Completed: 'text-primary bg-primary/20',
       Rejected: 'text-red-600 bg-red-100',
       Cancelled: 'text-gray-600 bg-gray-100',
     };
@@ -370,7 +370,7 @@ const MyRenovations = () => {
                           <div key={index} className="flex items-start space-x-3">
                             <div
                               className={`mt-0.5 ${
-                                item.completed ? 'text-green-500' : 'text-textSecondary'
+                                item.completed ? 'text-primary' : 'text-textSecondary'
                               }`}
                             >
                               {item.icon}

@@ -1,9 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, getDocs, addDoc, getDoc, doc as docFn } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  addDoc,
+  getDoc,
+  doc as docFn,
+} from 'firebase/firestore';
 import { db } from '../../firebase';
 import { updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Wrench, DollarSign, Calendar, Clock, X, MessageSquare, User } from 'lucide-react';
+import {
+  Building2,
+  Wrench,
+  DollarSign,
+  Calendar,
+  Clock,
+  X,
+  MessageSquare,
+  User,
+} from 'lucide-react';
 import Button from '../common/Button';
 import Modal from '../common/Modal';
 import toast from 'react-hot-toast';
@@ -31,7 +48,7 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
       try {
         setLoadingUpdates(true);
         const updatesRef = collection(db, collectionName, project.id, 'projectUpdates');
-        const updatesQuery = query(updatesRef, orderBy('createdAt', 'asc'));
+        const updatesQuery = query(updatesRef, orderBy('createdAt', 'desc'));
         const snapshot = await getDocs(updatesQuery);
         const updatesList = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -100,6 +117,7 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
       // Create project update
       const updatesRef = collection(db, collectionName, project.id, 'projectUpdates');
       await addDoc(updatesRef, {
+        projectId: project.id, // Store projectId for collectionGroup queries
         status: 'Cancelled',
         updatedBy: project.userId || project.clientId,
         note: 'Request cancelled by client',
@@ -187,14 +205,13 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <Icon className="w-5 h-5 text-textSecondary" />
-              <h3 className="font-semibold text-textMain">
-                Project #{project.id.slice(0, 8)}
-              </h3>
+              <h3 className="font-semibold text-textMain">Project #{project.id.slice(0, 8)}</h3>
             </div>
             <div className="space-y-1 text-sm text-textSecondary">
               <p>
                 <DollarSign className="w-4 h-4 inline mr-1" />
-                Budget: {new Intl.NumberFormat('en-PK', {
+                Budget:{' '}
+                {new Intl.NumberFormat('en-PK', {
                   style: 'currency',
                   currency: 'PKR',
                 }).format(project.budget)}
@@ -213,7 +230,9 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
               )}
             </div>
           </div>
-          <span className={`px-3 py-1 text-xs font-medium rounded ${getStatusColor(project.status)}`}>
+          <span
+            className={`px-3 py-1 text-xs font-medium rounded ${getStatusColor(project.status)}`}
+          >
             {project.status || 'Pending'}
           </span>
         </div>
@@ -237,7 +256,9 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
                   <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary mt-1.5" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-base ${getStatusColor(update.status)}`}>
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-base ${getStatusColor(update.status)}`}
+                      >
                         {update.status}
                       </span>
                       <span className="text-xs text-textSecondary">
@@ -257,12 +278,7 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
         {/* Actions */}
         <div className="flex gap-2 mt-4 pt-4 border-t border-muted">
           {project.providerId && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleContactProvider}
-              className="flex-1"
-            >
+            <Button variant="outline" size="sm" onClick={handleContactProvider} className="flex-1">
               <MessageSquare className="w-4 h-4 mr-1" />
               Contact Provider
             </Button>
@@ -280,9 +296,7 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
           )}
         </div>
 
-        <p className="text-xs text-textSecondary mt-3">
-          Created: {formatDate(project.createdAt)}
-        </p>
+        <p className="text-xs text-textSecondary mt-3">Created: {formatDate(project.createdAt)}</p>
       </div>
 
       {/* Cancel Confirmation Modal */}
@@ -294,7 +308,8 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
       >
         <div className="space-y-4">
           <p className="text-textMain">
-            Are you sure you want to cancel this {type} project request? This action cannot be undone.
+            Are you sure you want to cancel this {type} project request? This action cannot be
+            undone.
           </p>
           <div className="flex gap-3">
             <Button
@@ -322,4 +337,3 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
 };
 
 export default ProjectDetailCard;
-

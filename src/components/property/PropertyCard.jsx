@@ -73,8 +73,8 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
   };
 
   return (
-    <Link 
-      to={isDemo ? '/properties' : `/properties/${property.id}`} 
+    <Link
+      to={isDemo ? '/properties' : `/properties/${property.id}`}
       className="block"
       onClick={handleCardClick}
     >
@@ -197,7 +197,10 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
           {property.amenities && property.amenities.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-3">
               {property.amenities.slice(0, 3).map((amenity, index) => (
-                <span key={index} className="px-2 py-1 bg-muted text-textSecondary text-xs rounded-base">
+                <span
+                  key={index}
+                  className="px-2 py-1 bg-muted text-textSecondary text-xs rounded-base"
+                >
                   {amenity}
                 </span>
               ))}

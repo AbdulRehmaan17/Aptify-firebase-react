@@ -1199,13 +1199,17 @@ const AdminPanel = () => {
       }
 
       // Create notification for provider
-      await notificationService.sendNotification(
-        provider.userId,
-        'Provider Application Approved',
-        `Congratulations! Your ${provider.serviceType} provider application has been approved. You can now start receiving project requests.`,
-        'status-update',
-        provider.serviceType === 'Construction' ? '/constructor-dashboard' : '/renovator-dashboard'
-      );
+      if (provider.serviceType === 'Construction') {
+        await notificationService.notifyProviderProfileApproved(provider.userId);
+      } else {
+        await notificationService.sendNotification(
+          provider.userId,
+          'Provider Application Approved',
+          `Congratulations! Your ${provider.serviceType} provider application has been approved. You can now start receiving project requests.`,
+          'success',
+          '/renovator-dashboard'
+        );
+      }
 
       toast.success('Provider approved successfully');
     } catch (error) {

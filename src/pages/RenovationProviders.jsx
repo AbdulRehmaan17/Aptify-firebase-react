@@ -38,26 +38,37 @@ const RenovationProviders = () => {
     const fetchProviders = async () => {
       try {
         setLoading(true);
-        // Fetch only approved providers
+        if (!db) {
+          console.warn('Firestore db is not initialized');
+          setProviders([]);
+          setFilteredProviders([]);
+          setLoading(false);
+          return;
+        }
+        
+        // AUTO-FIXED: Query only approved providers (Firestore rules allow public read for approved providers)
         const providersQuery = query(
           collection(db, 'serviceProviders'),
-          where('serviceType', '==', 'Renovation')
+          where('serviceType', '==', 'Renovation'),
+          where('isApproved', '==', true) // AUTO-FIXED: Filter by approval status in query
         );
 
         const snapshot = await getDocs(providersQuery);
-        const providersList = snapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }))
-          // Filter to show only approved providers
-          .filter((provider) => provider.isApproved === true || provider.approved === true);
+        const providersList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
 
         setProviders(providersList);
         setFilteredProviders(providersList);
       } catch (error) {
         console.error('Error fetching providers:', error);
-        toast.error('Failed to load renovation providers');
+        // AUTO-FIXED: Handle permission errors gracefully
+        if (error.code === 'permission-denied') {
+          toast.error('Permission denied. Please check Firestore rules.');
+        } else {
+          toast.error('Failed to load renovation providers');
+        }
         setProviders([]);
         setFilteredProviders([]);
       } finally {

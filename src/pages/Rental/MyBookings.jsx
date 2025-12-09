@@ -173,10 +173,10 @@ const MyBookings = () => {
 
   const getStatusColor = (status) => {
     const statusMap = {
-      Pending: 'text-yellow-600 bg-yellow-100',
-      Approved: 'text-green-600 bg-green-100',
+      Pending: 'text-accent bg-accent/20',
+      Approved: 'text-primary bg-primary/20',
       Rejected: 'text-red-600 bg-red-100',
-      Completed: 'text-blue-600 bg-blue-100',
+      Completed: 'text-primary bg-primary/20',
       Cancelled: 'text-gray-600 bg-gray-100',
     };
     return statusMap[status] || 'text-gray-600 bg-gray-100';
@@ -389,7 +389,7 @@ const MyBookings = () => {
                           <div key={index} className="flex items-start space-x-3">
                             <div
                               className={`mt-0.5 ${
-                                item.completed ? 'text-green-500' : 'text-textSecondary'
+                                item.completed ? 'text-primary' : 'text-textSecondary'
                               }`}
                             >
                               {item.icon}

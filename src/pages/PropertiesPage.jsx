@@ -74,7 +74,12 @@ const PropertiesPage = () => {
           code: error.code,
           stack: error.stack,
         });
-        toast.error(`Failed to load properties: ${error.message || 'Unknown error'}`);
+        // AUTO-FIXED: Handle permission errors gracefully
+        if (error.code === 'permission-denied') {
+          toast.error('Permission denied. Properties are publicly readable - check Firestore rules.');
+        } else {
+          toast.error(`Failed to load properties: ${error.message || 'Unknown error'}`);
+        }
         setProperties([]);
       } finally {
         setLoading(false);

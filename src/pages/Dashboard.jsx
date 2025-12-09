@@ -205,10 +205,10 @@ const Dashboard = () => {
 
   const getBookingStatusColor = (status) => {
     const statusMap = {
-      pending: 'text-yellow-600 bg-yellow-100',
-      approved: 'text-green-600 bg-green-100',
+      pending: 'text-accent bg-accent/20',
+      approved: 'text-primary bg-primary/20',
       rejected: 'text-red-600 bg-red-100',
-      completed: 'text-blue-600 bg-blue-100',
+      completed: 'text-primary bg-primary/20',
       cancelled: 'text-gray-600 bg-gray-100',
     };
     return statusMap[status] || 'text-gray-600 bg-gray-100';

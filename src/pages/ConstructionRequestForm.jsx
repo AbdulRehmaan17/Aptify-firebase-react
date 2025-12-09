@@ -289,17 +289,17 @@ const ConstructionRequestForm = () => {
 
         // Notify provider if one was selected
         if (formData.providerId && formData.providerId.trim()) {
-          await notificationService.sendNotification(
+          await notificationService.notifyProviderNewRequest(
             formData.providerId,
-            'New Construction Request',
-            `You have received a new ${formData.projectType} request. Check your dashboard for details.`,
-            'service-request',
-            '/constructor-dashboard'
+            docRef.id,
+            formData.projectType,
+            Number(formData.budget)
           );
         } else {
           // Notify all approved construction providers
           const providersQuery = query(
-            collection(db, 'constructionProviders'),
+            collection(db, 'serviceProviders'),
+            where('serviceType', '==', 'Construction'),
             where('isApproved', '==', true)
           );
           const providersSnapshot = await getDocs(providersQuery);

@@ -399,7 +399,8 @@ const RenovationRequestForm = () => {
         } else {
           // Notify all approved renovation providers
           const providersQuery = query(
-            collection(db, 'renovationProviders'),
+            collection(db, 'serviceProviders'),
+            where('serviceType', '==', 'Renovation'),
             where('isApproved', '==', true)
           );
           const providersSnapshot = await getDocs(providersQuery);

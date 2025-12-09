@@ -11,6 +11,7 @@ import { GridSkeleton, PropertyCardSkeleton } from '../../components/common/Skel
 import { EmptyProperties } from '../../components/common/EmptyState';
 import Modal from '../../components/common/Modal';
 import toast from 'react-hot-toast';
+import { handleFirestoreError } from '../../utils/firestoreHelpers';
 
 const MyRentals = () => {
   const { currentUser, loading: authLoading } = useAuth();
@@ -22,50 +23,43 @@ const MyRentals = () => {
   const [updating, setUpdating] = useState({});
 
   useEffect(() => {
-    if (!authLoading && currentUser) {
-      loadRentals();
-    } else if (!authLoading && !currentUser) {
-      setLoading(false);
-    }
-  }, [authLoading, currentUser]);
-
-  const loadRentals = () => {
+    if (authLoading) return; // Wait for auth to finish loading
+    
     if (!currentUser || !db) {
       setLoading(false);
+      setRentals([]);
       return;
     }
 
     setLoading(true);
-    try {
-      const rentalsQuery = query(
-        collection(db, 'properties'),
-        where('ownerId', '==', currentUser.uid),
-        where('type', '==', 'rent')
-      );
+    // fixed: added cleanup and loading guard
+    const rentalsQuery = query(
+      collection(db, 'properties'),
+      where('ownerId', '==', currentUser.uid),
+      where('type', '==', 'rent')
+    );
 
-      const unsubscribe = onSnapshot(
-        rentalsQuery,
-        (snapshot) => {
-          const rentalsList = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setRentals(rentalsList);
-          setLoading(false);
-        },
-        (error) => {
-          console.error('Error loading rentals:', error);
-          toast.error('Failed to load rentals');
-          setLoading(false);
-        }
-      );
+    const unsubscribe = onSnapshot(
+      rentalsQuery,
+      (snapshot) => {
+        // Safe mapping with id
+        const mapped = snapshot.docs.map(doc => {
+          const data = doc.data() || {};
+          return { id: doc.id, ...data };
+        });
+        setRentals(mapped);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("onSnapshot error:", err);
+        handleFirestoreError(err, "rentals");
+        setRentals([]);
+        setLoading(false);
+      }
+    );
 
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up rentals listener:', error);
-      setLoading(false);
-    }
-  };
+    return () => unsubscribe();
+  }, [authLoading, currentUser?.uid]);
 
   const handleDelete = async () => {
     if (!deleteModal.rentalId) return;
@@ -191,7 +185,7 @@ const MyRentals = () => {
                     <span
                       className={`ml-2 px-2 py-1 text-xs rounded-full ${
                         rental.available
-                          ? 'bg-green-100 text-green-600'
+                          ? 'bg-primary/20 text-primary'
                           : 'bg-red-100 text-red-600'
                       }`}
                     >

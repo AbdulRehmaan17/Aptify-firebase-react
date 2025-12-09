@@ -67,10 +67,7 @@ const GlobalSearch = () => {
     if (!db) return;
 
     try {
-      const rentalsQuery = query(
-        collection(db, 'properties'),
-        where('status', '==', 'published')
-      );
+      const rentalsQuery = query(collection(db, 'properties'), where('status', '==', 'published'));
 
       const unsubscribe = onSnapshot(
         rentalsQuery,
@@ -125,10 +122,7 @@ const GlobalSearch = () => {
     if (!db) return;
 
     try {
-      const buySellQuery = query(
-        collection(db, 'properties'),
-        where('status', '==', 'published')
-      );
+      const buySellQuery = query(collection(db, 'properties'), where('status', '==', 'published'));
 
       const unsubscribe = onSnapshot(
         buySellQuery,
@@ -279,9 +273,7 @@ const GlobalSearch = () => {
 
     // Category filter
     if (filters.category !== 'all') {
-      filteredRentals = filteredRentals.filter(
-        (listing) => listing.category === filters.category
-      );
+      filteredRentals = filteredRentals.filter((listing) => listing.category === filters.category);
     }
 
     results.rentals = filteredRentals;
@@ -322,9 +314,7 @@ const GlobalSearch = () => {
 
     // Category filter
     if (filters.category !== 'all') {
-      filteredBuySell = filteredBuySell.filter(
-        (listing) => listing.category === filters.category
-      );
+      filteredBuySell = filteredBuySell.filter((listing) => listing.category === filters.category);
     }
 
     results.buySell = filteredBuySell;
@@ -356,8 +346,8 @@ const GlobalSearch = () => {
     // City filter
     if (filters.city.trim()) {
       const city = filters.city.toLowerCase();
-      filteredProviders = filteredProviders.filter(
-        (provider) => provider.city?.toLowerCase().includes(city)
+      filteredProviders = filteredProviders.filter((provider) =>
+        provider.city?.toLowerCase().includes(city)
       );
     }
 
@@ -424,7 +414,9 @@ const GlobalSearch = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-display font-bold text-textMain mb-2">Global Search</h1>
-          <p className="text-textSecondary">Search across rentals, buy/sell listings, and service providers</p>
+          <p className="text-textSecondary">
+            Search across rentals, buy/sell listings, and service providers
+          </p>
         </div>
 
         {/* Search Bar */}
@@ -449,7 +441,11 @@ const GlobalSearch = () => {
               Filters
             </Button>
             {hasActiveFilters() && (
-              <Button variant="ghost" onClick={clearFilters} className="flex items-center text-textSecondary">
+              <Button
+                variant="ghost"
+                onClick={clearFilters}
+                className="flex items-center text-textSecondary"
+              >
                 <X className="w-4 h-4 mr-2" />
                 Clear
               </Button>
@@ -488,9 +484,7 @@ const GlobalSearch = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-textSecondary mb-1">
-                  City
-                </label>
+                <label className="block text-sm font-medium text-textSecondary mb-1">City</label>
                 <input
                   type="text"
                   value={filters.city}
@@ -541,7 +535,8 @@ const GlobalSearch = () => {
             {activeTab === 'all' && (
               <span>
                 Found {totalResults} results ({filteredResults.rentals.length} rentals,{' '}
-                {filteredResults.buySell.length} buy/sell, {filteredResults.providers.length} providers)
+                {filteredResults.buySell.length} buy/sell, {filteredResults.providers.length}{' '}
+                providers)
               </span>
             )}
             {activeTab === 'rentals' && (
@@ -637,7 +632,8 @@ const GlobalSearch = () => {
                     <p className="text-sm text-textSecondary flex items-center mb-2">
                       <MapPin className="w-4 h-4 mr-1" />
                       <span className="line-clamp-1">
-                        {listing.address?.city || listing.city}, {listing.address?.line1 || listing.location}
+                        {listing.address?.city || listing.city},{' '}
+                        {listing.address?.line1 || listing.location}
                       </span>
                     </p>
                     <p className="text-primary font-bold text-xl mb-3">
@@ -701,7 +697,9 @@ const GlobalSearch = () => {
                             : 'bg-primary text-white'
                         }`}
                       >
-                        {(listing.listingType || listing.type) === 'sell' ? 'For Sale' : 'Want to Buy'}
+                        {(listing.listingType || listing.type) === 'sell'
+                          ? 'For Sale'
+                          : 'Want to Buy'}
                       </span>
                     </div>
                   </div>
@@ -712,7 +710,8 @@ const GlobalSearch = () => {
                     <p className="text-sm text-textSecondary flex items-center mb-2">
                       <MapPin className="w-4 h-4 mr-1" />
                       <span className="line-clamp-1">
-                        {listing.address?.city || listing.city}, {listing.address?.line1 || listing.location}
+                        {listing.address?.city || listing.city},{' '}
+                        {listing.address?.line1 || listing.location}
                       </span>
                     </p>
                     <p className="text-primary font-bold text-xl mb-3">
@@ -745,97 +744,98 @@ const GlobalSearch = () => {
           </div>
         )}
 
-        {(activeTab === 'all' || activeTab === 'providers') && displayResults.providers.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-textMain mb-4 flex items-center">
-              <Wrench className="w-5 h-5 mr-2 text-primary" />
-              Service Providers
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayResults.providers.map((provider) => (
-                <div
-                  key={provider.id}
-                  className="bg-surface rounded-base shadow-md overflow-hidden border border-muted hover:shadow-lg transition-shadow"
-                >
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-textMain mb-1">
-                          {provider.name}
-                        </h3>
-                        <p className="text-sm text-textSecondary flex items-center">
-                          <Wrench className="w-4 h-4 mr-1" />
-                          {provider.serviceType}
+        {(activeTab === 'all' || activeTab === 'providers') &&
+          displayResults.providers.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold text-textMain mb-4 flex items-center">
+                <Wrench className="w-5 h-5 mr-2 text-primary" />
+                Service Providers
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {displayResults.providers.map((provider) => (
+                  <div
+                    key={provider.id}
+                    className="bg-surface rounded-base shadow-md overflow-hidden border border-muted hover:shadow-lg transition-shadow"
+                  >
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-textMain mb-1">
+                            {provider.name}
+                          </h3>
+                          <p className="text-sm text-textSecondary flex items-center">
+                            <Wrench className="w-4 h-4 mr-1" />
+                            {provider.serviceType}
+                          </p>
+                        </div>
+                        {provider.rating > 0 && (
+                          <div className="flex items-center bg-accent/10 px-2 py-1 rounded-base">
+                            <Star className="w-4 h-4 text-accent mr-1 fill-current" />
+                            <span className="text-sm font-semibold text-textMain">
+                              {provider.rating.toFixed(1)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {provider.bio && (
+                        <p className="text-sm text-textSecondary mb-4 line-clamp-2">
+                          {provider.bio}
                         </p>
-                      </div>
-                      {provider.rating > 0 && (
-                        <div className="flex items-center bg-accent/10 px-2 py-1 rounded-base">
-                          <Star className="w-4 h-4 text-accent mr-1 fill-current" />
-                          <span className="text-sm font-semibold text-textMain">
-                            {provider.rating.toFixed(1)}
+                      )}
+
+                      {provider.expertise &&
+                        Array.isArray(provider.expertise) &&
+                        provider.expertise.length > 0 && (
+                          <div className="mb-4">
+                            <p className="text-xs font-medium text-textSecondary mb-2">
+                              Expertise:
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {provider.expertise.slice(0, 3).map((exp, idx) => (
+                                <span
+                                  key={idx}
+                                  className="bg-muted text-textMain px-2 py-1 rounded-base text-xs"
+                                >
+                                  {exp}
+                                </span>
+                              ))}
+                              {provider.expertise.length > 3 && (
+                                <span className="text-xs text-textSecondary">
+                                  +{provider.expertise.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                      <div className="flex items-center text-sm text-textSecondary mb-4">
+                        {provider.city && (
+                          <span className="flex items-center mr-4">
+                            <MapPin className="w-4 h-4 mr-1" />
+                            {provider.city}
                           </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {provider.bio && (
-                      <p className="text-sm text-textSecondary mb-4 line-clamp-2">{provider.bio}</p>
-                    )}
-
-                    {provider.expertise && Array.isArray(provider.expertise) && provider.expertise.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-xs font-medium text-textSecondary mb-2">Expertise:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {provider.expertise.slice(0, 3).map((exp, idx) => (
-                            <span
-                              key={idx}
-                              className="bg-muted text-textMain px-2 py-1 rounded-base text-xs"
-                            >
-                              {exp}
-                            </span>
-                          ))}
-                          {provider.expertise.length > 3 && (
-                            <span className="text-xs text-textSecondary">
-                              +{provider.expertise.length - 3} more
-                            </span>
-                          )}
-                        </div>
+                        )}
+                        {provider.experienceYears > 0 && (
+                          <span>{provider.experienceYears} years experience</span>
+                        )}
                       </div>
-                    )}
 
-                    <div className="flex items-center text-sm text-textSecondary mb-4">
-                      {provider.city && (
-                        <span className="flex items-center mr-4">
-                          <MapPin className="w-4 h-4 mr-1" />
-                          {provider.city}
-                        </span>
-                      )}
-                      {provider.experienceYears > 0 && (
-                        <span>{provider.experienceYears} years experience</span>
-                      )}
+                      <Link to={`/provider/${provider.id}`}>
+                        <Button className="w-full">View Profile</Button>
+                      </Link>
                     </div>
-
-                    <Link to={`/provider/${provider.id}`}>
-                      <Button className="w-full">View Profile</Button>
-                    </Link>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* No Results */}
-        {totalResults === 0 && (
-          <EmptySearch
-            searchQuery={searchQuery}
-            onClear={clearFilters}
-          />
-        )}
+        {totalResults === 0 && <EmptySearch searchQuery={searchQuery} onClear={clearFilters} />}
       </div>
     </div>
   );
 };
 
 export default GlobalSearch;
-

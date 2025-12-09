@@ -204,6 +204,3 @@ export const batchUpdate = async (updates) => {
     throw error;
   }
 };
-
-
-

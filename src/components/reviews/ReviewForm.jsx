@@ -7,10 +7,10 @@ import toast from 'react-hot-toast';
 
 /**
  * ReviewForm Component
- * 
+ *
  * A reusable form component for submitting and editing reviews.
  * Used on PropertyDetailPage and Provider detail pages.
- * 
+ *
  * @param {string} targetId - ID of the property or provider being reviewed
  * @param {string} targetType - 'property', 'provider', 'construction', or 'renovation'
  * @param {string} authorId - ID of the user submitting the review (author)
@@ -90,7 +90,9 @@ const ReviewForm = ({
 
       if (existingReview || hasExistingReview) {
         // Update existing review
-        const reviewId = existingReview?.id || (await reviewsService.getUserReview(authorId, targetId, targetType))?.id;
+        const reviewId =
+          existingReview?.id ||
+          (await reviewsService.getUserReview(authorId, targetId, targetType))?.id;
         if (reviewId) {
           await reviewsService.update(reviewId, rating, comment);
           toast.success('Review updated successfully!');
@@ -127,9 +129,7 @@ const ReviewForm = ({
             <Star
               key={star}
               className={`w-8 h-8 ${
-                isFilled
-                  ? 'fill-accent text-accent'
-                  : 'fill-muted text-muted'
+                isFilled ? 'fill-accent text-accent' : 'fill-muted text-muted'
               } ${interactive ? 'cursor-pointer hover:scale-110 transition-transform' : ''}`}
               onClick={() => interactive && handleRatingClick(star)}
               onMouseEnter={() => interactive && setHoveredRating(star)}
@@ -178,9 +178,7 @@ const ReviewForm = ({
           placeholder="Share your experience..."
           disabled={submitting}
         />
-        <p className="mt-1 text-xs text-textSecondary">
-          {comment.length} / 10 characters minimum
-        </p>
+        <p className="mt-1 text-xs text-textSecondary">{comment.length} / 10 characters minimum</p>
       </div>
 
       {/* Action Buttons */}
@@ -194,12 +192,7 @@ const ReviewForm = ({
           {existingReview || hasExistingReview ? 'Update Review' : 'Submit Review'}
         </Button>
         {onCancel && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={submitting}
-          >
+          <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
             Cancel
           </Button>
         )}
@@ -215,4 +208,3 @@ const ReviewForm = ({
 };
 
 export default ReviewForm;
-

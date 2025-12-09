@@ -54,10 +54,11 @@ const Marketplace = () => {
 
     setLoading(true);
     try {
+      // AUTO-FIXED: Use 'published' status per Firestore rules (public read allowed)
       // Query for both 'buy' and 'sell' properties
       const listingsQuery = query(
         collection(db, 'properties'),
-        where('status', '==', 'active'),
+        where('status', '==', 'published'),
         orderBy('createdAt', 'desc')
       );
 
@@ -81,9 +82,10 @@ const Marketplace = () => {
           console.error('Error loading listings:', error);
           // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+            // AUTO-FIXED: Use 'published' status
             const fallbackQuery = query(
               collection(db, 'properties'),
-              where('status', '==', 'active')
+              where('status', '==', 'published')
             );
             const fallbackUnsubscribe = onSnapshot(
               fallbackQuery,
@@ -333,8 +335,8 @@ const Marketplace = () => {
                     <div className="absolute top-2 left-2 flex space-x-2">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         (listing.listingType || listing.type) === 'sell'
-                          ? 'bg-green-100 text-green-600'
-                          : 'bg-blue-100 text-blue-600'
+                          ? 'bg-primary/20 text-primary'
+                          : 'bg-primary/20 text-primary'
                       }`}>
                         {(listing.listingType || listing.type) === 'sell' ? 'For Sale' : 'Want to Buy'}
                       </span>

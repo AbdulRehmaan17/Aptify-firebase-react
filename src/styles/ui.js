@@ -1,23 +1,10 @@
 export const ui = {
-  // Primary button
-  primaryButton: "bg-primary text-white px-4 py-2 rounded-base hover:bg-primaryDark transition",
-
-  // Secondary button (gold)
-  secondaryButton: "bg-accent text-white px-4 py-2 rounded-base hover:opacity-90 transition",
-
-  // Outline
-  outlineButton: "border border-primary text-primary px-4 py-2 rounded-base hover:bg-primary hover:text-white",
-
-  // Inputs
-  input: "border border-muted bg-surface px-3 py-2 rounded-base w-full focus:border-primary focus:ring-primary",
-
-  // Textarea
-  textarea: "border border-muted bg-surface p-3 rounded-base w-full focus:border-primary",
-
-  // Card
+  buttonPrimary: "bg-primary text-white rounded-[12px] px-4 py-2 hover:bg-primaryDark transition",
+  buttonSecondary: "bg-accent text-white rounded-[12px] px-4 py-2",
+  buttonOutline: "border border-primary text-primary rounded-[12px] px-4 py-2 hover:bg-primary hover:text-white",
   card: "bg-surface border border-muted rounded-lg shadow-soft p-4",
-
-  // Tags
-  tealTag: "bg-primary text-white px-2 py-1 rounded-base text-xs",
-  goldTag: "bg-accent text-white px-2 py-1 rounded-base text-xs",
+  input: "border border-muted bg-surface rounded-[12px] px-3 py-2 w-full focus:border-primary focus:ring-1 focus:ring-primary",
+  textarea: "border border-muted bg-surface rounded-[12px] p-3 w-full focus:border-primary focus:ring-1 focus:ring-primary",
+  tagTeal: "bg-primary text-white px-2 py-1 rounded-[12px] text-xs",
+  tagGold: "bg-accent text-white px-2 py-1 rounded-[12px] text-xs",
 };

@@ -1,4 +1,10 @@
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+} from 'firebase/auth';
 import { app } from './config';
 
 // Initialize Auth
@@ -14,4 +20,3 @@ googleProvider.setCustomParameters({
 
 // Export Google auth functions
 export { signInWithPopup, signInWithRedirect, getRedirectResult };
-

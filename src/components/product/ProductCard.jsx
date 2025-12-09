@@ -122,9 +122,7 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
                 <Star
                   key={i}
                   className={`w-4 h-4 ${
-                    i < Math.floor(product.rating)
-                      ? 'fill-accent text-accent'
-                      : 'text-muted'
+                    i < Math.floor(product.rating) ? 'fill-accent text-accent' : 'text-muted'
                   }`}
                 />
               ))}

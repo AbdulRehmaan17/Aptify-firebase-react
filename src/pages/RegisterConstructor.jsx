@@ -88,7 +88,7 @@ const RegisterConstructor = () => {
 
   /**
    * Check if user is already registered as a constructor
-   * Queries "constructionProviders" collection where userId == currentUser.uid
+   * Queries "serviceProviders" collection where userId == currentUser.uid and serviceType == "Construction"
    */
   useEffect(() => {
     const checkExistingRegistration = async () => {
@@ -105,10 +105,11 @@ const RegisterConstructor = () => {
         setCheckingRegistration(true);
         console.log('Checking if user is already registered as constructor:', currentUser.uid);
 
-        // Query constructionProviders collection filtered by userId
+        // Query serviceProviders collection filtered by userId and serviceType
         const providersQuery = query(
-          collection(db, 'constructionProviders'),
-          where('userId', '==', currentUser.uid)
+          collection(db, 'serviceProviders'),
+          where('userId', '==', currentUser.uid),
+          where('serviceType', '==', 'Construction')
         );
 
         const snapshot = await getDocs(providersQuery);
@@ -433,8 +434,9 @@ const RegisterConstructor = () => {
 
       // Check again if user is already registered (race condition protection)
       const providersQuery = query(
-        collection(db, 'constructionProviders'),
-        where('userId', '==', currentUser.uid)
+        collection(db, 'serviceProviders'),
+        where('userId', '==', currentUser.uid),
+        where('serviceType', '==', 'Construction')
       );
       const snapshot = await getDocs(providersQuery);
 
@@ -458,6 +460,7 @@ const RegisterConstructor = () => {
 
       const providerData = {
         userId: currentUser.uid,
+        serviceType: 'Construction', // Required field for serviceProviders collection
         name: formData.name.trim(),
         companyName: formData.companyName.trim(),
         cnic: formData.cnic.trim(),
@@ -468,6 +471,8 @@ const RegisterConstructor = () => {
         city: formData.city.trim(),
         address: formData.address.trim(),
         portfolioLinks: portfolioLinksArray,
+        isApproved: false, // New providers need admin approval
+        approved: false, // Alternative field name for backward compatibility
         createdAt: serverTimestamp(),
       };
 
@@ -482,8 +487,8 @@ const RegisterConstructor = () => {
         providerData.licenseFiles = uploads.licenseFiles;
       }
 
-      // Add document to Firestore - use constructionProviders collection
-      const docRef = await addDoc(collection(db, 'constructionProviders'), providerData);
+      // Add document to Firestore - use serviceProviders collection
+      const docRef = await addDoc(collection(db, 'serviceProviders'), providerData);
       console.log('Constructor registered with ID:', docRef.id);
       console.log('Provider data:', providerData);
 

@@ -236,3 +236,6 @@ All Firebase-related errors have been fixed:
 
 The app should now work smoothly without Firebase-related console errors!
 
+
+
+

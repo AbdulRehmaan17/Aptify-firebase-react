@@ -72,13 +72,7 @@ const AddReview = ({ targetId, targetType = 'construction', onReviewAdded, exist
         toast.success('Review updated successfully!');
       } else {
         // Create new review
-        await reviewsService.create(
-          currentUser.uid,
-          targetId,
-          targetType,
-          rating,
-          comment.trim()
-        );
+        await reviewsService.create(currentUser.uid, targetId, targetType, rating, comment.trim());
         toast.success('Review submitted successfully!');
       }
 
@@ -104,7 +98,7 @@ const AddReview = ({ targetId, targetType = 'construction', onReviewAdded, exist
     return Array.from({ length: 5 }, (_, i) => {
       const starValue = i + 1;
       const isFilled = starValue <= (hoveredRating || rating);
-      
+
       return (
         <button
           key={i}
@@ -114,11 +108,7 @@ const AddReview = ({ targetId, targetType = 'construction', onReviewAdded, exist
           onMouseLeave={() => setHoveredRating(0)}
           className="focus:outline-none transition-transform hover:scale-110"
         >
-          <Star
-            className={`w-8 h-8 ${
-              isFilled ? 'text-accent fill-current' : 'text-muted'
-            }`}
-          />
+          <Star className={`w-8 h-8 ${isFilled ? 'text-accent fill-current' : 'text-muted'}`} />
         </button>
       );
     });
@@ -152,9 +142,7 @@ const AddReview = ({ targetId, targetType = 'construction', onReviewAdded, exist
               </span>
             )}
           </div>
-          {errors.rating && (
-            <p className="mt-1 text-sm text-error">{errors.rating}</p>
-          )}
+          {errors.rating && <p className="mt-1 text-sm text-error">{errors.rating}</p>}
         </div>
 
         {/* Comment */}
@@ -175,9 +163,7 @@ const AddReview = ({ targetId, targetType = 'construction', onReviewAdded, exist
           <p className="mt-1 text-xs text-textSecondary">
             {comment.length} / 10 characters minimum
           </p>
-          {errors.comment && (
-            <p className="mt-1 text-sm text-error">{errors.comment}</p>
-          )}
+          {errors.comment && <p className="mt-1 text-sm text-error">{errors.comment}</p>}
         </div>
 
         {/* Submit Button */}
@@ -207,4 +193,3 @@ const AddReview = ({ targetId, targetType = 'construction', onReviewAdded, exist
 };
 
 export default AddReview;
-

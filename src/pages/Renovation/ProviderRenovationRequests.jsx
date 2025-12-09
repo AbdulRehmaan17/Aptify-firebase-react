@@ -499,7 +499,7 @@ const ProviderRenovationRequests = () => {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-yellow-600 bg-yellow-100">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-accent bg-accent/20">
                               <AlertCircle className="w-4 h-4 mr-2" />
                               Pending
                             </span>

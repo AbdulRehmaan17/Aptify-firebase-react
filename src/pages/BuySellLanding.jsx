@@ -140,7 +140,7 @@ const BuySellLanding = () => {
                   fullWidth
                   asChild
                 >
-                  <Link to="/auth">Sign In to List Property</Link>
+                  <Link to="/auth?next=/post-property?type=sale">Sign In to List Property</Link>
                 </Button>
               )}
             </div>
@@ -197,7 +197,7 @@ const BuySellLanding = () => {
                     fullWidth
                     asChild
                   >
-                    <Link to="/auth">Sign In to List Property</Link>
+                    <Link to="/auth?next=/post-property?type=sale">Sign In to List Property</Link>
                   </Button>
                 )}
               </div>
