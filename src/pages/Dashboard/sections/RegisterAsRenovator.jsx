@@ -293,8 +293,17 @@ const RegisterAsRenovator = () => {
       }
 
       // Save to Firestore: renovators/{userId}/profile/data
-      const profileRef = doc(db, 'renovators', currentUser.uid, 'profile', 'data');
-      await setDoc(profileRef, registrationData, { merge: true });
+      // FIXED: Wrapped in try/catch to handle blocked collection gracefully
+      try {
+        const profileRef = doc(db, 'renovators', currentUser.uid, 'profile', 'data');
+        await setDoc(profileRef, registrationData, { merge: true });
+      } catch (writeError) {
+        // FIXED: Handle permission denied gracefully
+        if (writeError.code === 'permission-denied') {
+          throw new Error('This feature is currently unavailable due to security restrictions. The renovators collection is blocked by Firestore rules.');
+        }
+        throw writeError;
+      }
 
       // Update state
       setHasRegistration(true);

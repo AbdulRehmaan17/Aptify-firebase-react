@@ -1443,7 +1443,12 @@ const AdminPanel = () => {
       toast.success(`Request status updated to ${newStatus}`);
     } catch (error) {
       console.error('Error updating request status:', error);
-      toast.error('Failed to update request status');
+      // FIXED: Better error handling with specific messages
+      if (error.code === 'permission-denied') {
+        toast.error('Permission denied. You may not have admin privileges.');
+      } else {
+        toast.error(error.message || 'Failed to update request status');
+      }
     } finally {
       setProcessing(false);
     }

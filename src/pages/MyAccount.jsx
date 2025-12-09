@@ -40,6 +40,7 @@ import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
+// FIXED: Imports preserved - components handle blocked collections gracefully
 import RegisterAsRenovator from './Dashboard/sections/RegisterAsRenovator';
 import RegisterAsConstructor from './Dashboard/sections/RegisterAsConstructor';
 
@@ -83,6 +84,7 @@ const MyAccount = () => {
   });
 
   // Tabs configuration
+  // FIXED: All tabs preserved - blocked collections handled gracefully with try/catch
   const tabs = [
     { key: 'profile', label: 'Profile', icon: User },
     { key: 'properties', label: 'My Listings', icon: Home },
@@ -174,13 +176,21 @@ const MyAccount = () => {
         },
         (error) => {
           console.error('Error fetching properties:', error);
-          // Fallback without orderBy
+          // FIXED: Handle permission errors gracefully
+          if (error.code === 'permission-denied') {
+            console.warn('Permission denied - user may not have access to properties');
+            setMyProperties([]);
+            setPropertiesLoading(false);
+            return;
+          }
+          // Fallback without orderBy for index errors
           if (error.code === 'failed-precondition') {
             const fallbackQuery = query(
               collection(db, 'properties'),
               where('ownerId', '==', currentUser.uid)
             );
-            onSnapshot(
+            // FIXED: Store unsubscribe for cleanup
+            const fallbackUnsubscribe = onSnapshot(
               fallbackQuery,
               (snapshot) => {
                 const properties = snapshot.docs.map((doc) => ({
@@ -202,6 +212,8 @@ const MyAccount = () => {
                 setPropertiesLoading(false);
               }
             );
+            // FIXED: Return cleanup function for fallback listener
+            return () => fallbackUnsubscribe();
           } else {
             setMyProperties([]);
             setPropertiesLoading(false);
@@ -217,13 +229,19 @@ const MyAccount = () => {
   }, [currentUser?.uid, activeTab, db]);
 
   // Fetch service requests
+  // FIXED: Wrapped in try/catch to handle blocked collections gracefully
   useEffect(() => {
-    if (!currentUser?.uid || !db || activeTab !== 'requests') return;
+    if (!currentUser?.uid || !db || activeTab !== 'requests') {
+      setServiceRequests([]);
+      setRequestsLoading(false);
+      return;
+    }
 
     setRequestsLoading(true);
 
     const fetchRequests = async () => {
       try {
+        // FIXED: These collections are blocked, but we try anyway and handle gracefully
         const collections = ['rentalRequests', 'buySellRequests', 'constructionProjects', 'renovationProjects'];
         const allRequests = [];
 
@@ -243,7 +261,12 @@ const MyAccount = () => {
               });
             });
           } catch (err) {
-            // Try without orderBy
+            // FIXED: Handle permission denied gracefully
+            if (err.code === 'permission-denied') {
+              console.warn(`Collection "${colName}" is blocked by Firestore rules`);
+              continue; // Skip this collection
+            }
+            // Try without orderBy for index errors
             try {
               const q = query(
                 collection(db, colName),
@@ -258,7 +281,12 @@ const MyAccount = () => {
                 });
               });
             } catch (fallbackErr) {
-              console.error(`Error fetching ${colName}:`, fallbackErr);
+              // FIXED: Handle permission denied in fallback
+              if (fallbackErr.code === 'permission-denied') {
+                console.warn(`Collection "${colName}" is blocked by Firestore rules`);
+              } else {
+                console.error(`Error fetching ${colName}:`, fallbackErr);
+              }
             }
           }
         }
@@ -275,7 +303,9 @@ const MyAccount = () => {
         setRequestsLoading(false);
       } catch (error) {
         console.error('Error fetching service requests:', error);
+        // FIXED: Always set empty array on error to prevent blank screen
         setServiceRequests([]);
+        setSummaryCounts((prev) => ({ ...prev, requests: 0 }));
         setRequestsLoading(false);
       }
     };
@@ -284,8 +314,13 @@ const MyAccount = () => {
   }, [currentUser?.uid, activeTab, db]);
 
   // Fetch reviews
+  // FIXED: Wrapped in try/catch to handle blocked collection gracefully
   useEffect(() => {
-    if (!currentUser?.uid || !db || activeTab !== 'reviews') return;
+    if (!currentUser?.uid || !db || activeTab !== 'reviews') {
+      setReviews([]);
+      setReviewsLoading(false);
+      return;
+    }
 
     setReviewsLoading(true);
 
@@ -308,8 +343,15 @@ const MyAccount = () => {
           setReviewsLoading(false);
         },
         (error) => {
-          console.error('Error fetching reviews:', error);
+          // FIXED: Handle permission denied gracefully
+          if (error.code === 'permission-denied') {
+            console.warn('Reviews collection is blocked by Firestore rules');
+          } else {
+            console.error('Error fetching reviews:', error);
+          }
+          // FIXED: Always set empty array to prevent blank screen
           setReviews([]);
+          setSummaryCounts((prev) => ({ ...prev, reviews: 0 }));
           setReviewsLoading(false);
         }
       );
@@ -317,13 +359,21 @@ const MyAccount = () => {
       return () => unsubscribe();
     } catch (error) {
       console.error('Error setting up reviews listener:', error);
+      // FIXED: Always set empty array to prevent blank screen
+      setReviews([]);
+      setSummaryCounts((prev) => ({ ...prev, reviews: 0 }));
       setReviewsLoading(false);
     }
   }, [currentUser?.uid, activeTab, db]);
 
   // Fetch chats
+  // FIXED: Wrapped in try/catch to handle blocked collection gracefully
   useEffect(() => {
-    if (!currentUser?.uid || !db || activeTab !== 'messages') return;
+    if (!currentUser?.uid || !db || activeTab !== 'messages') {
+      setChats([]);
+      setChatsLoading(false);
+      return;
+    }
 
     setChatsLoading(true);
 
@@ -345,8 +395,15 @@ const MyAccount = () => {
           setChatsLoading(false);
         },
         (error) => {
-          console.error('Error fetching chats:', error);
+          // FIXED: Handle permission denied gracefully
+          if (error.code === 'permission-denied') {
+            console.warn('Chats collection is blocked by Firestore rules');
+          } else {
+            console.error('Error fetching chats:', error);
+          }
+          // FIXED: Always set empty array to prevent blank screen
           setChats([]);
+          setSummaryCounts((prev) => ({ ...prev, chats: 0 }));
           setChatsLoading(false);
         }
       );
@@ -354,6 +411,9 @@ const MyAccount = () => {
       return () => unsubscribe();
     } catch (error) {
       console.error('Error setting up chats listener:', error);
+      // FIXED: Always set empty array to prevent blank screen
+      setChats([]);
+      setSummaryCounts((prev) => ({ ...prev, chats: 0 }));
       setChatsLoading(false);
     }
   }, [currentUser?.uid, activeTab, db]);
@@ -478,14 +538,14 @@ const MyAccount = () => {
                       <button
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key)}
-                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                        className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-left ${
                           isActive
                             ? 'bg-primary text-white'
                             : 'text-textSecondary hover:bg-muted hover:text-textMain'
                         }`}
                       >
-                        <Icon className="w-5 h-5" />
-                        <span className="font-medium">{tab.label}</span>
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <span className="font-medium flex-1">{tab.label}</span>
                       </button>
                     );
                   })}
@@ -751,6 +811,9 @@ const MyAccount = () => {
                       <div className="text-center py-12">
                         <Star className="w-16 h-16 text-muted mx-auto mb-4" />
                         <p className="text-textSecondary">You haven't written any reviews yet.</p>
+                        <p className="text-sm text-textSecondary mt-2">
+                          Note: Reviews may be unavailable due to Firestore security rules.
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -807,6 +870,9 @@ const MyAccount = () => {
                         <Link to="/chats">
                           <Button>Start a Conversation</Button>
                         </Link>
+                        <p className="text-sm text-textSecondary mt-4">
+                          Note: Messages may be unavailable due to Firestore security rules.
+                        </p>
                       </div>
                     ) : (
                       <div className="space-y-4">

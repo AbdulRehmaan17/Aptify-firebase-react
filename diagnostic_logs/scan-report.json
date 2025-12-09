@@ -1,0 +1,255 @@
+{
+  "scan_date": "2024-12-19",
+  "onSnapshot": {
+    "total_files": 32,
+    "files_with_onSnapshot": [
+      "src/context/AuthContext.jsx",
+      "src/pages/Rental/MyRentals.jsx",
+      "src/pages/BuySell/Marketplace.jsx",
+      "src/components/notification/NotificationBell.jsx",
+      "src/pages/Renovation/ProviderRenovationRequests.jsx",
+      "src/pages/Construction/ProviderConstructionRequests.jsx",
+      "src/pages/Rental/MyBookings.jsx",
+      "src/pages/BuySell/MyListings.jsx",
+      "src/pages/MyAccount.jsx",
+      "src/pages/Rental/ViewBooking.jsx",
+      "src/pages/Renovation/MyRenovations.jsx",
+      "src/pages/renovator/RenovatorProjects.jsx",
+      "src/pages/renovator/RenovatorDashboard.jsx",
+      "src/pages/renovator/RenovatorNotifications.jsx",
+      "src/pages/renovator/RenovatorProjectDetails.jsx",
+      "src/pages/renovator/RenovatorPortfolio.jsx",
+      "src/pages/AdminPanel.jsx",
+      "src/hooks/useChatMessages.js",
+      "src/pages/constructor/ConstructorProjectDetails.jsx",
+      "src/pages/constructor/ConstructorProjects.jsx",
+      "src/hooks/useChatList.js",
+      "src/components/Search/GlobalSearch.jsx",
+      "src/pages/ProviderRenovationPanel.jsx",
+      "src/pages/ReviewsAndRatings.jsx",
+      "src/components/chat/MessageBox.jsx",
+      "src/components/chat/ConversationList.jsx",
+      "src/pages/ProviderConstructionPanel.jsx",
+      "src/pages/Chatbot.jsx",
+      "src/pages/RenovationDashboard.jsx",
+      "src/pages/NotificationsPage.jsx",
+      "src/pages/ConstructionDashboard.jsx",
+      "src/pages/Chat.jsx"
+    ],
+    "critical_issues": [
+      {
+        "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+        "line": 180,
+        "issue": "Fallback onSnapshot has no cleanup - memory leak"
+      },
+      {
+        "file": "src/pages/MyAccount.jsx",
+        "line": 183,
+        "issue": "Nested onSnapshot call may not have cleanup"
+      }
+    ],
+    "missing_cleanup": [
+      "src/pages/constructor/ConstructorProjectDetails.jsx:180"
+    ]
+  },
+  "useEffectSuspects": {
+    "total_files": 79,
+    "files_with_useEffect": 79,
+    "potential_issues": [
+      {
+        "file": "src/pages/Auth.jsx",
+        "line": 33,
+        "issue": "useEffect with navigate - has loading guard and redirectedRef (FIXED)"
+      },
+      {
+        "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+        "line": 66,
+        "issue": "navigate() calls inside onSnapshot callbacks without mounted guard"
+      },
+      {
+        "file": "src/pages/renovator/RenovatorProjectDetails.jsx",
+        "line": 75,
+        "issue": "navigate() calls inside onSnapshot callbacks without mounted guard"
+      }
+    ]
+  },
+  "redirectLoops": {
+    "total_risks": 3,
+    "risks": [
+      {
+        "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+        "lines": [89, 99],
+        "issue": "navigate() called inside onSnapshot callback without mounted guard"
+      },
+      {
+        "file": "src/pages/renovator/RenovatorProjectDetails.jsx",
+        "lines": [98, 108],
+        "issue": "navigate() called inside onSnapshot callback without mounted guard"
+      },
+      {
+        "file": "src/pages/Auth.jsx",
+        "line": 33,
+        "issue": "FIXED - has loading guard and redirectedRef"
+      }
+    ],
+    "fixed": [
+      {
+        "file": "src/context/AuthContext.jsx",
+        "status": "FIXED - no navigate() in listener"
+      },
+      {
+        "file": "src/pages/Auth.jsx",
+        "status": "FIXED - loading guard and redirectedRef"
+      },
+      {
+        "file": "src/components/common/ProtectedRoute.jsx",
+        "status": "FIXED - waits for loading before rendering"
+      }
+    ]
+  },
+  "collectionNames": {
+    "correct_usage": [
+      {
+        "collection": "properties",
+        "files": 26,
+        "status": "correct"
+      },
+      {
+        "collection": "serviceProviders",
+        "files": 15,
+        "status": "correct"
+      },
+      {
+        "collection": "rentalListings",
+        "files": 0,
+        "status": "not_used_in_code"
+      },
+      {
+        "collection": "userProfiles",
+        "files": 8,
+        "status": "correct"
+      },
+      {
+        "collection": "users",
+        "files": 12,
+        "status": "correct_but_fallback"
+      }
+    ],
+    "potential_issues": [
+      {
+        "file": "src/firebase/firestore.js",
+        "line": 83,
+        "issue": "References 'products' collection which is blocked by rules"
+      },
+      {
+        "file": "src/firebase/firestore.js",
+        "line": 129,
+        "issue": "References 'brands' collection which may be blocked"
+      },
+      {
+        "file": "src/firebase/firestore.js",
+        "line": 192,
+        "issue": "References 'collections' collection which may be blocked"
+      }
+    ]
+  },
+  "firebaseInit": {
+    "initialization_files": [
+      "src/firebase/config.js",
+      "src/firebase/auth.js",
+      "src/firebase/firestore.js",
+      "src/firebase/index.js",
+      "src/firebase/firebase.js"
+    ],
+    "duplicate_checks": [
+      {
+        "file": "src/firebase/index.js",
+        "status": "Uses app from config.js - OK"
+      },
+      {
+        "file": "src/firebase/firebase.js",
+        "status": "Re-exports from other files - OK"
+      },
+      {
+        "file": "src/firebase/config.js",
+        "status": "Single initializeApp call with getApps check - OK"
+      }
+    ],
+    "issues": []
+  },
+  "dangerousPatterns": [
+    {
+      "pattern": "onSnapshot without cleanup",
+      "files": [
+        "src/pages/constructor/ConstructorProjectDetails.jsx:180"
+      ]
+    },
+    {
+      "pattern": "navigate() in onSnapshot callback without mounted guard",
+      "files": [
+        "src/pages/constructor/ConstructorProjectDetails.jsx:89,99",
+        "src/pages/renovator/RenovatorProjectDetails.jsx:98,108"
+      ]
+    },
+    {
+      "pattern": "fallback onSnapshot without cleanup",
+      "files": [
+        "src/pages/constructor/ConstructorProjectDetails.jsx:180",
+        "src/pages/AdminPanel.jsx:196",
+        "src/pages/MyAccount.jsx:183"
+      ]
+    }
+  ],
+  "missingCleanup": [
+    {
+      "file": "src/pages/constructor/ConstructorProjectDetails.jsx",
+      "line": 180,
+      "issue": "Fallback onSnapshot has no cleanup - CRITICAL MEMORY LEAK"
+    }
+  ],
+  "authFiles": {
+    "files": [
+      "src/context/AuthContext.jsx",
+      "src/pages/Auth.jsx",
+      "src/components/common/ProtectedRoute.jsx"
+    ],
+    "status": {
+      "AuthContext": "FIXED - single listener, no navigate()",
+      "Auth": "FIXED - loading guard, redirectedRef",
+      "ProtectedRoute": "FIXED - waits for loading"
+    }
+  },
+  "protectedRoute": {
+    "file": "src/components/common/ProtectedRoute.jsx",
+    "status": "FIXED",
+    "changes": "Waits for loading before rendering, prevents redirect loops"
+  },
+  "suspiciousQueries": [
+    {
+      "file": "src/pages/ConstructionProviders.jsx",
+      "query": "serviceProviders where serviceType == 'Construction' and isApproved == true",
+      "status": "correct - matches rules"
+    },
+    {
+      "file": "src/pages/RenovationProviders.jsx",
+      "query": "serviceProviders where serviceType == 'Renovation' and isApproved == true",
+      "status": "correct - matches rules"
+    },
+    {
+      "file": "src/pages/Rental/MyRentals.jsx",
+      "query": "properties where ownerId == currentUser.uid and type == 'rent'",
+      "status": "correct - matches rules"
+    },
+    {
+      "file": "src/services/propertyService.js",
+      "query": "properties collection - public read",
+      "status": "correct - rules allow public read"
+    }
+  ],
+  "permissionIssues": {
+    "total_references": 31,
+    "files_with_permission_handling": 31,
+    "status": "Most files have error handling, but may need handleFirestoreError utility"
+  }
+}
+

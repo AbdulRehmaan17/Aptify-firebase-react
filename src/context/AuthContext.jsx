@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, query, collection, where } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { getIdTokenResult } from 'firebase/auth';
 import {
   login,
   signup,
@@ -40,13 +41,23 @@ export const AuthProvider = ({ children }) => {
 
       if (user) {
         try {
+          // FIXED: Get ID token to check for admin custom claim
+          let adminClaim = false;
+          try {
+            const tokenResult = await getIdTokenResult(user, true); // Force refresh to get latest claims
+            adminClaim = tokenResult.claims.admin === true;
+          } catch (tokenError) {
+            console.warn('Failed to get ID token for admin claim check:', tokenError);
+          }
+          
           // Use userProfiles collection per Firestore rules
           if (db) {
             const snap = await getDoc(doc(db, 'userProfiles', user.uid));
             if (snap.exists()) {
               const profileData = snap.data();
               setUserProfile({ id: snap.id, ...profileData });
-              setCurrentUserRole(profileData.role || 'user');
+              // FIXED: Use admin claim if available, otherwise use role from profile
+              setCurrentUserRole(adminClaim ? 'admin' : (profileData.role || 'user'));
             } else {
               // Try users collection as fallback for backward compatibility
               try {
@@ -54,25 +65,36 @@ export const AuthProvider = ({ children }) => {
                 if (usersSnap.exists()) {
                   const profileData = usersSnap.data();
                   setUserProfile({ id: usersSnap.id, ...profileData });
-                  setCurrentUserRole(profileData.role || 'user');
+                  // FIXED: Use admin claim if available, otherwise use role from profile
+                  setCurrentUserRole(adminClaim ? 'admin' : (profileData.role || 'user'));
                 } else {
                   setUserProfile(null);
-                  setCurrentUserRole('user');
+                  // FIXED: Use admin claim if available
+                  setCurrentUserRole(adminClaim ? 'admin' : 'user');
                 }
               } catch (e) {
                 console.error('Failed to load user profile from users collection', e);
                 setUserProfile(null);
-                setCurrentUserRole('user');
+                // FIXED: Use admin claim if available
+                setCurrentUserRole(adminClaim ? 'admin' : 'user');
               }
             }
           } else {
             setUserProfile(null);
-            setCurrentUserRole('user');
+            // FIXED: Use admin claim if available
+            setCurrentUserRole(adminClaim ? 'admin' : 'user');
           }
         } catch (e) {
           console.error('Failed to load user profile', e);
           setUserProfile(null);
-          setCurrentUserRole('user');
+          // FIXED: Try to get admin claim even on error
+          try {
+            const tokenResult = await getIdTokenResult(user, true);
+            const adminClaim = tokenResult.claims.admin === true;
+            setCurrentUserRole(adminClaim ? 'admin' : 'user');
+          } catch (tokenError) {
+            setCurrentUserRole('user');
+          }
         }
       } else {
         // User logged out
@@ -89,7 +111,8 @@ export const AuthProvider = ({ children }) => {
   // Listen to notifications for unread count
   useEffect(() => {
     // Guard: Ensure user is authenticated and db is available
-    if (!currentUser || !currentUser.uid || !db || !auth?.currentUser) {
+    // FIXED: Wait for auth to be ready before querying
+    if (loading || !currentUser || !currentUser.uid || !db || !auth?.currentUser) {
       setUnreadCount(0);
       return;
     }
@@ -122,7 +145,7 @@ export const AuthProvider = ({ children }) => {
       console.error('Error setting up notifications listener:', err);
       setUnreadCount(0);
     }
-  }, [currentUser, db]);
+  }, [loading, currentUser, db, auth]);
 
   // Login function
   const handleLogin = async (email, password) => {
@@ -283,7 +306,17 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user is admin
   const isAdmin = () => {
-    return getUserRole() === 'admin';
+    // FIXED: Check both role from profile and custom claim
+    const roleFromProfile = getUserRole();
+    if (roleFromProfile === 'admin') return true;
+    
+    // Also check custom claim if available
+    if (currentUser) {
+      // Note: Custom claims are checked in onAuthStateChanged and stored in currentUserRole
+      return currentUserRole === 'admin';
+    }
+    
+    return false;
   };
 
   // Check if user is provider

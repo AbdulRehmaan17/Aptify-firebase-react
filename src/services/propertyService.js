@@ -58,6 +58,22 @@ class PropertyService {
   async create(propertyData, images = []) {
     try {
       checkFirebaseServices();
+      
+      // FIXED: Ensure user is authenticated before creating property (per Firestore rules: allow write: if request.auth != null)
+      const { auth } = await import('../firebase');
+      if (!auth || !auth.currentUser) {
+        throw new Error('Authentication required to create properties');
+      }
+      
+      // FIXED: Ensure ownerId matches authenticated user
+      if (propertyData.ownerId && propertyData.ownerId !== auth.currentUser.uid) {
+        throw new Error('Owner ID must match authenticated user');
+      }
+      
+      // FIXED: Set ownerId from authenticated user if not provided
+      if (!propertyData.ownerId) {
+        propertyData.ownerId = auth.currentUser.uid;
+      }
 
       // Validate property type
       if (!PROPERTY_TYPES.includes(propertyData.type?.toLowerCase())) {
@@ -217,6 +233,12 @@ class PropertyService {
 
       try {
         console.log('🔍 Executing Firestore query on collection:', PROPERTIES_COLLECTION);
+        console.log('🔍 Query details:', {
+          collection: PROPERTIES_COLLECTION,
+          filters: filters,
+          hasWhere: q._queryConstraints?.some(c => c.type === 'where'),
+          hasLimit: q._queryConstraints?.some(c => c.type === 'limit'),
+        });
         const snapshot = await getDocs(q);
         console.log(`✅ Fetched ${snapshot.docs.length} properties from Firestore`);
         
@@ -228,16 +250,36 @@ class PropertyService {
           console.warn('  4. Collection name mismatch');
           console.warn('  5. User not authenticated (check Firestore rules)');
           
-          // Try a simple query to test if collection exists
+          // FIXED: Try a simple query to test if collection exists and rules allow access
           try {
+            console.log('🔄 Testing simple query without filters...');
             const testQuery = query(collection(db, PROPERTIES_COLLECTION), limit(1));
             const testSnapshot = await getDocs(testQuery);
-            console.log(`   Test query returned: ${testSnapshot.docs.length} documents`);
+            console.log(`   ✅ Test query successful: ${testSnapshot.docs.length} documents`);
             if (testSnapshot.docs.length > 0) {
-              console.log('   Sample document:', testSnapshot.docs[0].data());
+              console.log('   ✅ Collection exists and is accessible');
+              console.log('   Sample document ID:', testSnapshot.docs[0].id);
+            } else {
+              console.warn('   ⚠️ Collection exists but is empty');
             }
           } catch (testError) {
-            console.error('   Test query failed:', testError.code, testError.message);
+            console.error('   ❌ Test query failed:', testError.code, testError.message);
+            console.error('   Full error:', testError);
+            if (testError.code === 'permission-denied') {
+              console.error('   🔒 PERMISSION DENIED - Rules need to be deployed!');
+              console.error('   📋 Required rules:');
+              console.error('      match /properties/{propertyId} {');
+              console.error('        allow get: if true;');
+              console.error('        allow list: if true;');
+              console.error('      }');
+              throw new Error(
+                'Permission denied. Please deploy Firestore security rules. ' +
+                'The rules should allow public read access: allow get: if true; allow list: if true; ' +
+                'See FIREBASE_RULES_DEPLOYMENT.md for deployment instructions.'
+              );
+            }
+            // Re-throw the original error if it's a permission error
+            throw testError;
           }
         }
 
@@ -539,13 +581,27 @@ class PropertyService {
    */
   async update(propertyId, updates, newImages = []) {
     try {
+      checkFirebaseServices();
+      
       if (!propertyId) throw new Error('Property ID is required');
+
+      // FIXED: Ensure user is authenticated before updating property
+      const { auth } = await import('../firebase');
+      if (!auth || !auth.currentUser) {
+        throw new Error('Authentication required to update properties');
+      }
 
       const propertyRef = doc(db, PROPERTIES_COLLECTION, propertyId);
       const propertySnap = await getDoc(propertyRef);
 
       if (!propertySnap.exists()) {
         throw new Error('Property not found');
+      }
+
+      // FIXED: Ensure user owns the property or is updating their own property
+      const propertyData = propertySnap.data();
+      if (propertyData.ownerId && propertyData.ownerId !== auth.currentUser.uid) {
+        throw new Error('Permission denied: You can only update your own properties');
       }
 
       const updateData = {
@@ -600,13 +656,27 @@ class PropertyService {
    */
   async delete(propertyId) {
     try {
+      checkFirebaseServices();
+      
       if (!propertyId) throw new Error('Property ID is required');
+
+      // FIXED: Ensure user is authenticated before deleting property
+      const { auth } = await import('../firebase');
+      if (!auth || !auth.currentUser) {
+        throw new Error('Authentication required to delete properties');
+      }
 
       const propertyRef = doc(db, PROPERTIES_COLLECTION, propertyId);
       const propertySnap = await getDoc(propertyRef);
 
       if (!propertySnap.exists()) {
         throw new Error('Property not found');
+      }
+
+      // FIXED: Ensure user owns the property
+      const propertyData = propertySnap.data();
+      if (propertyData.ownerId && propertyData.ownerId !== auth.currentUser.uid) {
+        throw new Error('Permission denied: You can only delete your own properties');
       }
 
       // Delete all images from storage

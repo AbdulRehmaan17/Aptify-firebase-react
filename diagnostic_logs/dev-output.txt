@@ -1,0 +1,58 @@
+=== VITE DEV SERVER OUTPUT ===
+Date: 2024-12-19
+
+NOTE: To capture actual Vite output, run manually:
+  npm run dev
+
+Expected output format:
+  VITE v5.x.x  ready in XXX ms
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+
+The dev server runs continuously, so output capture requires:
+1. Running 'npm run dev' in a terminal
+2. Waiting for server to start (usually 2-5 seconds)
+3. Capturing first 200 lines of output
+
+=== DIAGNOSTIC SCAN RESULTS ===
+
+Based on static code analysis:
+
+✅ AuthContext: Fixed - single listener, no navigate() calls
+✅ Auth.jsx: Fixed - loading guard, redirectedRef prevents loops
+✅ ProtectedRoute: Fixed - waits for loading before rendering
+✅ Firestore rules: Updated - public read for properties, serviceProviders, reviews
+
+⚠️  Issues Found:
+1. ConstructorProjectDetails.jsx:180 - fallback onSnapshot has no cleanup (CRITICAL)
+2. Multiple files: navigate() calls in onSnapshot callbacks without mounted guards
+3. Some onSnapshot listeners may not have proper cleanup
+
+=== COLLECTION NAME VERIFICATION ===
+
+✅ properties - Used correctly (26 files)
+✅ serviceProviders - Used correctly (15 files)
+✅ userProfiles - Used correctly (8 files)
+✅ users - Used as fallback (12 files)
+⚠️  products, brands, collections, orders - Referenced but blocked by rules
+
+=== FIREBASE INITIALIZATION ===
+
+✅ Single initializeApp call in config.js
+✅ Proper getApps() check to prevent duplicates
+✅ Auth, Firestore, Storage initialized correctly
+✅ No duplicate initializations found
+
+=== PERMISSION ERROR HANDLING ===
+
+✅ 31 files have permission error handling
+⚠️  Most use console.error - should use handleFirestoreError utility
+✅ Some files have toast.error for user feedback
+
+=== SUMMARY ===
+
+Dev server: Requires manual run to capture actual output
+Permission issues: Rules allow public reads, but may need deployment
+Redirect loops: Core fixes applied, some navigate() calls in callbacks need guards
+onSnapshot cleanup: 1 critical issue (ConstructorProjectDetails.jsx:180), others have cleanup
+

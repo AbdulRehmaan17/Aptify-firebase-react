@@ -174,10 +174,17 @@ const ConstructorProjectDetails = () => {
           },
           (error) => {
             console.error('Error in updates snapshot:', error);
+            // FIXED: Handle permission errors gracefully
+            if (error.code === 'permission-denied') {
+              console.warn('Permission denied - user may not have access to project updates');
+              setUpdates([]);
+              return;
+            }
             // If index error, try without orderBy
             if (error.code === 'failed-precondition' || error.message?.includes('index')) {
               const fallbackQuery = query(updatesRef);
-              onSnapshot(
+              // FIXED: Store fallback unsubscribe in ref for proper cleanup
+              unsubscribeUpdatesRef.current = onSnapshot(
                 fallbackQuery,
                 (fallbackSnapshot) => {
                   const updatesList = fallbackSnapshot.docs.map((doc) => ({
@@ -194,8 +201,11 @@ const ConstructorProjectDetails = () => {
                 },
                 (fallbackError) => {
                   console.error('Error in fallback updates query:', fallbackError);
+                  setUpdates([]);
                 }
               );
+            } else {
+              setUpdates([]);
             }
           }
         );
