@@ -3,52 +3,30 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Public properties (global listings)
-    match /properties/{propertyId} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // Public rental listings
-    match /rentalListings/{listingId} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-
-    // User-specific profiles (owner only)
-    match /userProfiles/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Users collection — auth-bound records
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Notifications — authenticated only
-    match /notifications/{notificationId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Saved properties — authenticated only
-    match /savedProperties/{docId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Requests collection — authenticated users can create, admin can read/write
+    // Requests readable by admin only (create allowed for signed-in users)
     match /requests/{requestId} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth.token.admin == true;
     }
 
-    // Providers collection — public read, authenticated write
-    match /providers/{providerId} {
+    // Messages collection - authenticated users can read/create
+    match /messages/{messageId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth.token.admin == true;
+    }
+
+    // Generic collections
+    match /{collection}/{document} {
       allow read: if true;
       allow write: if request.auth != null;
     }
 
-    // Block everything else
-    match /{document=**} {
-      allow read, write: if false;
+    // Subcollections
+    match /{collection}/{document}/{subcollection}/{subdocument} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }
