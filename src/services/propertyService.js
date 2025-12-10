@@ -698,22 +698,34 @@ class PropertyService {
    */
   async uploadImages(propertyId, images) {
     try {
-      const uploadPromises = images.map(async (image, index) => {
-        if (!(image instanceof File)) {
-          throw new Error(`Invalid image file at index ${index}`);
-        }
+      // FIXED: Images are optional - return empty array if no images provided
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return [];
+      }
 
-        const fileName = `${Date.now()}_${index}_${image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const imageRef = storageRef(storage, `properties/${propertyId}/${fileName}`);
+      const uploadPromises = images
+        .filter((image) => image instanceof File) // Filter out invalid files
+        .map(async (image, index) => {
+          try {
+            const fileName = `${Date.now()}_${index}_${image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+            const imageRef = storageRef(storage, `properties/${propertyId}/${fileName}`);
 
-        await uploadBytes(imageRef, image);
-        return getDownloadURL(imageRef);
-      });
+            await uploadBytes(imageRef, image);
+            return getDownloadURL(imageRef);
+          } catch (uploadError) {
+            console.error(`Error uploading image ${index}:`, uploadError);
+            // Continue with other uploads even if one fails
+            return null;
+          }
+        });
 
-      return Promise.all(uploadPromises);
+      const results = await Promise.all(uploadPromises);
+      // Filter out null results (failed uploads)
+      return results.filter((url) => url !== null);
     } catch (error) {
       console.error('Error uploading images:', error);
-      throw new Error(error.message || 'Failed to upload images');
+      // FIXED: Don't throw error - return empty array to allow form submission
+      return [];
     }
   }
 
@@ -742,21 +754,31 @@ class PropertyService {
    */
   async deleteImage(imageUrl) {
     try {
-      if (!imageUrl) throw new Error('Image URL is required');
+      // FIXED: Images are optional - gracefully handle null/empty URLs
+      if (!imageUrl || !imageUrl.trim()) {
+        console.warn('No image URL provided for deletion - skipping');
+        return;
+      }
 
       // Extract path from URL
       const urlParts = imageUrl.split('/');
       const pathIndex = urlParts.findIndex((part) => part === 'properties');
       if (pathIndex === -1) {
-        throw new Error('Invalid image URL format');
+        console.warn('Invalid image URL format - skipping deletion');
+        return;
       }
 
       const path = urlParts.slice(pathIndex).join('/');
       const imageRef = storageRef(storage, path);
       await deleteObject(imageRef);
     } catch (error) {
+      // FIXED: Don't throw error if image doesn't exist - just log and continue
+      if (error.code === 'storage/object-not-found') {
+        console.warn('Image not found in storage - skipping deletion');
+        return;
+      }
       console.error('Error deleting image:', error);
-      throw new Error(error.message || 'Failed to delete image');
+      // Don't throw - allow operation to continue even if deletion fails
     }
   }
 

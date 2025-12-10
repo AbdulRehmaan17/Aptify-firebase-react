@@ -9,7 +9,7 @@ import {
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const Chat = () => {
@@ -21,61 +21,164 @@ const Chat = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !db) {
+    // FIXED: Check auth and handle blocked collection gracefully
+    if (!user || !user.uid || !db || !auth?.currentUser) {
       setLoading(false);
+      setConversations([]);
       return;
     }
 
-    // Fetch user's conversations
-    const conversationsQuery = query(
-      collection(db, 'conversations'),
-      where('participants', 'array-contains', user.uid),
-      orderBy('updatedAt', 'desc')
-    );
+    try {
+      // FIXED: conversations collection is blocked by Firestore rules
+      // Try to query but handle permission denied gracefully
+      const conversationsQuery = query(
+        collection(db, 'conversations'),
+        where('participants', 'array-contains', user.uid),
+        orderBy('updatedAt', 'desc')
+      );
 
-    const unsubscribe = onSnapshot(
-      conversationsQuery,
-      (snapshot) => {
-        const convos = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setConversations(convos);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Error fetching conversations:', error);
-        setLoading(false);
-      }
-    );
+      const unsubscribe = onSnapshot(
+        conversationsQuery,
+        (snapshot) => {
+          const convos = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setConversations(convos);
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Error fetching conversations:', error);
+          // FIXED: Handle permission denied gracefully
+          if (error.code === 'permission-denied') {
+            console.warn('Conversations collection is blocked by Firestore rules');
+            setConversations([]);
+            setLoading(false);
+            return;
+          }
+          // Fallback without orderBy for index errors
+          if (error.code === 'failed-precondition') {
+            const fallbackQuery = query(
+              collection(db, 'conversations'),
+              where('participants', 'array-contains', user.uid)
+            );
+            const fallbackUnsubscribe = onSnapshot(
+              fallbackQuery,
+              (snapshot) => {
+                const convos = snapshot.docs.map((doc) => ({
+                  id: doc.id,
+                  ...doc.data(),
+                }));
+                convos.sort((a, b) => {
+                  const aTime = a.updatedAt?.toDate?.() || new Date(0);
+                  const bTime = b.updatedAt?.toDate?.() || new Date(0);
+                  return bTime - aTime;
+                });
+                setConversations(convos);
+                setLoading(false);
+              },
+              (fallbackError) => {
+                console.error('Error fetching conversations (fallback):', fallbackError);
+                if (fallbackError.code === 'permission-denied') {
+                  console.warn('Conversations collection is blocked by Firestore rules');
+                }
+                setConversations([]);
+                setLoading(false);
+              }
+            );
+            return () => fallbackUnsubscribe();
+          } else {
+            setConversations([]);
+            setLoading(false);
+          }
+        }
+      );
 
-    return () => unsubscribe();
-  }, [user]);
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error setting up conversations listener:', error);
+      setConversations([]);
+      setLoading(false);
+    }
+  }, [user, db, auth]);
 
   useEffect(() => {
-    if (!selectedConversation || !db) return;
+    // FIXED: Check auth and handle blocked collection
+    if (!selectedConversation || !db || !auth?.currentUser) {
+      setMessages([]);
+      return;
+    }
 
-    const messagesQuery = query(
-      collection(db, 'conversations', selectedConversation.id, 'messages'),
-      orderBy('createdAt', 'asc')
-    );
+    try {
+      const messagesQuery = query(
+        collection(db, 'conversations', selectedConversation.id, 'messages'),
+        orderBy('createdAt', 'asc')
+      );
 
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const msgs = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setMessages(msgs);
-    });
+      const unsubscribe = onSnapshot(
+        messagesQuery,
+        (snapshot) => {
+          const msgs = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setMessages(msgs);
+        },
+        (error) => {
+          console.error('Error fetching messages:', error);
+          // FIXED: Handle permission denied gracefully
+          if (error.code === 'permission-denied') {
+            console.warn('Messages collection is blocked by Firestore rules');
+            setMessages([]);
+            return;
+          }
+          // Fallback without orderBy
+          if (error.code === 'failed-precondition') {
+            const fallbackQuery = query(
+              collection(db, 'conversations', selectedConversation.id, 'messages')
+            );
+            const fallbackUnsubscribe = onSnapshot(
+              fallbackQuery,
+              (snapshot) => {
+                const msgs = snapshot.docs.map((doc) => ({
+                  id: doc.id,
+                  ...doc.data(),
+                }));
+                msgs.sort((a, b) => {
+                  const aTime = a.createdAt?.toDate?.() || new Date(0);
+                  const bTime = b.createdAt?.toDate?.() || new Date(0);
+                  return aTime - bTime;
+                });
+                setMessages(msgs);
+              },
+              (fallbackError) => {
+                console.error('Error fetching messages (fallback):', fallbackError);
+                setMessages([]);
+              }
+            );
+            return () => fallbackUnsubscribe();
+          } else {
+            setMessages([]);
+          }
+        }
+      );
 
-    return () => unsubscribe();
-  }, [selectedConversation]);
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error setting up messages listener:', error);
+      setMessages([]);
+    }
+  }, [selectedConversation, db, auth]);
 
   const sendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation || !user || !db) return;
+    // FIXED: Check auth and handle blocked collection
+    if (!newMessage.trim() || !selectedConversation || !user || !user.uid || !db || !auth?.currentUser) {
+      return;
+    }
 
     try {
+      // FIXED: conversations collection is blocked by Firestore rules
       await addDoc(collection(db, 'conversations', selectedConversation.id, 'messages'), {
         senderId: user.uid,
         text: newMessage,
@@ -84,6 +187,12 @@ const Chat = () => {
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
+      // FIXED: Handle permission denied with user-friendly message
+      if (error.code === 'permission-denied') {
+        alert('Messages are currently unavailable due to security restrictions. Please contact support.');
+      } else {
+        alert('Failed to send message. Please try again.');
+      }
     }
   };
 
@@ -105,7 +214,12 @@ const Chat = () => {
             {/* Conversations List */}
             <div className="w-1/3 border-r border-muted overflow-y-auto bg-muted/30">
               {conversations.length === 0 ? (
-                <div className="p-4 text-center text-textSecondary">No conversations yet</div>
+                <div className="p-4 text-center text-textSecondary">
+                  <p className="mb-2">No conversations yet</p>
+                  <p className="text-xs text-muted">
+                    Note: Messages may be unavailable due to security restrictions.
+                  </p>
+                </div>
               ) : (
                 conversations.map((conversation) => (
                   <button

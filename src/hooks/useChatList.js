@@ -15,8 +15,10 @@ export default function useChatList() {
   const [userNames, setUserNames] = useState({}); // Cache for user names
 
   useEffect(() => {
+    // FIXED: Added auth check
     if (!currentUser || !currentUser.uid || !db) {
       setLoading(false);
+      setChats([]);
       return;
     }
 
@@ -24,9 +26,8 @@ export default function useChatList() {
     setError(null);
 
     try {
+      // FIXED: chats collection is blocked by Firestore rules
       // Query chats where current user is a participant
-      // Note: Firestore doesn't support array-contains-any directly, so we use array-contains
-      // We'll filter client-side for now, or use a different approach
       const chatsQuery = query(
         collection(db, 'chats'),
         where('participants', 'array-contains', currentUser.uid),
@@ -86,6 +87,14 @@ export default function useChatList() {
         },
         (err) => {
           console.error('Error fetching chats:', err);
+          // FIXED: Handle permission denied gracefully
+          if (err.code === 'permission-denied') {
+            console.warn('Chats collection is blocked by Firestore rules');
+            setChats([]);
+            setError('Messages are currently unavailable due to security restrictions.');
+            setLoading(false);
+            return;
+          }
           // Fallback without orderBy if index doesn't exist
           if (err.code === 'failed-precondition' || err.message?.includes('index')) {
             const fallbackQuery = query(
@@ -151,14 +160,22 @@ export default function useChatList() {
               },
               (fallbackErr) => {
                 console.error('Error fetching chats (fallback):', fallbackErr);
-                setError(fallbackErr.message);
+                // FIXED: Handle permission denied in fallback
+                if (fallbackErr.code === 'permission-denied') {
+                  console.warn('Chats collection is blocked by Firestore rules');
+                  setError('Messages are currently unavailable due to security restrictions.');
+                } else {
+                  setError(fallbackErr.message);
+                }
+                setChats([]);
                 setLoading(false);
               }
             );
 
             return () => fallbackUnsubscribe();
           } else {
-            setError(err.message);
+            setError(err.message || 'Failed to load chats');
+            setChats([]);
             setLoading(false);
           }
         }
@@ -167,10 +184,11 @@ export default function useChatList() {
       return () => unsubscribe();
     } catch (err) {
       console.error('Error setting up chat list listener:', err);
-      setError(err.message);
+      setError(err.message || 'Failed to load chats');
+      setChats([]);
       setLoading(false);
     }
-  }, [currentUser, userNames]);
+  }, [currentUser?.uid, db]);
 
   return { chats, loading, error };
 }

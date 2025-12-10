@@ -4,7 +4,12 @@ import {
   getDoc,
   setDoc,
   deleteDoc,
+  addDoc,
+  collection,
   serverTimestamp,
+  query,
+  where,
+  getDocs,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../../firebase';
@@ -91,11 +96,17 @@ const RegisterAsRenovator = () => {
     const fetchRegistration = async () => {
       try {
         setLoading(true);
-        const profileRef = doc(db, 'renovators', currentUser.uid, 'profile', 'data');
-        const profileSnap = await getDoc(profileRef);
+        // FIXED: Check for existing request in requests collection
+        const requestsQuery = query(
+          collection(db, 'requests'),
+          where('userId', '==', currentUser.uid),
+          where('type', '==', 'renovator')
+        );
+        const requestsSnapshot = await getDocs(requestsQuery);
 
-        if (profileSnap.exists()) {
-          const data = profileSnap.data();
+        if (!requestsSnapshot.empty) {
+          const requestDoc = requestsSnapshot.docs[0];
+          const data = requestDoc.data();
           setHasRegistration(true);
           setFormData({
             fullName: data.fullName || '',
@@ -104,14 +115,14 @@ const RegisterAsRenovator = () => {
             phoneNumber: data.phoneNumber || '',
             cnic: data.cnic || '',
             serviceCategories: data.serviceCategories || [],
-            yearsOfExperience: data.yearsOfExperience?.toString() || '',
-            description: data.description || data.bio || '',
+            yearsOfExperience: data.experience || data.yearsOfExperience?.toString() || '',
+            description: data.description || '',
             officeAddress: data.officeAddress || '',
             city: data.city || '',
             availability: data.availability || '',
             workingHours: data.workingHours || '',
           });
-          setPortfolioImages(data.portfolioImages || []);
+          setPortfolioImages(data.portfolio || []);
         } else {
           // Set email from auth
           setFormData((prev) => ({
@@ -122,7 +133,11 @@ const RegisterAsRenovator = () => {
         }
       } catch (error) {
         console.error('Error fetching renovator registration:', error);
-        toast.error('Failed to load registration data');
+        if (error.code === 'permission-denied') {
+          toast.error('Permission denied. Please ensure you are logged in.');
+        } else {
+          toast.error('Failed to load registration data');
+        }
       } finally {
         setLoading(false);
       }
@@ -186,25 +201,31 @@ const RegisterAsRenovator = () => {
   };
 
   // Upload portfolio images
+  // FIXED: Images are optional - gracefully handle upload failures
   const uploadPortfolioImages = async () => {
-    if (newPortfolioFiles.length === 0) return [];
+    if (!newPortfolioFiles || newPortfolioFiles.length === 0) return [];
 
     setUploading(true);
     const uploadedUrls = [];
 
     try {
       for (const file of newPortfolioFiles) {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `renovators/${currentUser.uid}/portfolio/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        uploadedUrls.push(url);
+        try {
+          const timestamp = Date.now();
+          const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+          const storagePath = `renovators/${currentUser.uid}/portfolio/${fileName}`;
+          const storageRef = ref(storage, storagePath);
+          await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(storageRef);
+          uploadedUrls.push(url);
+        } catch (fileError) {
+          console.error('Error uploading individual portfolio image:', fileError);
+          // Continue with other files even if one fails
+        }
       }
     } catch (error) {
       console.error('Error uploading portfolio images:', error);
-      throw new Error('Failed to upload portfolio images');
+      // FIXED: Don't throw - return what we have so form can still submit
     } finally {
       setUploading(false);
     }
@@ -251,9 +272,11 @@ const RegisterAsRenovator = () => {
   };
 
   // Handle save/register
+  // FIXED: Added proper auth check, error handling, and loading state management
   const handleSave = async () => {
+    // FIXED: Check auth properly
     if (!currentUser?.uid || !db) {
-      toast.error('User not authenticated');
+      toast.error('User not authenticated. Please log in to continue.');
       return;
     }
 
@@ -265,9 +288,21 @@ const RegisterAsRenovator = () => {
     try {
       setSaving(true);
 
-      // Upload new portfolio images
-      const newImageUrls = await uploadPortfolioImages();
-      const allPortfolioImages = [...portfolioImages, ...newImageUrls];
+      // FIXED: Upload new portfolio images - optional, don't block form submission
+      let newImageUrls = [];
+      try {
+        newImageUrls = await uploadPortfolioImages();
+        // Only show warning if uploads were attempted but failed
+        if (newPortfolioFiles.length > 0 && newImageUrls.length === 0) {
+          toast.error('Some images failed to upload, but registration will continue.');
+        }
+      } catch (uploadError) {
+        console.error('Error uploading portfolio images:', uploadError);
+        // FIXED: Don't block form submission - continue with empty array
+        newImageUrls = [];
+      }
+
+      const allPortfolioImages = [...(portfolioImages || []), ...newImageUrls];
 
       // Prepare data
       const registrationData = {
@@ -292,30 +327,75 @@ const RegisterAsRenovator = () => {
         registrationData.createdAt = serverTimestamp();
       }
 
-      // Save to Firestore: renovators/{userId}/profile/data
-      // FIXED: Wrapped in try/catch to handle blocked collection gracefully
+      // FIXED: Create request in requests collection instead of direct provider profile
+      // Check if request already exists
+      let existingRequest = null;
       try {
-        const profileRef = doc(db, 'renovators', currentUser.uid, 'profile', 'data');
-        await setDoc(profileRef, registrationData, { merge: true });
-      } catch (writeError) {
-        // FIXED: Handle permission denied gracefully
-        if (writeError.code === 'permission-denied') {
-          throw new Error('This feature is currently unavailable due to security restrictions. The renovators collection is blocked by Firestore rules.');
+        const requestsQuery = query(
+          collection(db, 'requests'),
+          where('userId', '==', currentUser.uid),
+          where('type', '==', 'renovator')
+        );
+        const requestsSnapshot = await getDocs(requestsQuery);
+        if (!requestsSnapshot.empty) {
+          existingRequest = requestsSnapshot.docs[0];
         }
-        throw writeError;
+      } catch (queryError) {
+        console.error('Error checking existing request:', queryError);
       }
 
-      // Update state
+      // Prepare request data
+      const requestData = {
+        userId: currentUser.uid,
+        type: 'renovator',
+        portfolio: allPortfolioImages || [],
+        description: registrationData.description || '',
+        experience: registrationData.yearsOfExperience?.toString() || '',
+        fullName: registrationData.fullName,
+        companyName: registrationData.companyName || '',
+        email: registrationData.email,
+        phoneNumber: registrationData.phoneNumber,
+        cnic: registrationData.cnic,
+        serviceCategories: registrationData.serviceCategories || [],
+        officeAddress: registrationData.officeAddress,
+        city: registrationData.city,
+        availability: registrationData.availability || '',
+        workingHours: registrationData.workingHours || '',
+        status: existingRequest?.data()?.status || 'pending',
+        createdAt: existingRequest?.data()?.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      try {
+        if (existingRequest) {
+          // Update existing request
+          await setDoc(existingRequest.ref, requestData, { merge: true });
+          toast.success('Request updated successfully! It will be reviewed by admin.');
+        } else {
+          // Create new request
+          await addDoc(collection(db, 'requests'), requestData);
+          toast.success('Request submitted successfully! It will be reviewed by admin.');
+        }
+      } catch (writeError) {
+        console.error('Error creating/updating request:', writeError);
+        if (writeError.code === 'permission-denied') {
+          throw new Error('Permission denied. Please ensure you are logged in.');
+        }
+        throw new Error('Failed to submit request. Please try again.');
+      }
+
+      // FIXED: Update state only after successful save
       setHasRegistration(true);
       setPortfolioImages(allPortfolioImages);
       setNewPortfolioFiles([]);
       setNewPortfolioPreviews([]);
-
-      toast.success(hasRegistration ? 'Registration updated successfully!' : 'Registered as renovator successfully!');
     } catch (error) {
       console.error('Error saving renovator registration:', error);
-      toast.error(error.message || 'Failed to save registration');
+      // FIXED: Show user-friendly error message
+      const errorMessage = error.message || 'Failed to save registration. Please try again.';
+      toast.error(errorMessage);
     } finally {
+      // FIXED: Always reset loading state
       setSaving(false);
     }
   };

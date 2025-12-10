@@ -19,34 +19,25 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
   };
 
   const getImageUrl = () => {
-    // Check multiple possible image fields
+    // FIXED: Check multiple possible image fields - return null if no image for better fallback handling
     if (property.photos && Array.isArray(property.photos) && property.photos.length > 0) {
       const url = property.photos[0];
-      console.log('Using photos[0]:', url);
-      return url;
+      if (url && url.trim()) return url;
     }
-    if (property.coverImage) {
-      console.log('Using coverImage:', property.coverImage);
+    if (property.coverImage && property.coverImage.trim()) {
       return property.coverImage;
     }
-    if (property.imageUrl) {
-      console.log('Using imageUrl:', property.imageUrl);
+    if (property.imageUrl && property.imageUrl.trim()) {
       return property.imageUrl;
     }
-    if (property.image) {
-      console.log('Using image:', property.image);
+    if (property.image && property.image.trim()) {
       return property.image;
     }
-    // Debug: log what image fields exist
-    console.log('No image found. Property image fields:', {
-      photos: property.photos,
-      coverImage: property.coverImage,
-      imageUrl: property.imageUrl,
-      image: property.image,
-    });
-    // Placeholder image
-    return 'https://via.placeholder.com/400x300?text=No+Image';
+    // FIXED: Return null instead of placeholder URL - will use fallback UI
+    return null;
   };
+
+  const imageUrl = getImageUrl();
 
   const handleFavoriteToggle = async (e) => {
     e.preventDefault();
@@ -80,20 +71,31 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
     >
       <div className="bg-card shadow-sm rounded-lg border border-muted p-4 hover:shadow-md hover:border-primary transition group">
         {/* Image */}
-        <div className="relative h-48 sm:h-56 overflow-hidden bg-muted rounded-lg mb-4">
-          <img
-            src={getImageUrl()}
-            alt={property.title || 'Property'}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-            onError={(e) => {
-              console.error('Image failed to load:', e.target.src);
-              e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-            }}
-            onLoad={() => {
-              console.log('Image loaded successfully:', getImageUrl());
-            }}
-          />
+        <div className="relative h-48 sm:h-56 overflow-hidden bg-muted rounded-lg mb-4 flex items-center justify-center">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={property.title || 'Property'}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+              onError={(e) => {
+                // FIXED: Hide broken image and show fallback
+                e.target.style.display = 'none';
+                const fallback = e.target.nextElementSibling;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+            />
+          ) : null}
+          {/* FIXED: Fallback UI for missing images */}
+          <div
+            className={`absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-muted to-muted/50 text-textSecondary ${
+              imageUrl ? 'hidden' : 'flex'
+            }`}
+            style={{ display: imageUrl ? 'none' : 'flex' }}
+          >
+            <Home className="w-12 h-12 mb-2 opacity-50" />
+            <span className="text-sm font-medium">No Image Available</span>
+          </div>
           {/* Status Badge */}
           <div className="absolute top-2 left-2">
             <span

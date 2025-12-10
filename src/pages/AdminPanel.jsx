@@ -625,12 +625,13 @@ const AdminPanel = () => {
     const unsubscribes = [];
 
     try {
-      // Fetch all 4 collections
+      // FIXED: Fetch all collections including new provider approval requests
       const collections = [
         { name: 'rentalRequests', type: 'Rental' },
         { name: 'buySellRequests', type: 'Buy/Sell' },
         { name: 'constructionProjects', type: 'Construction' },
         { name: 'renovationProjects', type: 'Renovation' },
+        { name: 'requests', type: 'Provider Approval' }, // NEW: Provider approval requests
       ];
 
       collections.forEach(({ name, type }) => {
@@ -640,12 +641,19 @@ const AdminPanel = () => {
           const unsubscribe = onSnapshot(
             requestsQuery,
             async (snapshot) => {
-              const requests = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                requestType: type,
-                collection: name,
-                ...doc.data(),
-              }));
+              const requests = snapshot.docs.map((doc) => {
+                const data = doc.data();
+                // FIXED: For 'requests' collection, set requestType based on type field
+                const requestType = name === 'requests' && data.type 
+                  ? 'Provider Approval' 
+                  : type;
+                return {
+                  id: doc.id,
+                  requestType: requestType,
+                  collection: name,
+                  ...data,
+                };
+              });
 
               // Update combined requests list
               setAllRequests((prev) => {
@@ -1378,6 +1386,86 @@ const AdminPanel = () => {
       setProcessing(true);
       const requestRef = doc(db, request.collection, request.id);
 
+      // FIXED: Handle provider approval requests specially
+      if (request.requestType === 'Provider Approval' && request.type && request.userId) {
+        if (newStatus === 'approved') {
+          // APPROVE: Update request, user role, and create provider profile
+          await updateDoc(requestRef, {
+            status: 'approved',
+            updatedAt: serverTimestamp(),
+          });
+
+          // Update user role
+          const userRef = doc(db, 'users', request.userId);
+          await updateDoc(userRef, {
+            role: request.type, // 'renovator' or 'constructor'
+            isApprovedProvider: true,
+            updatedAt: serverTimestamp(),
+          });
+
+          // Create provider profile in providers collection
+          const providerRef = doc(db, 'providers', request.userId);
+          await setDoc(providerRef, {
+            userId: request.userId,
+            type: request.type,
+            portfolio: request.portfolio || [],
+            description: request.description || '',
+            experience: request.experience || '',
+            fullName: request.fullName || '',
+            companyName: request.companyName || '',
+            email: request.email || '',
+            phoneNumber: request.phoneNumber || '',
+            officeAddress: request.officeAddress || '',
+            city: request.city || '',
+            serviceCategories: request.serviceCategories || request.constructionServices || [],
+            licenseFiles: request.licenseFiles || [],
+            availability: request.availability || '',
+            workingHours: request.workingHours || '',
+            teamSize: request.teamSize || null,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }, { merge: true });
+
+          // Send notification
+          await notificationService.sendNotification(
+            request.userId,
+            'Provider Application Approved',
+            `Congratulations! Your ${request.type} application has been approved. You can now access provider features.`,
+            'success',
+            '/account'
+          );
+
+          toast.success('Provider approved successfully');
+        } else if (newStatus === 'rejected') {
+          // REJECT: Update request and user status
+          await updateDoc(requestRef, {
+            status: 'rejected',
+            updatedAt: serverTimestamp(),
+          });
+
+          // Update user
+          const userRef = doc(db, 'users', request.userId);
+          await updateDoc(userRef, {
+            isApprovedProvider: false,
+            updatedAt: serverTimestamp(),
+          });
+
+          // Send notification
+          await notificationService.sendNotification(
+            request.userId,
+            'Provider Application Rejected',
+            `Your ${request.type} application has been rejected. Please contact support for more information.`,
+            'error',
+            '/account'
+          );
+
+          toast.success('Provider request rejected');
+        }
+        setProcessing(false);
+        return;
+      }
+
+      // Original logic for other request types
       await updateDoc(requestRef, {
         status: newStatus,
         updatedAt: serverTimestamp(),
@@ -2899,9 +2987,12 @@ const AdminPanel = () => {
                 >
                   <option value="">All Statuses</option>
                   <option value="Pending">Pending</option>
+                  <option value="pending">pending</option>
                   <option value="Accepted">Accepted</option>
                   <option value="Approved">Approved</option>
+                  <option value="approved">approved</option>
                   <option value="Rejected">Rejected</option>
+                  <option value="rejected">rejected</option>
                   <option value="In Progress">In Progress</option>
                   <option value="Completed">Completed</option>
                   <option value="Cancelled">Cancelled</option>
@@ -3064,12 +3155,12 @@ const AdminPanel = () => {
                                 <Eye className="w-4 h-4 mr-1" />
                                 View
                               </Button>
-                              {request.status === 'Pending' && (
+                              {request.status === 'pending' || request.status === 'Pending' ? (
                                 <>
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleUpdateRequestStatus(request, 'Approved')}
+                                    onClick={() => handleUpdateRequestStatus(request, request.requestType === 'Provider Approval' ? 'approved' : 'Approved')}
                                     disabled={processing}
                                     className="text-primary border-primary/30 hover:bg-primary/10"
                                   >
@@ -3079,7 +3170,7 @@ const AdminPanel = () => {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleUpdateRequestStatus(request, 'Rejected')}
+                                    onClick={() => handleUpdateRequestStatus(request, request.requestType === 'Provider Approval' ? 'rejected' : 'Rejected')}
                                     disabled={processing}
                                     className="text-error border-error hover:bg-error"
                                   >
@@ -3087,7 +3178,7 @@ const AdminPanel = () => {
                                     Reject
                                   </Button>
                                 </>
-                              )}
+                              ) : null}
                               {(request.status === 'Approved' || request.status === 'Accepted') && (
                                 <Button
                                   size="sm"

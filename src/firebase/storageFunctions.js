@@ -48,20 +48,31 @@ export const uploadImage = async (file, path, fileName = null) => {
  */
 export const uploadMultipleImages = async (files, path) => {
   try {
+    // FIXED: Images are optional - return empty array if no files
     if (!Array.isArray(files) || files.length === 0) {
-      throw new Error('No files provided');
+      return [];
     }
 
-    const uploadPromises = files.map((file, index) => {
-      const fileName = file.name || `image_${Date.now()}_${index}`;
-      return uploadImage(file, path, fileName);
-    });
+    const uploadPromises = files
+      .filter((file) => file instanceof File) // Filter out invalid files
+      .map(async (file, index) => {
+        try {
+          const fileName = file.name || `image_${Date.now()}_${index}`;
+          return await uploadImage(file, path, fileName);
+        } catch (fileError) {
+          console.error(`Error uploading file ${index}:`, fileError);
+          // Continue with other files even if one fails
+          return null;
+        }
+      });
 
     const downloadURLs = await Promise.all(uploadPromises);
-    return downloadURLs;
+    // Filter out null results (failed uploads)
+    return downloadURLs.filter((url) => url !== null);
   } catch (error) {
     console.error('Error uploading multiple images:', error);
-    throw error;
+    // FIXED: Don't throw - return empty array to allow form submission
+    return [];
   }
 };
 
@@ -83,13 +94,22 @@ export const deleteImage = async (imageUrl) => {
     // Extract storage path from URL if full URL is provided
     let storagePath = imageUrl;
 
-    // If it's a full URL, extract the path
-    if (imageUrl.includes('firebasestorage.googleapis.com')) {
+    // FIXED: Handle both firebasestorage.googleapis.com and appspot.com URLs
+    if (imageUrl.includes('firebasestorage.googleapis.com') || imageUrl.includes('appspot.com')) {
       // Extract path from URL
+      // Format: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?alt=media
+      // Or: https://{bucket}.appspot.com/{path}
       const urlParts = imageUrl.split('/o/');
       if (urlParts.length > 1) {
         const pathPart = urlParts[1].split('?')[0];
         storagePath = decodeURIComponent(pathPart);
+      } else if (imageUrl.includes('appspot.com')) {
+        // Handle appspot.com format
+        const appspotParts = imageUrl.split('.appspot.com/');
+        if (appspotParts.length > 1) {
+          const pathPart = appspotParts[1].split('?')[0];
+          storagePath = decodeURIComponent(pathPart);
+        }
       }
     }
 

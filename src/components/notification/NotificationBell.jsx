@@ -195,7 +195,7 @@ const NotificationBell = () => {
         console.error('Error cleaning up notifications listener:', cleanupError);
       }
     };
-  }, [currentUser?.uid, db]);
+  }, [currentUser?.uid, db, auth]);
 
   const handleMarkAsRead = async (notificationId, e) => {
     e.preventDefault();

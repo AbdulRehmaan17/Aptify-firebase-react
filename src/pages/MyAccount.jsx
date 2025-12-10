@@ -74,6 +74,12 @@ const MyAccount = () => {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [chats, setChats] = useState([]);
   const [chatsLoading, setChatsLoading] = useState(false);
+  
+  // Provider approval status
+  const [providerStatus, setProviderStatus] = useState({
+    renovator: null, // 'pending', 'approved', 'rejected', null
+    constructor: null,
+  });
 
   // Summary counts
   const [summaryCounts, setSummaryCounts] = useState({

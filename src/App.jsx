@@ -20,6 +20,7 @@ import ConstructionRequestForm from './pages/ConstructionRequestForm';
 import RequestConstruction from './pages/RequestConstruction';
 import ConstructionList from './pages/ConstructionList';
 import ConstructionProviders from './pages/ConstructionProviders';
+import ProvidersList from './pages/ProvidersList';
 import ConstructionDashboard from './pages/ConstructionDashboard';
 import ConstructorDashboard from './pages/constructor/ConstructorDashboard';
 import ConstructorProjects from './pages/constructor/ConstructorProjects';
@@ -86,6 +87,7 @@ function App() {
               <Route path="/renovation-providers" element={<RenovationProviders />} />
               <Route path="/construction-services" element={<ConstructionServicesPage />} />
               <Route path="/construction-providers" element={<ConstructionProviders />} />
+              <Route path="/providers" element={<ProvidersList />} />
               <Route path="/rental-services" element={<RentalServicesPage />} />
               <Route path="/browse-rentals" element={<BrowseRentals />} />
               <Route path="/buy-sell" element={<BuySellLanding />} />

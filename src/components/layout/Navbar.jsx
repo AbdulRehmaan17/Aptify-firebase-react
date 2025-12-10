@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, User, Menu, X, Home, Bell, MessageSquare, LayoutDashboard, Building2, Settings } from 'lucide-react';
+import { Search, User, Menu, X, Home, Bell, MessageSquare, LayoutDashboard, Building2, Settings, Wrench, Hammer } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import userService from '../../services/userService';
 import { isConstructor, isRenovator } from '../../utils/authHelpers';
@@ -444,6 +444,28 @@ const Navbar = () => {
                               Admin Panel
                             </Link>
                           )}
+                          {currentUserRole === 'renovator' && (
+                            <Link
+                              to="/renovator-dashboard"
+                              className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                              onClick={() => setIsUserMenuOpen(false)}
+                              role="menuitem"
+                            >
+                              <Wrench className="w-4 h-4 mr-3 text-primary" />
+                              Renovator Panel
+                            </Link>
+                          )}
+                          {currentUserRole === 'constructor' && (
+                            <Link
+                              to="/constructor-dashboard"
+                              className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
+                              onClick={() => setIsUserMenuOpen(false)}
+                              role="menuitem"
+                            >
+                              <Hammer className="w-4 h-4 mr-3 text-primary" />
+                              Constructor Panel
+                            </Link>
+                          )}
                         </>
                       )}
                     </div>
@@ -661,6 +683,26 @@ const Navbar = () => {
                         >
                           <Home className="w-5 h-5 mr-3 text-primary" />
                           Admin Panel
+                        </Link>
+                      )}
+                      {currentUserRole === 'renovator' && (
+                        <Link
+                          to="/renovator-dashboard"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                        >
+                          <Wrench className="w-5 h-5 mr-3 text-primary" />
+                          Renovator Panel
+                        </Link>
+                      )}
+                      {currentUserRole === 'constructor' && (
+                        <Link
+                          to="/constructor-dashboard"
+                          onClick={() => setIsMenuOpen(false)}
+                          className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
+                        >
+                          <Hammer className="w-5 h-5 mr-3 text-primary" />
+                          Constructor Panel
                         </Link>
                       )}
                     </>

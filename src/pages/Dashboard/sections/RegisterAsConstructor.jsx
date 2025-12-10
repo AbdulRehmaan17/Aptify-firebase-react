@@ -4,7 +4,12 @@ import {
   getDoc,
   setDoc,
   deleteDoc,
+  addDoc,
+  collection,
   serverTimestamp,
+  query,
+  where,
+  getDocs,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../../../firebase';
@@ -94,11 +99,17 @@ const RegisterAsConstructor = () => {
     const fetchRegistration = async () => {
       try {
         setLoading(true);
-        const profileRef = doc(db, 'constructors', currentUser.uid, 'profile', 'data');
-        const profileSnap = await getDoc(profileRef);
+        // FIXED: Check for existing request in requests collection
+        const requestsQuery = query(
+          collection(db, 'requests'),
+          where('userId', '==', currentUser.uid),
+          where('type', '==', 'constructor')
+        );
+        const requestsSnapshot = await getDocs(requestsQuery);
 
-        if (profileSnap.exists()) {
-          const data = profileSnap.data();
+        if (!requestsSnapshot.empty) {
+          const requestDoc = requestsSnapshot.docs[0];
+          const data = requestDoc.data();
           setHasRegistration(true);
           setFormData({
             fullName: data.fullName || '',
@@ -107,13 +118,13 @@ const RegisterAsConstructor = () => {
             phoneNumber: data.phoneNumber || '',
             cnic: data.cnic || '',
             constructionServices: data.constructionServices || [],
-            yearsOfExperience: data.yearsOfExperience?.toString() || '',
-            description: data.description || data.bio || '',
+            yearsOfExperience: data.experience || data.yearsOfExperience?.toString() || '',
+            description: data.description || '',
             officeAddress: data.officeAddress || '',
             city: data.city || '',
             teamSize: data.teamSize?.toString() || '',
           });
-          setPortfolioImages(data.portfolioImages || []);
+          setPortfolioImages(data.portfolio || []);
           setLicenseFiles(data.licenseFiles || []);
         } else {
           // Set email from auth
@@ -125,7 +136,11 @@ const RegisterAsConstructor = () => {
         }
       } catch (error) {
         console.error('Error fetching constructor registration:', error);
-        toast.error('Failed to load registration data');
+        if (error.code === 'permission-denied') {
+          toast.error('Permission denied. Please ensure you are logged in.');
+        } else {
+          toast.error('Failed to load registration data');
+        }
       } finally {
         setLoading(false);
       }
@@ -228,25 +243,31 @@ const RegisterAsConstructor = () => {
   };
 
   // Upload portfolio images
+  // FIXED: Images are optional - gracefully handle upload failures
   const uploadPortfolioImages = async () => {
-    if (newPortfolioFiles.length === 0) return [];
+    if (!newPortfolioFiles || newPortfolioFiles.length === 0) return [];
 
     setUploading(true);
     const uploadedUrls = [];
 
     try {
       for (const file of newPortfolioFiles) {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `constructors/${currentUser.uid}/portfolio/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        uploadedUrls.push(url);
+        try {
+          const timestamp = Date.now();
+          const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+          const storagePath = `constructors/${currentUser.uid}/portfolio/${fileName}`;
+          const storageRef = ref(storage, storagePath);
+          await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(storageRef);
+          uploadedUrls.push(url);
+        } catch (fileError) {
+          console.error('Error uploading individual portfolio image:', fileError);
+          // Continue with other files even if one fails
+        }
       }
     } catch (error) {
       console.error('Error uploading portfolio images:', error);
-      throw new Error('Failed to upload portfolio images');
+      // FIXED: Don't throw - return what we have so form can still submit
     } finally {
       setUploading(false);
     }
@@ -255,25 +276,31 @@ const RegisterAsConstructor = () => {
   };
 
   // Upload license files
+  // FIXED: Files are optional - gracefully handle upload failures
   const uploadLicenseFiles = async () => {
-    if (newLicenseFiles.length === 0) return [];
+    if (!newLicenseFiles || newLicenseFiles.length === 0) return [];
 
     setUploading(true);
     const uploadedUrls = [];
 
     try {
       for (const file of newLicenseFiles) {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_license_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `constructors/${currentUser.uid}/licenses/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        uploadedUrls.push(url);
+        try {
+          const timestamp = Date.now();
+          const fileName = `${timestamp}_license_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+          const storagePath = `constructors/${currentUser.uid}/licenses/${fileName}`;
+          const storageRef = ref(storage, storagePath);
+          await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(storageRef);
+          uploadedUrls.push(url);
+        } catch (fileError) {
+          console.error('Error uploading individual license file:', fileError);
+          // Continue with other files even if one fails
+        }
       }
     } catch (error) {
       console.error('Error uploading license files:', error);
-      throw new Error('Failed to upload license files');
+      // FIXED: Don't throw - return what we have so form can still submit
     } finally {
       setUploading(false);
     }
@@ -324,9 +351,11 @@ const RegisterAsConstructor = () => {
   };
 
   // Handle save/register
+  // FIXED: Added proper auth check, error handling, and loading state management
   const handleSave = async () => {
+    // FIXED: Check auth properly
     if (!currentUser?.uid || !db) {
-      toast.error('User not authenticated');
+      toast.error('User not authenticated. Please log in to continue.');
       return;
     }
 
@@ -338,14 +367,28 @@ const RegisterAsConstructor = () => {
     try {
       setSaving(true);
 
-      // Upload new files
-      const [newImageUrls, newLicenseUrls] = await Promise.all([
-        uploadPortfolioImages(),
-        uploadLicenseFiles(),
-      ]);
+      // FIXED: Upload new files - optional, don't block form submission
+      let newImageUrls = [];
+      let newLicenseUrls = [];
+      try {
+        [newImageUrls, newLicenseUrls] = await Promise.all([
+          uploadPortfolioImages(),
+          uploadLicenseFiles(),
+        ]);
+        // Only show warning if uploads were attempted but failed
+        if ((newPortfolioFiles.length > 0 && newImageUrls.length === 0) ||
+            (newLicenseFiles.length > 0 && newLicenseUrls.length === 0)) {
+          toast.error('Some files failed to upload, but registration will continue.');
+        }
+      } catch (uploadError) {
+        console.error('Error uploading files:', uploadError);
+        // FIXED: Don't block form submission - continue with empty arrays
+        newImageUrls = [];
+        newLicenseUrls = [];
+      }
 
-      const allPortfolioImages = [...portfolioImages, ...newImageUrls];
-      const allLicenseFiles = [...licenseFiles, ...newLicenseUrls];
+      const allPortfolioImages = [...(portfolioImages || []), ...newImageUrls];
+      const allLicenseFiles = [...(licenseFiles || []), ...newLicenseUrls];
 
       // Prepare data
       const registrationData = {
@@ -370,20 +413,64 @@ const RegisterAsConstructor = () => {
         registrationData.createdAt = serverTimestamp();
       }
 
-      // Save to Firestore: constructors/{userId}/profile/data
-      // FIXED: Wrapped in try/catch to handle blocked collection gracefully
+      // FIXED: Create request in requests collection instead of direct provider profile
+      // Check if request already exists
+      let existingRequest = null;
       try {
-        const profileRef = doc(db, 'constructors', currentUser.uid, 'profile', 'data');
-        await setDoc(profileRef, registrationData, { merge: true });
-      } catch (writeError) {
-        // FIXED: Handle permission denied gracefully
-        if (writeError.code === 'permission-denied') {
-          throw new Error('This feature is currently unavailable due to security restrictions. The constructors collection is blocked by Firestore rules.');
+        const requestsQuery = query(
+          collection(db, 'requests'),
+          where('userId', '==', currentUser.uid),
+          where('type', '==', 'constructor')
+        );
+        const requestsSnapshot = await getDocs(requestsQuery);
+        if (!requestsSnapshot.empty) {
+          existingRequest = requestsSnapshot.docs[0];
         }
-        throw writeError;
+      } catch (queryError) {
+        console.error('Error checking existing request:', queryError);
       }
 
-      // Update state
+      // Prepare request data
+      const requestData = {
+        userId: currentUser.uid,
+        type: 'constructor',
+        portfolio: allPortfolioImages || [],
+        licenseFiles: allLicenseFiles || [],
+        description: registrationData.description || '',
+        experience: registrationData.yearsOfExperience?.toString() || '',
+        fullName: registrationData.fullName,
+        companyName: registrationData.companyName,
+        email: registrationData.email,
+        phoneNumber: registrationData.phoneNumber,
+        cnic: registrationData.cnic,
+        constructionServices: registrationData.constructionServices || [],
+        officeAddress: registrationData.officeAddress,
+        city: registrationData.city,
+        teamSize: registrationData.teamSize || null,
+        status: existingRequest?.data()?.status || 'pending',
+        createdAt: existingRequest?.data()?.createdAt || serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      try {
+        if (existingRequest) {
+          // Update existing request
+          await setDoc(existingRequest.ref, requestData, { merge: true });
+          toast.success('Request updated successfully! It will be reviewed by admin.');
+        } else {
+          // Create new request
+          await addDoc(collection(db, 'requests'), requestData);
+          toast.success('Request submitted successfully! It will be reviewed by admin.');
+        }
+      } catch (writeError) {
+        console.error('Error creating/updating request:', writeError);
+        if (writeError.code === 'permission-denied') {
+          throw new Error('Permission denied. Please ensure you are logged in.');
+        }
+        throw new Error('Failed to submit request. Please try again.');
+      }
+
+      // FIXED: Update state only after successful save
       setHasRegistration(true);
       setPortfolioImages(allPortfolioImages);
       setLicenseFiles(allLicenseFiles);
@@ -391,12 +478,13 @@ const RegisterAsConstructor = () => {
       setNewPortfolioPreviews([]);
       setNewLicenseFiles([]);
       setNewLicensePreviews([]);
-
-      toast.success(hasRegistration ? 'Registration updated successfully!' : 'Registered as constructor successfully!');
     } catch (error) {
       console.error('Error saving constructor registration:', error);
-      toast.error(error.message || 'Failed to save registration');
+      // FIXED: Show user-friendly error message
+      const errorMessage = error.message || 'Failed to save registration. Please try again.';
+      toast.error(errorMessage);
     } finally {
+      // FIXED: Always reset loading state
       setSaving(false);
     }
   };

@@ -109,6 +109,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Listen to notifications for unread count
+  // FIXED: Enhanced error handling and auth checks
   useEffect(() => {
     // Guard: Ensure user is authenticated and db is available
     // FIXED: Wait for auth to be ready before querying
@@ -116,6 +117,8 @@ export const AuthProvider = ({ children }) => {
       setUnreadCount(0);
       return;
     }
+
+    let unsubscribeNotifications = null;
 
     try {
       // Notifications require authentication per rules
@@ -125,27 +128,54 @@ export const AuthProvider = ({ children }) => {
         where('read', '==', false)
       );
 
-      const unsubscribeNotifications = onSnapshot(
+      unsubscribeNotifications = onSnapshot(
         notificationsQuery,
         (snapshot) => {
           setUnreadCount(snapshot.size);
         },
         (err) => {
           console.error('Error listening to notifications:', err);
-          // Handle permission errors gracefully
+          // FIXED: Handle permission errors gracefully
           if (err.code === 'permission-denied') {
             console.warn('Permission denied when fetching notifications. User may not be authenticated.');
+            setUnreadCount(0);
+            return;
+          }
+          // Fallback without orderBy for index errors
+          if (err.code === 'failed-precondition') {
+            const fallbackQuery = query(
+              collection(db, 'notifications'),
+              where('userId', '==', currentUser.uid),
+              where('read', '==', false)
+            );
+            const fallbackUnsubscribe = onSnapshot(
+              fallbackQuery,
+              (snapshot) => {
+                setUnreadCount(snapshot.size);
+              },
+              (fallbackErr) => {
+                console.error('Error listening to notifications (fallback):', fallbackErr);
+                setUnreadCount(0);
+              }
+            );
+            return () => {
+              if (fallbackUnsubscribe) fallbackUnsubscribe();
+            };
           }
           setUnreadCount(0);
         }
       );
-
-      return () => unsubscribeNotifications();
     } catch (err) {
       console.error('Error setting up notifications listener:', err);
       setUnreadCount(0);
     }
-  }, [loading, currentUser, db, auth]);
+
+    return () => {
+      if (unsubscribeNotifications) {
+        unsubscribeNotifications();
+      }
+    };
+  }, [loading, currentUser?.uid, db, auth]);
 
   // Login function
   const handleLogin = async (email, password) => {

@@ -182,10 +182,8 @@ const AddRental = () => {
       newErrors.city = 'City is required';
     }
 
-    // Only require images for new properties, not when editing
-    if (!isEditMode && images.length === 0 && imagePreviews.length === 0) {
-      newErrors.images = 'At least one image is required';
-    }
+    // FIXED: Images are now optional - removed required validation
+    // Images can be empty, null, or undefined - form will still submit successfully
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -249,15 +247,29 @@ const AddRental = () => {
         toast.success('Rental property updated successfully!');
         navigate(`/rental/${id}`);
       } else {
-        // Create new property
+        // FIXED: Create new property - images are optional
         let imageUrls = [];
-        if (images.length > 0) {
-          toast.loading('Uploading images...', { id: 'upload' });
-          imageUrls = await uploadMultipleImages(
-            images,
-            `properties/${currentUser.uid}/${Date.now()}`
-          );
-          toast.success('Images uploaded successfully', { id: 'upload' });
+        if (images && images.length > 0) {
+          try {
+            toast.loading('Uploading images...', { id: 'upload' });
+            imageUrls = await uploadMultipleImages(
+              images,
+              `properties/${currentUser.uid}/${Date.now()}`
+            );
+            if (imageUrls.length > 0) {
+              toast.success('Images uploaded successfully', { id: 'upload' });
+            } else {
+              toast.dismiss('upload');
+            }
+          } catch (uploadError) {
+            console.error('Error uploading images:', uploadError);
+            toast.dismiss('upload');
+            // Continue without images - form can still submit
+            imageUrls = [];
+          }
+        } else {
+          // No images provided - that's fine, use empty array
+          imageUrls = [];
         }
 
         // Create property data

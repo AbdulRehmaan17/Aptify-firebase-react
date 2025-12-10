@@ -35,14 +35,19 @@ const NotificationsPage = () => {
   const [clearingAll, setClearingAll] = useState(false);
 
   // Setup real-time listener
+  // FIXED: Enhanced auth checks and error handling
   useEffect(() => {
-    if (!currentUser || !currentUser.uid) {
+    // FIXED: Check auth properly
+    if (!currentUser || !currentUser.uid || !db || !auth?.currentUser) {
       setLoading(false);
+      setNotifications([]);
       return;
     }
 
     setLoading(true);
     const userId = currentUser.uid;
+    let unsubscribe = null;
+    let fallbackUnsubscribe = null;
 
     try {
       const notificationsQuery = query(
@@ -51,7 +56,7 @@ const NotificationsPage = () => {
         orderBy('createdAt', 'desc')
       );
 
-      const unsubscribe = onSnapshot(
+      unsubscribe = onSnapshot(
         notificationsQuery,
         (snapshot) => {
           const notifs = snapshot.docs.map((doc) => ({
@@ -71,6 +76,13 @@ const NotificationsPage = () => {
         },
         (error) => {
           console.error('Error fetching notifications:', error);
+          // FIXED: Handle permission denied gracefully
+          if (error.code === 'permission-denied') {
+            console.warn('Permission denied when fetching notifications. User may not be authenticated.');
+            setNotifications([]);
+            setLoading(false);
+            return;
+          }
           // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
             const fallbackQuery = query(
@@ -78,7 +90,7 @@ const NotificationsPage = () => {
               where('userId', '==', userId)
             );
 
-            const fallbackUnsubscribe = onSnapshot(
+            fallbackUnsubscribe = onSnapshot(
               fallbackQuery,
               (snapshot) => {
                 const notifs = snapshot.docs.map((doc) => ({
@@ -97,23 +109,30 @@ const NotificationsPage = () => {
               },
               (fallbackError) => {
                 console.error('Error fetching notifications (fallback):', fallbackError);
+                if (fallbackError.code === 'permission-denied') {
+                  console.warn('Permission denied in fallback query.');
+                }
+                setNotifications([]);
                 setLoading(false);
               }
             );
-
-            return () => fallbackUnsubscribe();
           } else {
+            setNotifications([]);
             setLoading(false);
           }
         }
       );
-
-      return () => unsubscribe();
     } catch (error) {
       console.error('Error setting up notifications listener:', error);
+      setNotifications([]);
       setLoading(false);
     }
-  }, [currentUser]);
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      if (fallbackUnsubscribe) fallbackUnsubscribe();
+    };
+  }, [currentUser?.uid, db, auth]);
 
   const handleMarkAsRead = async (notificationId) => {
     try {

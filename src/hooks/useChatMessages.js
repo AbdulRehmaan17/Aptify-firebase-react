@@ -29,15 +29,18 @@ export function useChatMessages(chatId) {
   const [sending, setSending] = useState(false);
 
   // Fetch messages
+  // FIXED: Added auth check and proper error handling for blocked collections
   useEffect(() => {
-    if (!chatId || !db) {
+    if (!chatId || !db || !currentUser || !currentUser.uid) {
       setLoading(false);
+      setMessages([]);
       return;
     }
 
     setLoading(true);
 
     try {
+      // FIXED: chats collection is blocked by Firestore rules
       const messagesRef = collection(db, 'chats', chatId, 'messages');
       const messagesQuery = query(messagesRef, orderBy('createdAt', 'asc'));
 
@@ -53,6 +56,13 @@ export function useChatMessages(chatId) {
         },
         (error) => {
           console.error('Error fetching messages:', error);
+          // FIXED: Handle permission denied gracefully
+          if (error.code === 'permission-denied') {
+            console.warn('Chats collection is blocked by Firestore rules');
+            setMessages([]);
+            setLoading(false);
+            return;
+          }
           // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
             const fallbackQuery = query(collection(db, 'chats', chatId, 'messages'));
@@ -77,38 +87,48 @@ export function useChatMessages(chatId) {
               },
               (fallbackError) => {
                 console.error('Error fetching messages (fallback):', fallbackError);
+                if (fallbackError.code === 'permission-denied') {
+                  console.warn('Chats collection is blocked by Firestore rules');
+                }
+                setMessages([]);
                 setLoading(false);
               }
             );
 
             // Store fallback unsubscribe for cleanup
             return () => {
-              unsubscribe();
-              fallbackUnsubscribe();
+              if (unsubscribe) unsubscribe();
+              if (fallbackUnsubscribe) fallbackUnsubscribe();
             };
           } else {
+            setMessages([]);
             setLoading(false);
           }
         }
       );
 
-      return () => unsubscribe();
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
     } catch (error) {
       console.error('Error setting up messages listener:', error);
+      setMessages([]);
       setLoading(false);
     }
-  }, [chatId]);
+  }, [chatId, currentUser, db]);
 
   // Send message function
+  // FIXED: Added auth check and proper error handling for blocked collections
   const sendMessage = useCallback(
     async (text, attachments = []) => {
-      if (!chatId || !currentUser || !db || !text.trim()) {
-        throw new Error('Missing required parameters');
+      if (!chatId || !currentUser || !currentUser.uid || !db || !text.trim()) {
+        throw new Error('Missing required parameters or user not authenticated');
       }
 
       setSending(true);
 
       try {
+        // FIXED: chats collection is blocked by Firestore rules
         // Upload attachments if any
         const attachmentUrls = [];
         if (attachments && attachments.length > 0) {
@@ -141,14 +161,23 @@ export function useChatMessages(chatId) {
         const receiverId = participants.find((uid) => uid !== currentUser.uid);
 
         // Add message to subcollection
+        // FIXED: chats collection is blocked - handle permission denied
         const messagesRef = collection(db, 'chats', chatId, 'messages');
-        await addDoc(messagesRef, {
-          senderId: currentUser.uid,
-          receiverId: receiverId,
-          text: text.trim(),
-          attachments: attachmentUrls,
-          createdAt: serverTimestamp(),
-        });
+        try {
+          await addDoc(messagesRef, {
+            senderId: currentUser.uid,
+            receiverId: receiverId,
+            text: text.trim(),
+            attachments: attachmentUrls,
+            createdAt: serverTimestamp(),
+          });
+        } catch (writeError) {
+          // FIXED: Handle permission denied gracefully
+          if (writeError.code === 'permission-denied') {
+            throw new Error('Messages are currently unavailable due to security restrictions. Please contact support.');
+          }
+          throw writeError;
+        }
 
         // Update parent chat document
         const unreadFor = {
