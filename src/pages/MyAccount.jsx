@@ -50,7 +50,7 @@ import RegisterAsConstructor from './Dashboard/sections/RegisterAsConstructor';
  */
 const MyAccount = () => {
   const navigate = useNavigate();
-  const { currentUser, loading: authLoading } = useAuth();
+  const { currentUser, loading: authLoading, currentUserRole } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -97,6 +97,12 @@ const MyAccount = () => {
     { key: 'requests', label: 'Service Requests', icon: Calendar },
     { key: 'reviews', label: 'My Reviews', icon: Star },
     { key: 'messages', label: 'Messages', icon: MessageCircle },
+    ...(currentUserRole === 'renovator'
+      ? [{ key: 'renovator-dashboard', label: 'Renovator Panel', icon: Wrench }]
+      : []),
+    ...(currentUserRole === 'constructor'
+      ? [{ key: 'constructor-dashboard', label: 'Constructor Panel', icon: Hammer }]
+      : []),
     { key: 'register-renovator', label: 'Register as Renovator', icon: Wrench },
     { key: 'register-constructor', label: 'Register as Constructor', icon: Hammer },
     { key: 'settings', label: 'Settings', icon: Settings },
@@ -903,6 +909,32 @@ const MyAccount = () => {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Renovator Panel */}
+                {activeTab === 'renovator-dashboard' && (
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-bold text-textMain">Renovator Panel</h2>
+                    <p className="text-textSecondary">
+                      Access your renovator dashboard, manage projects, and view requests.
+                    </p>
+                    <Button variant="primary" onClick={() => navigate('/renovator-dashboard')} icon={Wrench}>
+                      Open Renovator Dashboard
+                    </Button>
+                  </div>
+                )}
+
+                {/* Constructor Panel */}
+                {activeTab === 'constructor-dashboard' && (
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-bold text-textMain">Constructor Panel</h2>
+                    <p className="text-textSecondary">
+                      Access your constructor dashboard, manage projects, and view requests.
+                    </p>
+                    <Button variant="primary" onClick={() => navigate('/constructor-dashboard')} icon={Hammer}>
+                      Open Constructor Dashboard
+                    </Button>
                   </div>
                 )}
 
