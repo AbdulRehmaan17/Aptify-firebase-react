@@ -22,7 +22,7 @@ import ConstructionList from './pages/ConstructionList';
 import ConstructionProviders from './pages/ConstructionProviders';
 import ProvidersList from './pages/ProvidersList';
 import ConstructionDashboard from './pages/ConstructionDashboard';
-import ConstructorDashboard from './pages/constructor/ConstructorDashboard';
+import ConstructorDashboard from './pages/ConstructorDashboard';
 import ConstructorProjects from './pages/constructor/ConstructorProjects';
 import ConstructorProjectDetails from './pages/constructor/ConstructorProjectDetails';
 import ConstructorProfile from './pages/constructor/ConstructorProfile';
@@ -61,6 +61,7 @@ const RenovatorDashboard = lazy(() => import('./pages/renovator/RenovatorDashboa
 const RenovatorProjects = lazy(() => import('./pages/renovator/RenovatorProjects'));
 const RenovatorProjectDetails = lazy(() => import('./pages/renovator/RenovatorProjectDetails'));
 const RenovatorProfile = lazy(() => import('./pages/renovator/RenovatorProfile'));
+const RenovatorPortfolio = lazy(() => import('./pages/renovator/RenovatorPortfolio'));
 
 function App() {
   return (
@@ -432,6 +433,16 @@ function App() {
                   <ProtectedRoute renovatorOnly>
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <NotificationsPage />
+                    </Suspense>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovator/portfolio"
+                element={
+                  <ProtectedRoute renovatorOnly>
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <RenovatorPortfolio />
                     </Suspense>
                   </ProtectedRoute>
                 }
