@@ -631,7 +631,7 @@ const AdminPanel = () => {
         { name: 'buySellRequests', type: 'Buy/Sell' },
         { name: 'constructionProjects', type: 'Construction' },
         { name: 'renovationProjects', type: 'Renovation' },
-        { name: 'requests', type: 'Provider Approval' }, // NEW: Provider approval requests
+        { name: 'providerRequests', type: 'Provider Approval' }, // FIXED: Use providerRequests collection
       ];
 
       collections.forEach(({ name, type }) => {
@@ -643,8 +643,8 @@ const AdminPanel = () => {
             async (snapshot) => {
               const requests = snapshot.docs.map((doc) => {
                 const data = doc.data();
-                // FIXED: For 'requests' collection, set requestType based on type field
-                const requestType = name === 'requests' && data.type 
+                // FIXED: For 'providerRequests' collection, set requestType based on type field
+                const requestType = name === 'providerRequests' && data.type 
                   ? 'Provider Approval' 
                   : type;
                 return {
@@ -652,6 +652,8 @@ const AdminPanel = () => {
                   requestType: requestType,
                   collection: name,
                   ...data,
+                  // Ensure userId/uid compatibility - use uid if available, fallback to userId
+                  userId: data.uid || data.userId,
                 };
               });
 
@@ -670,19 +672,20 @@ const AdminPanel = () => {
 
               // Fetch related data (user names, property titles, provider names)
               const fetchPromises = requests.map(async (request) => {
-                // Fetch user name
-                if (request.userId && !userNames[request.userId]) {
+                // Fetch user name - support both uid and userId fields
+                const requestUid = request.uid || request.userId;
+                if (requestUid && !userNames[requestUid]) {
                   try {
-                    const userDoc = await getDoc(doc(db, 'users', request.userId));
+                    const userDoc = await getDoc(doc(db, 'users', requestUid));
                     if (userDoc.exists()) {
                       const userData = userDoc.data();
                       setUserNames((prev) => ({
                         ...prev,
-                        [request.userId]: userData.name || userData.displayName || 'Unknown',
+                        [requestUid]: userData.name || userData.displayName || userData.fullName || 'Unknown',
                       }));
                     }
                   } catch (error) {
-                    console.error(`Error fetching user ${request.userId}:`, error);
+                    console.error(`Error fetching user ${requestUid}:`, error);
                   }
                 }
 
@@ -1386,27 +1389,28 @@ const AdminPanel = () => {
       setProcessing(true);
       const requestRef = doc(db, request.collection, request.id);
 
-      // FIXED: Handle provider approval requests specially
-      if (request.requestType === 'Provider Approval' && request.type && request.userId) {
+      // FIXED: Handle provider approval requests - check type field and use uid/userId
+      const requestUid = request.uid || request.userId;
+      if (request.requestType === 'Provider Approval' && request.type && requestUid) {
         if (newStatus === 'approved') {
-          // APPROVE: Update request, user role, and create provider profile
+          // APPROVE: Update providerRequests status and users/{uid} role
           await updateDoc(requestRef, {
             status: 'approved',
             updatedAt: serverTimestamp(),
           });
 
-          // Update user role
-          const userRef = doc(db, 'users', request.userId);
+          // Update users/{uid} - SINGLE SOURCE OF TRUTH
+          const userRef = doc(db, 'users', requestUid);
           await updateDoc(userRef, {
             role: request.type, // 'renovator' or 'constructor'
             isApprovedProvider: true,
             updatedAt: serverTimestamp(),
           });
 
-          // Create provider profile in providers collection
-          const providerRef = doc(db, 'providers', request.userId);
+          // Create provider profile in providers collection (optional - for public listings)
+          const providerRef = doc(db, 'providers', requestUid);
           await setDoc(providerRef, {
-            userId: request.userId,
+            userId: requestUid,
             type: request.type,
             portfolio: request.portfolio || [],
             description: request.description || '',
@@ -1428,7 +1432,7 @@ const AdminPanel = () => {
 
           // Send notification
           await notificationService.sendNotification(
-            request.userId,
+            requestUid,
             'Provider Application Approved',
             `Congratulations! Your ${request.type} application has been approved. You can now access provider features.`,
             'success',
@@ -1437,14 +1441,14 @@ const AdminPanel = () => {
 
           toast.success('Provider approved successfully');
         } else if (newStatus === 'rejected') {
-          // REJECT: Update request and user status
+          // REJECT: Update providerRequests status and users/{uid}
           await updateDoc(requestRef, {
             status: 'rejected',
             updatedAt: serverTimestamp(),
           });
 
-          // Update user
-          const userRef = doc(db, 'users', request.userId);
+          // Update users/{uid} - remove approval but keep role unchanged
+          const userRef = doc(db, 'users', requestUid);
           await updateDoc(userRef, {
             isApprovedProvider: false,
             updatedAt: serverTimestamp(),
@@ -1452,7 +1456,7 @@ const AdminPanel = () => {
 
           // Send notification
           await notificationService.sendNotification(
-            request.userId,
+            requestUid,
             'Provider Application Rejected',
             `Your ${request.type} application has been rejected. Please contact support for more information.`,
             'error',

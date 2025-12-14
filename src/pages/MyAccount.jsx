@@ -50,7 +50,7 @@ import RegisterAsConstructor from './Dashboard/sections/RegisterAsConstructor';
  */
 const MyAccount = () => {
   const navigate = useNavigate();
-  const { currentUser, loading: authLoading, currentUserRole } = useAuth();
+  const { currentUser, loading: authLoading, currentUserRole, isApprovedProvider } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -97,10 +97,11 @@ const MyAccount = () => {
     { key: 'requests', label: 'Service Requests', icon: Calendar },
     { key: 'reviews', label: 'My Reviews', icon: Star },
     { key: 'messages', label: 'Messages', icon: MessageCircle },
-    ...(currentUserRole === 'renovator'
+    // Show dashboard only if role matches AND isApprovedProvider is true
+    ...(currentUserRole === 'renovator' && isApprovedProvider
       ? [{ key: 'renovator-dashboard', label: 'Renovator Panel', icon: Wrench }]
       : []),
-    ...(currentUserRole === 'constructor'
+    ...(currentUserRole === 'constructor' && isApprovedProvider
       ? [{ key: 'constructor-dashboard', label: 'Constructor Panel', icon: Hammer }]
       : []),
     { key: 'register-renovator', label: 'Register as Renovator', icon: Wrench },

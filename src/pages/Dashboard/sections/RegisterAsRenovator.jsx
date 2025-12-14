@@ -96,10 +96,10 @@ const RegisterAsRenovator = () => {
     const fetchRegistration = async () => {
       try {
         setLoading(true);
-        // FIXED: Check for existing request in requests collection
+        // FIXED: Check for existing request in providerRequests collection
         const requestsQuery = query(
-          collection(db, 'requests'),
-          where('userId', '==', currentUser.uid),
+          collection(db, 'providerRequests'),
+          where('uid', '==', currentUser.uid),
           where('type', '==', 'renovator')
         );
         const requestsSnapshot = await getDocs(requestsQuery);
@@ -327,13 +327,13 @@ const RegisterAsRenovator = () => {
         registrationData.createdAt = serverTimestamp();
       }
 
-      // FIXED: Create request in requests collection instead of direct provider profile
+      // FIXED: Create request in providerRequests collection - do NOT change user role
       // Check if request already exists
       let existingRequest = null;
       try {
         const requestsQuery = query(
-          collection(db, 'requests'),
-          where('userId', '==', currentUser.uid),
+          collection(db, 'providerRequests'),
+          where('uid', '==', currentUser.uid),
           where('type', '==', 'renovator')
         );
         const requestsSnapshot = await getDocs(requestsQuery);
@@ -346,7 +346,7 @@ const RegisterAsRenovator = () => {
 
       // Prepare request data
       const requestData = {
-        userId: currentUser.uid,
+        uid: currentUser.uid,
         type: 'renovator',
         portfolio: allPortfolioImages || [],
         description: registrationData.description || '',
@@ -373,7 +373,7 @@ const RegisterAsRenovator = () => {
           toast.success('Request updated successfully! It will be reviewed by admin.');
         } else {
           // Create new request
-          await addDoc(collection(db, 'requests'), requestData);
+          await addDoc(collection(db, 'providerRequests'), requestData);
           toast.success('Request submitted successfully! It will be reviewed by admin.');
         }
       } catch (writeError) {

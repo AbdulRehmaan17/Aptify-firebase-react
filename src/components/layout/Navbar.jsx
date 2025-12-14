@@ -23,7 +23,7 @@ const Navbar = () => {
   const [checkingConstructor, setCheckingConstructor] = useState(false);
   const [isUserRenovator, setIsUserRenovator] = useState(false);
   const [checkingRenovator, setCheckingRenovator] = useState(false);
-  const { currentUser, currentUserRole, loading: authLoading, logout } = useAuth();
+  const { currentUser, currentUserRole, isApprovedProvider, loading: authLoading, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const userMenuRef = useRef(null);
@@ -444,7 +444,7 @@ const Navbar = () => {
                               Admin Panel
                             </Link>
                           )}
-                          {currentUserRole === 'renovator' && (
+                          {currentUserRole === 'renovator' && isApprovedProvider && (
                             <Link
                               to="/renovator-dashboard"
                               className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
@@ -455,7 +455,7 @@ const Navbar = () => {
                               Renovator Panel
                             </Link>
                           )}
-                          {currentUserRole === 'constructor' && (
+                          {currentUserRole === 'constructor' && isApprovedProvider && (
                             <Link
                               to="/constructor-dashboard"
                               className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
@@ -685,7 +685,7 @@ const Navbar = () => {
                           Admin Panel
                         </Link>
                       )}
-                      {currentUserRole === 'renovator' && (
+                      {currentUserRole === 'renovator' && isApprovedProvider && (
                         <Link
                           to="/renovator-dashboard"
                           onClick={() => setIsMenuOpen(false)}
@@ -695,7 +695,7 @@ const Navbar = () => {
                           Renovator Panel
                         </Link>
                       )}
-                      {currentUserRole === 'constructor' && (
+                      {currentUserRole === 'constructor' && isApprovedProvider && (
                         <Link
                           to="/constructor-dashboard"
                           onClick={() => setIsMenuOpen(false)}

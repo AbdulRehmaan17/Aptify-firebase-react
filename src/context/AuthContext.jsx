@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState('user');
+  const [isApprovedProvider, setIsApprovedProvider] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Safe AuthContext: register single auth listener, store loading state, no direct navigate in listener
@@ -50,56 +51,23 @@ export const AuthProvider = ({ children }) => {
             console.warn('Failed to get ID token for admin claim check:', tokenError);
           }
           
-          // Use userProfiles collection per Firestore rules
-          if (db) {
-            const snap = await getDoc(doc(db, 'userProfiles', user.uid));
-            if (snap.exists()) {
-              const profileData = snap.data();
-              setUserProfile({ id: snap.id, ...profileData });
-              // FIXED: Use admin claim if available, otherwise use role from profile
-              setCurrentUserRole(adminClaim ? 'admin' : (profileData.role || 'user'));
-            } else {
-              // Try users collection as fallback for backward compatibility
-              try {
-                const usersSnap = await getDoc(doc(db, 'users', user.uid));
-                if (usersSnap.exists()) {
-                  const profileData = usersSnap.data();
-                  setUserProfile({ id: usersSnap.id, ...profileData });
-                  // FIXED: Use admin claim if available, otherwise use role from profile
-                  setCurrentUserRole(adminClaim ? 'admin' : (profileData.role || 'user'));
-                } else {
-                  setUserProfile(null);
-                  // FIXED: Use admin claim if available
-                  setCurrentUserRole(adminClaim ? 'admin' : 'user');
-                }
-              } catch (e) {
-                console.error('Failed to load user profile from users collection', e);
-                setUserProfile(null);
-                // FIXED: Use admin claim if available
-                setCurrentUserRole(adminClaim ? 'admin' : 'user');
-              }
-            }
+          // Set default values - will be updated by user document listener
+          if (adminClaim) {
+            setCurrentUserRole('admin');
           } else {
-            setUserProfile(null);
-            // FIXED: Use admin claim if available
-            setCurrentUserRole(adminClaim ? 'admin' : 'user');
-          }
-        } catch (e) {
-          console.error('Failed to load user profile', e);
-          setUserProfile(null);
-          // FIXED: Try to get admin claim even on error
-          try {
-            const tokenResult = await getIdTokenResult(user, true);
-            const adminClaim = tokenResult.claims.admin === true;
-            setCurrentUserRole(adminClaim ? 'admin' : 'user');
-          } catch (tokenError) {
             setCurrentUserRole('user');
           }
+          setIsApprovedProvider(false);
+        } catch (e) {
+          console.error('Failed to check admin claim', e);
+          setCurrentUserRole('user');
+          setIsApprovedProvider(false);
         }
       } else {
         // User logged out
         setUserProfile(null);
         setCurrentUserRole('user');
+        setIsApprovedProvider(false);
       }
 
       setLoading(false);
@@ -107,6 +75,81 @@ export const AuthProvider = ({ children }) => {
 
     return () => unsubscribe();
   }, []);
+
+  // SINGLE SOURCE OF TRUTH: Listen to users/{uid} for real-time role and approval updates
+  useEffect(() => {
+    if (!db || !currentUser?.uid || loading) {
+      return;
+    }
+
+    let unsubscribeUser = null;
+    let adminClaim = false;
+
+    // Get admin claim
+    getIdTokenResult(currentUser, true)
+      .then((tokenResult) => {
+        adminClaim = tokenResult.claims.admin === true;
+      })
+      .catch((tokenError) => {
+        console.warn('Failed to get ID token for admin claim:', tokenError);
+      });
+
+    try {
+      // Set up real-time listener for users/{uid}
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      unsubscribeUser = onSnapshot(
+        userDocRef,
+        (snap) => {
+          if (snap.exists()) {
+            const profileData = snap.data();
+            setUserProfile({ id: snap.id, ...profileData });
+            // Use admin claim if available, otherwise use role from profile
+            const role = adminClaim ? 'admin' : (profileData.role || 'user');
+            setCurrentUserRole(role);
+            setIsApprovedProvider(profileData.isApprovedProvider === true);
+          } else {
+            // User doc doesn't exist - use defaults
+            setUserProfile(null);
+            setCurrentUserRole(adminClaim ? 'admin' : 'user');
+            setIsApprovedProvider(false);
+            // Note: User doc creation should happen in authFunctions
+          }
+        },
+        (snapshotError) => {
+          console.error('Error listening to user document:', snapshotError);
+          // Fallback: try one-time fetch
+          getDoc(userDocRef)
+            .then((snap) => {
+              if (snap.exists()) {
+                const profileData = snap.data();
+                setUserProfile({ id: snap.id, ...profileData });
+                const role = adminClaim ? 'admin' : (profileData.role || 'user');
+                setCurrentUserRole(role);
+                setIsApprovedProvider(profileData.isApprovedProvider === true);
+              } else {
+                setUserProfile(null);
+                setCurrentUserRole(adminClaim ? 'admin' : 'user');
+                setIsApprovedProvider(false);
+              }
+            })
+            .catch((e) => {
+              console.error('Failed to fetch user document:', e);
+              setUserProfile(null);
+              setCurrentUserRole(adminClaim ? 'admin' : 'user');
+              setIsApprovedProvider(false);
+            });
+        }
+      );
+    } catch (e) {
+      console.error('Error setting up user document listener:', e);
+    }
+
+    return () => {
+      if (unsubscribeUser) {
+        unsubscribeUser();
+      }
+    };
+  }, [currentUser?.uid, db, loading]);
 
   // Listen to notifications for unread count
   // FIXED: Enhanced error handling and auth checks
@@ -362,6 +405,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     error,
     currentUserRole,
+    isApprovedProvider,
     unreadCount,
     login: handleLogin,
     signup: handleSignup,
