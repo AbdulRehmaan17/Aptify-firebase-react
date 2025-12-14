@@ -22,7 +22,6 @@ import ConstructionList from './pages/ConstructionList';
 import ConstructionProviders from './pages/ConstructionProviders';
 import ProvidersList from './pages/ProvidersList';
 import ConstructionDashboard from './pages/ConstructionDashboard';
-import ConstructorDashboard from './pages/ConstructorDashboard';
 import ConstructorProjects from './pages/constructor/ConstructorProjects';
 import ConstructorProjectDetails from './pages/constructor/ConstructorProjectDetails';
 import ConstructorProfile from './pages/constructor/ConstructorProfile';
@@ -57,6 +56,7 @@ import PaymentMock from './pages/PaymentMock';
 // Lazy load heavy pages for better performance
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const Chat = lazy(() => import('./pages/Chat'));
+const ConstructorDashboard = lazy(() => import('./pages/constructor/ConstructorDashboard'));
 const RenovatorDashboard = lazy(() => import('./pages/renovator/RenovatorDashboard'));
 const RenovatorProjects = lazy(() => import('./pages/renovator/RenovatorProjects'));
 const RenovatorProjectDetails = lazy(() => import('./pages/renovator/RenovatorProjectDetails'));
@@ -235,7 +235,9 @@ function App() {
                 path="/constructor-dashboard"
                 element={
                   <ProtectedRoute>
-                    <ConstructorDashboard />
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <ConstructorDashboard />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
@@ -347,7 +349,9 @@ function App() {
                 path="/constructor/dashboard"
                 element={
                   <ProtectedRoute constructorOnly>
-                    <ConstructorDashboard />
+                    <Suspense fallback={<LoadingSpinner size="lg" />}>
+                      <ConstructorDashboard />
+                    </Suspense>
                   </ProtectedRoute>
                 }
               />
