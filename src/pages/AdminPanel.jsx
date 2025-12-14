@@ -42,6 +42,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  setDoc,
   serverTimestamp,
   getDoc,
   addDoc,
@@ -1393,66 +1394,91 @@ const AdminPanel = () => {
       const requestUid = request.uid || request.userId;
       if (request.requestType === 'Provider Approval' && request.type && requestUid) {
         if (newStatus === 'approved') {
-          // APPROVE: Update providerRequests status and users/{uid} role
-          await updateDoc(requestRef, {
-            status: 'approved',
-            updatedAt: serverTimestamp(),
-          });
+          try {
+            // APPROVE: Update providerRequests status
+            await updateDoc(
+              doc(db, 'providerRequests', request.id),
+              {
+                status: 'approved',
+                reviewedAt: serverTimestamp(),
+              }
+            );
 
-          // Update users/{uid} - SINGLE SOURCE OF TRUTH
-          const userRef = doc(db, 'users', requestUid);
-          await updateDoc(userRef, {
-            role: request.type, // 'renovator' or 'constructor'
-            isApprovedProvider: true,
-            updatedAt: serverTimestamp(),
-          });
+            // Update users/{uid} - SINGLE SOURCE OF TRUTH (use setDoc with merge)
+            await setDoc(
+              doc(db, 'users', requestUid),
+              {
+                role: request.type, // 'contractor' or 'renovator'
+                isApprovedProvider: true,
+                approvedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
 
-          // Create provider profile in providers collection (optional - for public listings)
-          const providerRef = doc(db, 'providers', requestUid);
-          await setDoc(providerRef, {
-            userId: requestUid,
-            type: request.type,
-            portfolio: request.portfolio || [],
-            description: request.description || '',
-            experience: request.experience || '',
-            fullName: request.fullName || '',
-            companyName: request.companyName || '',
-            email: request.email || '',
-            phoneNumber: request.phoneNumber || '',
-            officeAddress: request.officeAddress || '',
-            city: request.city || '',
-            serviceCategories: request.serviceCategories || request.constructionServices || [],
-            licenseFiles: request.licenseFiles || [],
-            availability: request.availability || '',
-            workingHours: request.workingHours || '',
-            teamSize: request.teamSize || null,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }, { merge: true });
+            // Create provider profile in providers collection (optional - for public listings)
+            const providerRef = doc(db, 'providers', requestUid);
+            await setDoc(providerRef, {
+              userId: requestUid,
+              type: request.type,
+              portfolio: request.portfolio || [],
+              description: request.description || '',
+              experience: request.experience || '',
+              fullName: request.fullName || '',
+              companyName: request.companyName || '',
+              email: request.email || '',
+              phoneNumber: request.phoneNumber || '',
+              officeAddress: request.officeAddress || '',
+              city: request.city || '',
+              serviceCategories: request.serviceCategories || request.constructionServices || [],
+              licenseFiles: request.licenseFiles || [],
+              availability: request.availability || '',
+              workingHours: request.workingHours || '',
+              teamSize: request.teamSize || null,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            }, { merge: true });
 
-          // Send notification
-          await notificationService.sendNotification(
-            requestUid,
-            'Provider Application Approved',
-            `Congratulations! Your ${request.type} application has been approved. You can now access provider features.`,
-            'success',
-            '/account'
-          );
+            // Send notification
+            await notificationService.sendNotification(
+              requestUid,
+              'Provider Application Approved',
+              `Congratulations! Your ${request.type} application has been approved. You can now access provider features.`,
+              'success',
+              '/account'
+            );
 
-          toast.success('Provider approved successfully');
+            toast.success('Provider approved successfully');
+          } catch (error) {
+            console.error('Error approving provider:', error);
+            toast.error('Failed to approve provider. Please try again.');
+            setProcessing(false);
+            return;
+          }
         } else if (newStatus === 'rejected') {
-          // REJECT: Update providerRequests status and users/{uid}
-          await updateDoc(requestRef, {
-            status: 'rejected',
-            updatedAt: serverTimestamp(),
-          });
+          try {
+            // REJECT: Update providerRequests status
+            await updateDoc(
+              doc(db, 'providerRequests', request.id),
+              {
+                status: 'rejected',
+                reviewedAt: serverTimestamp(),
+              }
+            );
 
-          // Update users/{uid} - remove approval but keep role unchanged
-          const userRef = doc(db, 'users', requestUid);
-          await updateDoc(userRef, {
-            isApprovedProvider: false,
-            updatedAt: serverTimestamp(),
-          });
+            // Update users/{uid} - remove approval but keep role unchanged
+            await setDoc(
+              doc(db, 'users', requestUid),
+              {
+                isApprovedProvider: false,
+              },
+              { merge: true }
+            );
+          } catch (error) {
+            console.error('Error rejecting provider:', error);
+            toast.error('Failed to reject provider request. Please try again.');
+            setProcessing(false);
+            return;
+          }
 
           // Send notification
           await notificationService.sendNotification(
