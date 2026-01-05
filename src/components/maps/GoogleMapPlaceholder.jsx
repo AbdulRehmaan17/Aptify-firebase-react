@@ -35,7 +35,7 @@ const GoogleMapPlaceholder = ({
   return (
     <div 
       className={`relative bg-muted rounded-lg border-2 border-dashed border-muted overflow-hidden ${className}`}
-      style={{ height }}
+      style={{ width: '100%', height }}
     >
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-10">

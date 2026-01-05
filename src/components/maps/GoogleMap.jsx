@@ -243,7 +243,7 @@ const GoogleMap = ({
 
   if (loading) {
     return (
-      <div className={`flex items-center justify-center bg-muted rounded-lg ${className}`} style={{ height }}>
+      <div className={`flex items-center justify-center bg-muted rounded-lg ${className}`} style={{ width: '100%', height }}>
         <LoadingSpinner size="md" />
       </div>
     );
@@ -254,7 +254,7 @@ const GoogleMap = ({
       <div
         ref={mapRef}
         className="w-full rounded-lg border border-muted overflow-hidden"
-        style={{ height }}
+        style={{ width: '100%', height }}
       />
       {currentLocation && 
        typeof currentLocation.lat === 'number' && 
