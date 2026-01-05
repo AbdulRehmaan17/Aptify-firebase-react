@@ -147,7 +147,9 @@ const GoogleMap = ({
           setError(null);
         }
       } catch (err) {
-        console.error('Error initializing Google Map:', err);
+        if (import.meta.env.DEV) {
+          console.error('Error initializing Google Map:', err);
+        }
         if (isMounted) {
           setError('Failed to initialize map. Please try again.');
           setLoading(false);
@@ -211,7 +213,9 @@ const GoogleMap = ({
 
         address = results.formatted_address;
       } catch (err) {
-        console.warn('Reverse geocoding failed:', err);
+        if (import.meta.env.DEV) {
+          console.warn('Reverse geocoding failed:', err);
+        }
         address = `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
       }
     }
