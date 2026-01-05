@@ -4,7 +4,6 @@ import { Heart, Trash2, ShoppingCart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { getUserProfile, removeFromWishlist, getProducts } from '../firebase/firestore';
-// Note: These functions are exported from firestore.js, not from centralized firebase.js
 import toast from 'react-hot-toast';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
