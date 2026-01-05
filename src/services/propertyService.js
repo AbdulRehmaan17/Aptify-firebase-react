@@ -300,25 +300,24 @@ class PropertyService {
       const propertyRef = await addDoc(collection(db, PROPERTIES_COLLECTION), propertyDoc);
       const propertyId = propertyRef.id;
 
-      // DEBUG: Log created document for verification
-      console.log('✅ Property created successfully:', {
-        propertyId,
-        status: finalStatus,
-        type: propertyData.type.toLowerCase(),
-        listingType: listingTypeValue,
-        ownerId: propertyData.ownerId,
-        hasPhotos: photoURLs.length > 0,
-        createdAt: 'serverTimestamp()',
-      });
-      console.log('🔍 Verify in Firestore console:');
-      console.log('   - Document ID:', propertyId);
-      console.log('   - Status should be:', finalStatus);
-      console.log('   - ownerId should be:', propertyData.ownerId);
-      console.log('   - createdAt should be a timestamp');
+      // Debug logging (dev mode only)
+      if (import.meta.env.DEV) {
+        console.log('✅ Property created successfully:', {
+          propertyId,
+          status: finalStatus,
+          type: propertyData.type.toLowerCase(),
+          listingType: listingTypeValue,
+          ownerId: propertyData.ownerId,
+          hasPhotos: photoURLs.length > 0,
+          createdAt: 'serverTimestamp()',
+        });
+      }
 
       return propertyId;
     } catch (error) {
-      console.error('Error creating property:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error creating property:', error);
+      }
       throw new Error(error.message || 'Failed to create property');
     }
   }

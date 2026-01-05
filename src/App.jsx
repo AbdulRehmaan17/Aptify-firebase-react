@@ -94,7 +94,7 @@ function App() {
               <Route path="/renovation-providers" element={<RenovationProviders />} />
               <Route path="/construction-services" element={<ConstructionServicesPage />} />
               <Route path="/construction-providers" element={<ConstructionProviders />} />
-              <Route path="/providers" element={<ProvidersList />} />
+              <Route path="/providers-list" element={<ProvidersList />} />
               <Route path="/rental-services" element={<RentalServicesPage />} />
               <Route path="/browse-rentals" element={<BrowseRentals />} />
               <Route path="/buy-sell" element={<BuySellLanding />} />

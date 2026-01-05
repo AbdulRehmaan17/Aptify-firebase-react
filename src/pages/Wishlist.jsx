@@ -26,7 +26,9 @@ const Wishlist = () => {
         try {
           // Fetch user profile to get wishlist array
           const userProfile = await getUserProfile(user.uid);
-          console.log('User profile fetched:', userProfile); // Debug log
+          if (import.meta.env.DEV) {
+            console.log('User profile fetched:', userProfile);
+          }
           const wishlistIds = userProfile.wishlist || [];
 
           if (wishlistIds.length === 0) {
@@ -37,10 +39,14 @@ const Wishlist = () => {
 
           // Fetch product details for wishlist items
           const products = await getProducts({ productIds: wishlistIds });
-          console.log('Wishlist products fetched:', products); // Debug log
+          if (import.meta.env.DEV) {
+            console.log('Wishlist products fetched:', products);
+          }
           setWishlistItems(products);
         } catch (error) {
-          console.error('Error fetching wishlist:', error);
+          if (import.meta.env.DEV) {
+            console.error('Error fetching wishlist:', error);
+          }
           toast.error('Failed to load wishlist.');
         } finally {
           setLoading(false);
@@ -57,7 +63,9 @@ const Wishlist = () => {
       setWishlistItems((prev) => prev.filter((item) => item.id !== productId));
       toast.success('Item removed from wishlist.');
     } catch (error) {
-      console.error('Error removing from wishlist:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error removing from wishlist:', error);
+      }
       toast.error('Failed to remove item from wishlist.');
     }
   };

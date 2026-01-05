@@ -60,7 +60,9 @@ const RenovationProviderDetail = () => {
 
         setProvider(providerData);
       } catch (err) {
-        console.error('Error fetching provider:', err);
+        if (import.meta.env.DEV) {
+          console.error('Error fetching provider:', err);
+        }
         setError(err.message || 'Failed to load provider details.');
         toast.error('Failed to load provider.');
       } finally {

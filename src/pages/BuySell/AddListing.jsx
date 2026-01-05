@@ -286,7 +286,9 @@ const AddListing = () => {
               toast.dismiss('upload');
             }
           } catch (uploadError) {
-            console.error('Error uploading images:', uploadError);
+            if (import.meta.env.DEV) {
+              console.error('Error uploading images:', uploadError);
+            }
             toast.dismiss('upload');
             toast.error('Failed to upload some images. Continuing with update...');
             newImageUrls = [];
