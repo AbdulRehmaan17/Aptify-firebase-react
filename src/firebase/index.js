@@ -22,9 +22,11 @@ try {
   if (app) {
     storage = getStorage(app);
   }
-} catch (error) {
-  console.error('Failed to initialize Firebase Storage:', error);
-}
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.error('Failed to initialize Firebase Storage:', error);
+    }
+  }
 
 export { storage };
 
