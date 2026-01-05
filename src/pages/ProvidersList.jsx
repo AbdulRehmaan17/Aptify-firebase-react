@@ -24,7 +24,9 @@ const ProvidersList = () => {
     // Wait for auth to initialize, but don't require user to be logged in
     if (authLoading || !db) {
       if (!authLoading && !db) {
-        console.warn('Firestore db is not initialized');
+        if (import.meta.env.DEV) {
+          console.warn('Firestore db is not initialized');
+        }
         setProviders([]);
         setFilteredProviders([]);
         setLoading(false);
@@ -35,17 +37,22 @@ const ProvidersList = () => {
     setLoading(true);
 
     // CRITICAL: Query constructionProviders collection where contractors are stored
-    console.log('🔍 DEBUG: Setting up query for constructionProviders collection');
+    if (import.meta.env.DEV) {
+      console.log('🔍 DEBUG: Setting up query for constructionProviders collection');
+    }
 
     // First, diagnostic check to see all documents
     getDocs(collection(db, 'constructionProviders'))
       .then((allSnapshot) => {
-        console.log('🔍 DEBUG: Total documents in constructionProviders:', allSnapshot.size);
+        if (import.meta.env.DEV) {
+          console.log('🔍 DEBUG: Total documents in constructionProviders:', allSnapshot.size);
+        }
         if (allSnapshot.size > 0) {
-          console.log('🔍 DEBUG: Sample documents:');
-          allSnapshot.docs.slice(0, 3).forEach((docSnap) => {
-            const data = docSnap.data();
-            console.log(`  - ID: ${docSnap.id}`, {
+          if (import.meta.env.DEV) {
+            console.log('🔍 DEBUG: Sample documents:');
+            allSnapshot.docs.slice(0, 3).forEach((docSnap) => {
+              const data = docSnap.data();
+              console.log(`  - ID: ${docSnap.id}`, {
               approved: data.approved,
               isActive: data.isActive,
               name: data.name,
@@ -53,12 +60,17 @@ const ProvidersList = () => {
               city: data.city,
             });
           });
+          }
         } else {
-          console.warn('⚠️ WARNING: No documents found in constructionProviders collection');
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ WARNING: No documents found in constructionProviders collection');
+          }
         }
       })
       .catch((diagError) => {
-        console.warn('🔍 DEBUG: Error checking collection:', diagError);
+        if (import.meta.env.DEV) {
+          console.warn('🔍 DEBUG: Error checking collection:', diagError);
+        }
       });
 
     // Query constructionProviders with filters: approved === true AND isActive === true
@@ -69,14 +81,18 @@ const ProvidersList = () => {
       orderBy('createdAt', 'desc')
     );
 
-    console.log('🔍 DEBUG: Setting up real-time listener for constructionProviders');
+    if (import.meta.env.DEV) {
+      console.log('🔍 DEBUG: Setting up real-time listener for constructionProviders');
+    }
 
     // Use onSnapshot for real-time updates
     const unsubscribe = onSnapshot(
       providersQuery,
       (snapshot) => {
-        console.log('✅ SUCCESS: constructionProviders query - Snapshot size:', snapshot.size);
-        console.log('✅ SUCCESS: Raw snapshot docs count:', snapshot.docs.length);
+        if (import.meta.env.DEV) {
+          console.log('✅ SUCCESS: constructionProviders query - Snapshot size:', snapshot.size);
+          console.log('✅ SUCCESS: Raw snapshot docs count:', snapshot.docs.length);
+        }
 
         const providersList = snapshot.docs.map((doc) => {
           const data = doc.data();
@@ -93,18 +109,20 @@ const ProvidersList = () => {
           };
         });
 
-        console.log('✅ SUCCESS: Construction providers fetched:', providersList.length, 'providers');
-        if (providersList.length > 0) {
-          console.log('✅ SUCCESS: First provider sample:', {
+        if (import.meta.env.DEV) {
+          console.log('✅ SUCCESS: Construction providers fetched:', providersList.length, 'providers');
+          if (providersList.length > 0) {
+            console.log('✅ SUCCESS: First provider sample:', {
             id: providersList[0].id,
             name: providersList[0].name,
             companyName: providersList[0].companyName,
             city: providersList[0].city,
-            approved: providersList[0].approved,
-            isActive: providersList[0].isActive,
-          });
-        } else {
-          console.warn('⚠️ WARNING: No approved and active contractors found');
+              approved: providersList[0].approved,
+              isActive: providersList[0].isActive,
+            });
+          } else {
+            console.warn('⚠️ WARNING: No approved and active contractors found');
+          }
         }
 
         setProviders(providersList);
@@ -112,7 +130,9 @@ const ProvidersList = () => {
         setLoading(false);
       },
       (error) => {
-        console.error('❌ ERROR: Error fetching constructionProviders:', error);
+        if (import.meta.env.DEV) {
+          console.error('❌ ERROR: Error fetching constructionProviders:', error);
+        }
         if (error.code === 'permission-denied') {
           toast.error('Permission denied. Please check Firestore rules.');
           setProviders([]);
@@ -120,7 +140,9 @@ const ProvidersList = () => {
           setLoading(false);
         } else if (error.code === 'failed-precondition' || error.message?.includes('index')) {
           // Fallback: query without orderBy if index is missing
-          console.warn('⚠️ WARNING: Index required for query. Falling back to query without orderBy.');
+          if (import.meta.env.DEV) {
+            console.warn('⚠️ WARNING: Index required for query. Falling back to query without orderBy.');
+          }
           const fallbackQuery = query(
             collection(db, 'constructionProviders'),
             where('approved', '==', true),
@@ -128,7 +150,9 @@ const ProvidersList = () => {
           );
           getDocs(fallbackQuery)
             .then((snapshot) => {
-              console.log('✅ SUCCESS (Fallback): constructionProviders - Snapshot size:', snapshot.size);
+              if (import.meta.env.DEV) {
+                console.log('✅ SUCCESS (Fallback): constructionProviders - Snapshot size:', snapshot.size);
+              }
               const providersList = snapshot.docs.map((doc) => {
                 const data = doc.data();
                 // Normalize location to string if it's an object
@@ -151,18 +175,24 @@ const ProvidersList = () => {
                 return bTime - aTime;
               });
               
-              console.log('✅ SUCCESS (Fallback): Construction providers fetched:', providersList.length, 'providers');
+              if (import.meta.env.DEV) {
+                console.log('✅ SUCCESS (Fallback): Construction providers fetched:', providersList.length, 'providers');
+              }
               setProviders(providersList);
               setFilteredProviders(providersList);
               setLoading(false);
             })
             .catch((fallbackError) => {
-              console.error('❌ ERROR: Fallback query failed:', fallbackError);
+              if (import.meta.env.DEV) {
+                console.error('❌ ERROR: Fallback query failed:', fallbackError);
+                console.warn('⚠️ WARNING: Trying to fetch all constructionProviders documents...');
+              }
               // Last resort: fetch all and filter client-side
-              console.warn('⚠️ WARNING: Trying to fetch all constructionProviders documents...');
               getDocs(collection(db, 'constructionProviders'))
                 .then((allSnapshot) => {
-                  console.log('🔍 DEBUG: All constructionProviders - Snapshot size:', allSnapshot.size);
+                  if (import.meta.env.DEV) {
+                    console.log('🔍 DEBUG: All constructionProviders - Snapshot size:', allSnapshot.size);
+                  }
                   const allProviders = allSnapshot.docs.map((doc) => ({
                     id: doc.id,
                     ...doc.data(),
@@ -172,7 +202,9 @@ const ProvidersList = () => {
                   const filtered = allProviders.filter(p => 
                     p.approved === true && p.isActive === true
                   );
-                  console.log('✅ SUCCESS (Client-side filter): Construction providers:', filtered.length, 'providers');
+                  if (import.meta.env.DEV) {
+                    console.log('✅ SUCCESS (Client-side filter): Construction providers:', filtered.length, 'providers');
+                  }
                   // Sort by createdAt descending
                   filtered.sort((a, b) => {
                     const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
@@ -184,7 +216,9 @@ const ProvidersList = () => {
                   setLoading(false);
                 })
                 .catch((finalError) => {
-                  console.error('❌ ERROR: Final fallback query failed:', finalError);
+                  if (import.meta.env.DEV) {
+                    console.error('❌ ERROR: Final fallback query failed:', finalError);
+                  }
                   toast.error('Failed to load construction providers');
                   setProviders([]);
                   setFilteredProviders([]);
