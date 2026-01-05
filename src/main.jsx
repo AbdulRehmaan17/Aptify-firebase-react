@@ -63,14 +63,16 @@ if (import.meta.env.DEV) {
 
 // Global error handlers - MUST be set up before any imports that might throw
 window.addEventListener('error', (e) => {
-  console.error('🔥 Runtime Error:', e.error);
-  console.error('🔥 Error Details:', {
-    message: e.message,
-    filename: e.filename,
-    lineno: e.lineno,
-    colno: e.colno,
-    stack: e.error?.stack,
-  });
+  if (import.meta.env.DEV) {
+    console.error('🔥 Runtime Error:', e.error);
+    console.error('🔥 Error Details:', {
+      message: e.message,
+      filename: e.filename,
+      lineno: e.lineno,
+      colno: e.colno,
+      stack: e.error?.stack,
+    });
+  }
 
   // Show error in UI if root element exists and is empty
   const rootElement = document.getElementById('root');
@@ -88,18 +90,22 @@ window.addEventListener('error', (e) => {
 });
 
 window.addEventListener('unhandledrejection', (e) => {
-  console.error('🔥 Promise Rejection:', e.reason);
-  console.error('🔥 Rejection Details:', {
-    reason: e.reason,
-    promise: e.promise,
-    stack: e.reason?.stack,
-  });
+  if (import.meta.env.DEV) {
+    console.error('🔥 Promise Rejection:', e.reason);
+    console.error('🔥 Rejection Details:', {
+      reason: e.reason,
+      promise: e.promise,
+      stack: e.reason?.stack,
+    });
+  }
 });
 
 // Ensure root element exists
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  console.error('Root element not found!');
+  if (import.meta.env.DEV) {
+    console.error('Root element not found!');
+  }
   document.body.innerHTML =
     '<div style="padding: 20px; text-align: center; font-family: system-ui;"><h1 style="color: #dc2626;">Application Error</h1><p style="color: #6b7280;">Root element not found. Please check your HTML.</p></div>';
 } else {
@@ -117,7 +123,9 @@ if (!rootElement) {
       </StrictMode>
     );
   } catch (error) {
-    console.error('🔥 Failed to render app:', error);
+    if (import.meta.env.DEV) {
+      console.error('🔥 Failed to render app:', error);
+    }
     const errorMessage =
       error?.message || error?.toString() || 'An unexpected error occurred during initialization';
     const errorStack = error?.stack || error?.toString() || '';

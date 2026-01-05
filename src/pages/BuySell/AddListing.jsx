@@ -264,7 +264,10 @@ const AddListing = () => {
     }
 
     setLoading(true);
-    console.time('submit');
+    // Performance tracking (dev mode only)
+    if (import.meta.env.DEV) {
+      console.time('submit');
+    }
     try {
       if (isEditMode) {
         // Edit mode: Upload new images if any, then update
@@ -323,7 +326,9 @@ const AddListing = () => {
 
         // CRITICAL PATH: Only await the Firestore write
         await propertyService.update(id, updateData);
-        console.timeEnd('submit');
+        if (import.meta.env.DEV) {
+          console.timeEnd('submit');
+        }
         
         // OPTIMIZED: Release UI immediately after Firestore write
         setLoading(false);
@@ -368,7 +373,9 @@ const AddListing = () => {
         // CRITICAL PATH: Only await the Firestore write
         // propertyService.create() will upload images in parallel BEFORE creating document
         const propertyId = await propertyService.create(propertyData, images);
-        console.timeEnd('submit');
+        if (import.meta.env.DEV) {
+          console.timeEnd('submit');
+        }
         
         // OPTIMIZED: Release UI immediately after Firestore write succeeds
         setLoading(false);

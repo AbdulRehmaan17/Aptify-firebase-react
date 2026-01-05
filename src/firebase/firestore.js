@@ -6,18 +6,24 @@ let db = null;
 try {
   if (app) {
     db = getFirestore(app);
-    console.log('✅ Firestore initialized successfully');
+    if (import.meta.env.DEV) {
+      console.log('✅ Firestore initialized successfully');
+    }
   } else {
-    console.error('❌ Cannot initialize Firestore: Firebase app is not initialized');
-    console.error('   Check: Firebase config and environment variables');
+    if (import.meta.env.DEV) {
+      console.error('❌ Cannot initialize Firestore: Firebase app is not initialized');
+      console.error('   Check: Firebase config and environment variables');
+    }
   }
 } catch (error) {
-  console.error('❌ Firestore initialization error:', error);
-  console.error('   Error details:', {
-    message: error.message,
-    code: error.code,
-    stack: error.stack,
-  });
+  if (import.meta.env.DEV) {
+    console.error('❌ Firestore initialization error:', error);
+    console.error('   Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+    });
+  }
 }
 
 export { db };

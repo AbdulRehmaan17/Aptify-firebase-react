@@ -7,14 +7,24 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
-  // Ensure environment variables are loaded
+  // Environment variables configuration
   // Only variables with VITE_ prefix are exposed to client code
   envPrefix: 'VITE_',
-  // Clear cache on build issues
+  // Build configuration for Netlify deployment
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+        },
+      },
+    },
+  },
+  // Server configuration
   server: {
     hmr: true,
   },
-  // Explicitly define which env files to load
-  // Vite loads: .env, .env.local, .env.[mode], .env.[mode].local
-  // Priority: .env.[mode].local > .env.local > .env.[mode] > .env
 });
