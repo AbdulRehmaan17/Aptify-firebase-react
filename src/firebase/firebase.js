@@ -8,7 +8,8 @@ export {
   getRedirectResult,
 } from './auth';
 export { db } from './firestore';
-export { firebaseConfig, app } from './config';
+export { firebaseConfig } from './config';
+export { default as app } from './config';
 // FIXED: Import storage from index.js instead of creating duplicate
 export { storage } from './index';
 

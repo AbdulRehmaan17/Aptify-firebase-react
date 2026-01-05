@@ -5,7 +5,7 @@ import {
   signInWithRedirect,
   getRedirectResult,
 } from 'firebase/auth';
-import { app } from './config';
+import app from './config';
 
 // Initialize Auth
 export const auth = app ? getAuth(app) : null;

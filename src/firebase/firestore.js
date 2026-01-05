@@ -1,5 +1,5 @@
 import { getFirestore } from 'firebase/firestore';
-import { app } from './config';
+import app from './config';
 
 // Initialize Firestore
 let db = null;

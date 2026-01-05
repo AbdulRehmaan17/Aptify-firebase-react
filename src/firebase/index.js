@@ -1,6 +1,6 @@
 // Main Firebase exports - centralized export point
 // Import all Firebase services
-import { app, firebaseConfig } from './config';
+import app, { firebaseConfig } from './config';
 import {
   auth,
   googleProvider,
