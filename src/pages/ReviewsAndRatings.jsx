@@ -8,8 +8,7 @@ import {
   deleteDoc,
   doc,
 } from 'firebase/firestore';
-import { db } from '../firebase';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import reviewsService from '../services/reviewsService';
 import { Star, MessageSquare, User, Calendar, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
