@@ -19,6 +19,7 @@ const PropertiesPage = () => {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const ITEMS_PER_PAGE = 12;
+  // Separate filter state (what user is editing) from applied filters (what's actually used)
   const [filters, setFilters] = useState({
     type: searchParams.get('type') || '', // Get type from URL params (e.g., ?type=sale)
     status: '', // Empty string means no status filter - show all properties
@@ -30,32 +31,51 @@ const PropertiesPage = () => {
     furnished: null,
     parking: null,
   });
+  const [appliedFilters, setAppliedFilters] = useState({
+    type: searchParams.get('type') || '',
+    status: '',
+    city: '',
+    minPrice: null,
+    maxPrice: null,
+    bedrooms: null,
+    bathrooms: null,
+    furnished: null,
+    parking: null,
+  });
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState(searchParams.get('search') || '');
 
   useEffect(() => {
-    // Update search term and type from URL params
+    // Update search term and type from URL params on mount
     const searchFromUrl = searchParams.get('search') || '';
     const typeFromUrl = searchParams.get('type') || '';
     setSearchTerm(searchFromUrl);
+    setAppliedSearchTerm(searchFromUrl);
     if (typeFromUrl) {
-      setFilters((prev) => ({ ...prev, type: typeFromUrl }));
+      const initialFilters = { ...filters, type: typeFromUrl };
+      setFilters(initialFilters);
+      setAppliedFilters(initialFilters);
     }
-  }, [searchParams]);
+  }, []); // Only run on mount
 
+  // Fetch properties only when applied filters or sort changes (not on every filter state change)
   useEffect(() => {
     const fetchProperties = async () => {
       try {
         setLoading(true);
-        const firestoreFilters = buildFirestoreFilters();
+        // Reset pagination when filters change
+        setHasMore(true);
+        
+        const firestoreFilters = buildFirestoreFilters(appliedFilters);
         const sortOptions = getSortOptions();
 
-        console.log('Fetching properties with filters:', firestoreFilters);
+        console.log('Fetching properties with applied filters:', firestoreFilters);
         console.log('Sort options:', sortOptions);
 
         let propertiesData;
-        if (searchTerm.trim()) {
-          console.log('Using search with term:', searchTerm);
-          propertiesData = await propertyService.search(searchTerm, firestoreFilters);
+        if (appliedSearchTerm.trim()) {
+          console.log('Using search with term:', appliedSearchTerm);
+          propertiesData = await propertyService.search(appliedSearchTerm, firestoreFilters);
         } else {
           console.log('Using getAll');
           const allOptions = { ...sortOptions, limit: ITEMS_PER_PAGE };
@@ -87,46 +107,46 @@ const PropertiesPage = () => {
     };
 
     fetchProperties();
-  }, [filters, sortBy, searchTerm]);
+  }, [appliedFilters, sortBy, appliedSearchTerm]); // Only fetch when applied filters change
 
-  const buildFirestoreFilters = () => {
+  const buildFirestoreFilters = (filterState = appliedFilters) => {
     const firestoreFilters = {};
 
-    if (filters.type) {
-      firestoreFilters.type = filters.type;
+    if (filterState.type) {
+      firestoreFilters.type = filterState.type;
     }
 
     // Only add status filter if explicitly set (not empty string)
-    if (filters.status && filters.status.trim() !== '') {
-      firestoreFilters.status = filters.status;
+    if (filterState.status && filterState.status.trim() !== '') {
+      firestoreFilters.status = filterState.status;
     }
 
-    if (filters.city) {
-      firestoreFilters.city = filters.city;
+    if (filterState.city) {
+      firestoreFilters.city = filterState.city;
     }
 
-    if (filters.minPrice !== null && filters.minPrice !== '') {
-      firestoreFilters.minPrice = Number(filters.minPrice);
+    if (filterState.minPrice !== null && filterState.minPrice !== '') {
+      firestoreFilters.minPrice = Number(filterState.minPrice);
     }
 
-    if (filters.maxPrice !== null && filters.maxPrice !== '') {
-      firestoreFilters.maxPrice = Number(filters.maxPrice);
+    if (filterState.maxPrice !== null && filterState.maxPrice !== '') {
+      firestoreFilters.maxPrice = Number(filterState.maxPrice);
     }
 
-    if (filters.bedrooms !== null && filters.bedrooms !== '') {
-      firestoreFilters.minBedrooms = Number(filters.bedrooms);
+    if (filterState.bedrooms !== null && filterState.bedrooms !== '') {
+      firestoreFilters.minBedrooms = Number(filterState.bedrooms);
     }
 
-    if (filters.bathrooms !== null && filters.bathrooms !== '') {
-      firestoreFilters.minBathrooms = Number(filters.bathrooms);
+    if (filterState.bathrooms !== null && filterState.bathrooms !== '') {
+      firestoreFilters.minBathrooms = Number(filterState.bathrooms);
     }
 
-    if (filters.furnished !== null) {
-      firestoreFilters.furnished = filters.furnished;
+    if (filterState.furnished !== null) {
+      firestoreFilters.furnished = filterState.furnished;
     }
 
-    if (filters.parking !== null) {
-      firestoreFilters.parking = filters.parking;
+    if (filterState.parking !== null) {
+      firestoreFilters.parking = filterState.parking;
     }
 
     return firestoreFilters;
@@ -156,16 +176,49 @@ const PropertiesPage = () => {
   };
 
   const handleFiltersChange = (newFilters) => {
+    // Only update local filter state - don't apply yet
     setFilters(newFilters);
-    setSearchParams((prev) => ({
-      ...Object.fromEntries(prev),
-      ...newFilters,
-    }));
+  };
+
+  // Apply filters when user clicks "Apply Filters" button
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters);
+    setAppliedSearchTerm(searchTerm);
+    // Reset pagination
+    setHasMore(true);
+    // Update URL params
+    setSearchParams((prev) => {
+      const newParams = { ...Object.fromEntries(prev) };
+      if (filters.type) newParams.type = filters.type;
+      if (searchTerm) newParams.search = searchTerm;
+      return newParams;
+    });
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    const emptyFilters = {
+      type: '',
+      status: '',
+      city: '',
+      minPrice: null,
+      maxPrice: null,
+      bedrooms: null,
+      bathrooms: null,
+      furnished: null,
+      parking: null,
+    };
+    setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setSearchTerm('');
+    setAppliedSearchTerm('');
+    setSearchParams({});
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
-    // Search is handled in useEffect
+    // Apply search immediately when form is submitted
+    handleApplyFilters();
   };
 
   const handleLoadMore = async () => {
@@ -173,7 +226,7 @@ const PropertiesPage = () => {
 
     try {
       setLoadingMore(true);
-      const firestoreFilters = buildFirestoreFilters();
+      const firestoreFilters = buildFirestoreFilters(appliedFilters);
       const sortOptions = getSortOptions();
       const allOptions = {
         ...sortOptions,
@@ -182,8 +235,8 @@ const PropertiesPage = () => {
       };
 
       let moreProperties;
-      if (searchTerm.trim()) {
-        moreProperties = await propertyService.search(searchTerm, firestoreFilters);
+      if (appliedSearchTerm.trim()) {
+        moreProperties = await propertyService.search(appliedSearchTerm, firestoreFilters);
         // Client-side pagination for search results
         moreProperties = moreProperties.slice(properties.length, properties.length + ITEMS_PER_PAGE);
       } else {
@@ -245,6 +298,23 @@ const PropertiesPage = () => {
             isOpen={filtersOpen}
             onToggle={() => setFiltersOpen(!filtersOpen)}
           />
+          {/* Apply Filters Button */}
+          <div className="mt-4 space-y-2">
+            <Button
+              onClick={handleApplyFilters}
+              variant="primary"
+              className="w-full"
+            >
+              Apply Filters
+            </Button>
+            <Button
+              onClick={handleClearFilters}
+              variant="outline"
+              className="w-full"
+            >
+              Clear Filters
+            </Button>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -335,20 +405,7 @@ const PropertiesPage = () => {
               <h3 className="text-lg font-medium text-textMain mb-2">No properties found</h3>
               <p className="text-textSecondary mb-6">Try adjusting your filters or search criteria</p>
               <Button
-                onClick={() => {
-                  setFilters({
-                    type: '',
-                    status: '', // Empty = show all properties
-                    city: '',
-                    minPrice: null,
-                    maxPrice: null,
-                    bedrooms: null,
-                    bathrooms: null,
-                    furnished: null,
-                    parking: null,
-                  });
-                  setSearchTerm('');
-                }}
+                onClick={handleClearFilters}
                 variant="outline"
               >
                 Clear Filters

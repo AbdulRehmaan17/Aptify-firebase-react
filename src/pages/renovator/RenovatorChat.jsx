@@ -53,22 +53,32 @@ const RenovatorChat = () => {
         const otherId = chatData.participants.find((id) => id !== currentUser.uid);
         setOtherParticipantId(otherId);
 
-        // Load other participant name (customer)
+        // Load other participant name from participantDetails (preferred) or fallback
         if (otherId) {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', otherId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              setOtherParticipantName(
-                userData.displayName ||
-                userData.name ||
-                userData.email?.split('@')[0] ||
-                'Customer'
-              );
+          if (chatData.participantDetails && chatData.participantDetails[otherId]) {
+            // Use participantDetails if available
+            const otherDetails = chatData.participantDetails[otherId];
+            setOtherParticipantName(otherDetails.name || 'Customer');
+            // Role is usually 'user' for customers, so we can show "Customer" in header
+          } else {
+            // Fallback for old chats without participantDetails
+            try {
+              const userDoc = await getDoc(doc(db, 'users', otherId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                setOtherParticipantName(
+                  userData.displayName ||
+                  userData.name ||
+                  userData.email?.split('@')[0] ||
+                  'Customer'
+                );
+              } else {
+                setOtherParticipantName('Customer');
+              }
+            } catch (error) {
+              console.error('Error loading customer name:', error);
+              setOtherParticipantName('Customer');
             }
-          } catch (error) {
-            console.error('Error loading customer name:', error);
-            setOtherParticipantName('Customer');
           }
         }
       }

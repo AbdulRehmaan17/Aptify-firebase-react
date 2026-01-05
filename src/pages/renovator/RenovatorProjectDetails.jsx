@@ -37,7 +37,7 @@ import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ProjectTimeline from '../../components/constructor/ProjectTimeline';
 import ProjectStatusBadge from '../../components/constructor/ProjectStatusBadge';
-import { getOrCreateChat } from '../../utils/chatHelpers';
+import { findOrCreateConversation } from '../../utils/chatHelpers';
 import notificationService from '../../services/notificationService';
 import { uploadMultipleImages } from '../../firebase/storageFunctions';
 import toast from 'react-hot-toast';
@@ -399,8 +399,8 @@ const RenovatorProjectDetails = () => {
 
     try {
       setStartingChat(true);
-      const chatId = await getOrCreateChat(currentUser.uid, clientId);
-      navigate(`/renovator/chat?chatId=${chatId}`);
+      const chatId = await findOrCreateConversation(currentUser.uid, clientId);
+      navigate(`/chat?chatId=${chatId}`);
     } catch (error) {
       console.error('Error starting chat:', error);
       toast.error('Failed to start chat. Please try again.');

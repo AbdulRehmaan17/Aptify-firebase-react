@@ -4,6 +4,46 @@ import App from './App';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import './index.css';
 
+// Import environment validation in dev mode (run early to catch issues)
+if (import.meta.env.DEV) {
+  // Import validator (runs automatically and logs to console)
+  import('./utils/envValidator').then(() => {
+    // Validator auto-runs on import
+  }).catch((err) => {
+    console.warn('Could not load env validator:', err);
+  });
+  
+  // Also import debug utility
+  import('./utils/debugGoogleMapsKey').then(() => {
+    // Debug utility is available via window.debugGoogleMapsKey()
+  }).catch((err) => {
+    console.warn('Could not load debug utility:', err);
+  });
+  
+  // Import and validate Google Maps config early
+  import('./config/googleMapsConfig').then((config) => {
+    const validation = config.validateGoogleMapsConfig();
+    if (!validation.valid) {
+      console.group('🔴 Google Maps Configuration Issue');
+      console.error(validation.error);
+      console.error('');
+      console.error('💡 Quick Fix:');
+      console.error('   1. Create/update .env.local in project root');
+      console.error('   2. Add: VITE_GOOGLE_MAPS_API_KEY=your_actual_api_key_here');
+      console.error('   3. Restart dev server: npm run dev');
+      console.error('');
+      console.error('🔍 Run diagnostics:');
+      console.error('   window.validateGoogleMapsKey()');
+      console.error('   window.debugGoogleMapsKey()');
+      console.groupEnd();
+    } else {
+      console.log('✅ Google Maps API key configured correctly');
+    }
+  }).catch((err) => {
+    console.warn('Could not load Google Maps config:', err);
+  });
+}
+
 // Import diagnostics tool (only in dev mode)
 if (import.meta.env.DEV) {
   import('./utils/firestoreDiagnostics').then(({ runFirestoreDiagnostics }) => {

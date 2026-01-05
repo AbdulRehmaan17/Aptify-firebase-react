@@ -23,6 +23,7 @@ const BrowseRentals = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState('grid');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Separate filter state (what user is editing) from applied filters (what's actually used)
   const [filters, setFilters] = useState({
     type: 'rent', // Locked to rent
     status: '', // Empty string = show all statuses (published, pending, etc.)
@@ -34,28 +35,42 @@ const BrowseRentals = () => {
     furnished: null,
     parking: null,
   });
+  const [appliedFilters, setAppliedFilters] = useState({
+    type: 'rent', // Locked to rent
+    status: '',
+    city: '',
+    minPrice: null,
+    maxPrice: null,
+    bedrooms: null,
+    bathrooms: null,
+    furnished: null,
+    parking: null,
+  });
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState(searchParams.get('search') || '');
 
   useEffect(() => {
-    // Update search term from URL params
+    // Update search term from URL params on mount
     const searchFromUrl = searchParams.get('search') || '';
     setSearchTerm(searchFromUrl);
-  }, [searchParams]);
+    setAppliedSearchTerm(searchFromUrl);
+  }, []); // Only run on mount
 
+  // Fetch properties only when applied filters or sort changes (not on every filter state change)
   useEffect(() => {
     const fetchProperties = async () => {
       try {
         setLoading(true);
-        const firestoreFilters = buildFirestoreFilters();
+        const firestoreFilters = buildFirestoreFilters(appliedFilters);
         const sortOptions = getSortOptions();
 
-        console.log('Fetching rental properties with filters:', firestoreFilters);
+        console.log('Fetching rental properties with applied filters:', firestoreFilters);
         console.log('Sort options:', sortOptions);
 
         let propertiesData;
-        if (searchTerm.trim()) {
-          console.log('Using search with term:', searchTerm);
-          propertiesData = await propertyService.search(searchTerm, firestoreFilters);
+        if (appliedSearchTerm.trim()) {
+          console.log('Using search with term:', appliedSearchTerm);
+          propertiesData = await propertyService.search(appliedSearchTerm, firestoreFilters);
         } else {
           console.log('Using getAll for rentals');
           propertiesData = await propertyService.getAll(firestoreFilters, sortOptions);
@@ -117,9 +132,9 @@ const BrowseRentals = () => {
     };
 
     fetchProperties();
-  }, [filters, sortBy, searchTerm]);
+  }, [appliedFilters, sortBy, appliedSearchTerm]); // Only fetch when applied filters change
 
-  const buildFirestoreFilters = () => {
+  const buildFirestoreFilters = (filterState = appliedFilters) => {
     const firestoreFilters = {
       type: 'rent', // Always filter for rent
       // Note: listingType is also checked in client-side filter below
@@ -127,36 +142,36 @@ const BrowseRentals = () => {
 
     // Only add status filter if explicitly set (not empty string)
     // Empty string means show all statuses (published, pending, etc.)
-    if (filters.status && filters.status.trim() !== '') {
-      firestoreFilters.status = filters.status;
+    if (filterState.status && filterState.status.trim() !== '') {
+      firestoreFilters.status = filterState.status;
     }
 
-    if (filters.city) {
-      firestoreFilters.city = filters.city;
+    if (filterState.city) {
+      firestoreFilters.city = filterState.city;
     }
 
-    if (filters.minPrice !== null && filters.minPrice !== '') {
-      firestoreFilters.minPrice = Number(filters.minPrice);
+    if (filterState.minPrice !== null && filterState.minPrice !== '') {
+      firestoreFilters.minPrice = Number(filterState.minPrice);
     }
 
-    if (filters.maxPrice !== null && filters.maxPrice !== '') {
-      firestoreFilters.maxPrice = Number(filters.maxPrice);
+    if (filterState.maxPrice !== null && filterState.maxPrice !== '') {
+      firestoreFilters.maxPrice = Number(filterState.maxPrice);
     }
 
-    if (filters.bedrooms !== null && filters.bedrooms !== '') {
-      firestoreFilters.minBedrooms = Number(filters.bedrooms);
+    if (filterState.bedrooms !== null && filterState.bedrooms !== '') {
+      firestoreFilters.minBedrooms = Number(filterState.bedrooms);
     }
 
-    if (filters.bathrooms !== null && filters.bathrooms !== '') {
-      firestoreFilters.minBathrooms = Number(filters.bathrooms);
+    if (filterState.bathrooms !== null && filterState.bathrooms !== '') {
+      firestoreFilters.minBathrooms = Number(filterState.bathrooms);
     }
 
-    if (filters.furnished !== null) {
-      firestoreFilters.furnished = filters.furnished;
+    if (filterState.furnished !== null) {
+      firestoreFilters.furnished = filterState.furnished;
     }
 
-    if (filters.parking !== null) {
-      firestoreFilters.parking = filters.parking;
+    if (filterState.parking !== null) {
+      firestoreFilters.parking = filterState.parking;
     }
 
     return firestoreFilters;
@@ -186,21 +201,56 @@ const BrowseRentals = () => {
   };
 
   const handleFiltersChange = (newFilters) => {
+    // Only update local filter state - don't apply yet
     // Ensure type is always 'rent'
     const updatedFilters = {
       ...newFilters,
       type: 'rent', // Lock to rent
     };
     setFilters(updatedFilters);
-    setSearchParams((prev) => ({
-      ...Object.fromEntries(prev),
-      ...updatedFilters,
-    }));
+  };
+
+  // Apply filters when user clicks "Apply Filters" button
+  const handleApplyFilters = () => {
+    // Ensure type is always 'rent'
+    const updatedFilters = {
+      ...filters,
+      type: 'rent', // Lock to rent
+    };
+    setAppliedFilters(updatedFilters);
+    setAppliedSearchTerm(searchTerm);
+    // Update URL params
+    setSearchParams((prev) => {
+      const newParams = { ...Object.fromEntries(prev) };
+      if (searchTerm) newParams.search = searchTerm;
+      return newParams;
+    });
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    const emptyFilters = {
+      type: 'rent', // Keep locked to rent
+      status: '',
+      city: '',
+      minPrice: null,
+      maxPrice: null,
+      bedrooms: null,
+      bathrooms: null,
+      furnished: null,
+      parking: null,
+    };
+    setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setSearchTerm('');
+    setAppliedSearchTerm('');
+    setSearchParams({});
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
-    // Search is handled in useEffect
+    // Apply search immediately when form is submitted
+    handleApplyFilters();
   };
 
   if (loading) {
@@ -246,6 +296,23 @@ const BrowseRentals = () => {
             isOpen={filtersOpen}
             onToggle={() => setFiltersOpen(!filtersOpen)}
           />
+          {/* Apply Filters Button */}
+          <div className="mt-4 space-y-2">
+            <Button
+              onClick={handleApplyFilters}
+              variant="primary"
+              className="w-full"
+            >
+              Apply Filters
+            </Button>
+            <Button
+              onClick={handleClearFilters}
+              variant="outline"
+              className="w-full"
+            >
+              Clear Filters
+            </Button>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -306,20 +373,7 @@ const BrowseRentals = () => {
               <p className="text-textSecondary text-lg mb-4">No rental properties found</p>
               <p className="text-textSecondary mb-6">Try adjusting your filters or search terms</p>
               <Button
-                onClick={() => {
-                  setFilters({
-                    type: 'rent', // Keep locked to rent
-                    status: '', // Reset to empty (show all statuses)
-                    city: '',
-                    minPrice: null,
-                    maxPrice: null,
-                    bedrooms: null,
-                    bathrooms: null,
-                    furnished: null,
-                    parking: null,
-                  });
-                  setSearchTerm('');
-                }}
+                onClick={handleClearFilters}
               >
                 Clear Filters
               </Button>

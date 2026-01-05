@@ -280,9 +280,11 @@ const NotificationBell = () => {
           <motion.span
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute top-0 right-0 bg-error text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+            exit={{ scale: 0 }}
+            className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center border-2 border-background shadow-sm z-10"
+            title={`${contextUnreadCount} unread notification${contextUnreadCount !== 1 ? 's' : ''}`}
           >
-            {contextUnreadCount > 9 ? '9+' : contextUnreadCount}
+            {contextUnreadCount > 99 ? '99+' : contextUnreadCount > 9 ? '9+' : contextUnreadCount}
           </motion.span>
         )}
       </button>

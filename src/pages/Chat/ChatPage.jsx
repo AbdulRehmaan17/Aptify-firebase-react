@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getOrCreateChat } from '../../utils/chatHelpers';
+import { findOrCreateConversation } from '../../utils/chatHelpers';
 import ConversationList from '../../components/Chat/ConversationList';
 import MessageBox from '../../components/Chat/MessageBox';
 import { ArrowLeft, User } from 'lucide-react';
@@ -18,6 +18,7 @@ const ChatPage = () => {
   const [selectedChatId, setSelectedChatId] = useState(searchParams.get('chatId') || null);
   const [otherParticipantId, setOtherParticipantId] = useState(null);
   const [otherParticipantName, setOtherParticipantName] = useState('');
+  const [otherParticipantRole, setOtherParticipantRole] = useState(null);
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'chat'
 
@@ -47,22 +48,32 @@ const ChatPage = () => {
         const otherId = chatData.participants.find((id) => id !== currentUser.uid);
         setOtherParticipantId(otherId);
 
-        // Load other participant name
+        // Load other participant name from participantDetails (preferred) or fallback
         if (otherId) {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', otherId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              setOtherParticipantName(
-                userData.displayName ||
-                userData.name ||
-                userData.email?.split('@')[0] ||
-                'Unknown User'
-              );
+          if (chatData.participantDetails && chatData.participantDetails[otherId]) {
+            // Use participantDetails if available
+            const otherDetails = chatData.participantDetails[otherId];
+            setOtherParticipantName(otherDetails.name || 'User');
+            setOtherParticipantRole(otherDetails.role || null);
+          } else {
+            // Fallback for old chats without participantDetails
+            try {
+              const userDoc = await getDoc(doc(db, 'users', otherId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                setOtherParticipantName(
+                  userData.displayName ||
+                  userData.name ||
+                  userData.email?.split('@')[0] ||
+                  'Chat'
+                );
+              } else {
+                setOtherParticipantName('Chat');
+              }
+            } catch (error) {
+              console.error('Error loading user name:', error);
+              setOtherParticipantName('Chat');
             }
-          } catch (error) {
-            console.error('Error loading user name:', error);
-            setOtherParticipantName('Unknown User');
           }
         }
       }
@@ -86,7 +97,7 @@ const ChatPage = () => {
 
     try {
       setLoading(true);
-      const chatId = await getOrCreateChat(currentUser.uid, userId);
+      const chatId = await findOrCreateConversation(currentUser.uid, userId);
       setSelectedChatId(chatId);
       navigate(`/chat?chatId=${chatId}`);
       await loadChatInfo(chatId);
@@ -166,7 +177,13 @@ const ChatPage = () => {
                     </div>
                     <div>
                       <p className="font-semibold text-textMain">{otherParticipantName}</p>
-                      <p className="text-xs text-textSecondary">Online</p>
+                      <p className="text-xs text-textSecondary">
+                        {otherParticipantRole 
+                          ? (otherParticipantRole === 'contractor' ? 'Contractor' : 
+                             otherParticipantRole === 'renovator' ? 'Renovator' : 
+                             otherParticipantRole === 'user' ? 'User' : otherParticipantRole)
+                          : 'User'}
+                      </p>
                     </div>
                   </div>
                 </div>

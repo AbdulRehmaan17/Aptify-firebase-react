@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, onSnapshot, updateDoc, doc, orderBy, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import notificationService from '../../services/notificationService';
-import { getOrCreateChat } from '../../utils/chatHelpers';
+import { findOrCreateConversation } from '../../utils/chatHelpers';
 import {
   Hammer,
   Calendar,
@@ -272,7 +272,7 @@ const ProviderConstructionRequests = () => {
     }
 
     try {
-      const chatId = await getOrCreateChat(currentUser.uid, clientId);
+      const chatId = await findOrCreateConversation(currentUser.uid, clientId);
       navigate(`/chat?chatId=${chatId}`);
     } catch (error) {
       console.error('Error starting chat:', error);
@@ -414,6 +414,10 @@ const ProviderConstructionRequests = () => {
                                 src={photo}
                                 alt={`Project image ${index + 1}`}
                                 className="w-16 h-16 object-cover rounded-base"
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/64x64?text=No+Image';
+                                  e.target.onerror = null; // Prevent infinite loop
+                                }}
                               />
                             ))}
                             {request.photos.length > 3 && (

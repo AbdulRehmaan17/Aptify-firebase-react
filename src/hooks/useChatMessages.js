@@ -56,9 +56,9 @@ export function useChatMessages(chatId) {
         },
         (error) => {
           console.error('Error fetching messages:', error);
-          // FIXED: Handle permission denied gracefully
+          // Handle permission denied gracefully
           if (error.code === 'permission-denied') {
-            console.warn('Chats collection is blocked by Firestore rules');
+            console.error('Permission denied accessing messages:', error);
             setMessages([]);
             setLoading(false);
             return;
@@ -153,31 +153,88 @@ export function useChatMessages(chatId) {
           }
         }
 
-        // Get chat document to find receiver
+        // Step 1: Get chat document and verify currentUser is a participant
         const chatRef = doc(db, 'chats', chatId);
         const chatSnap = await getDoc(chatRef);
+        
+        if (!chatSnap.exists()) {
+          throw new Error('Chat not found');
+        }
+
         const chatData = chatSnap.data();
         const participants = chatData?.participants || [];
+        
+        // Verify currentUser.uid is in participants array
+        if (!participants.includes(currentUser.uid)) {
+          throw new Error('You are not a participant in this chat');
+        }
+
         const receiverId = participants.find((uid) => uid !== currentUser.uid);
 
-        // Add message to subcollection
-        // FIXED: chats collection is blocked - handle permission denied
-        const messagesRef = collection(db, 'chats', chatId, 'messages');
+        // Step 2: Get sender role and name from user document
+        let senderRole = 'user';
+        let senderName = currentUser.displayName || currentUser.email || 'User';
+        
         try {
-          await addDoc(messagesRef, {
-            senderId: currentUser.uid,
-            receiverId: receiverId,
-            text: text.trim(),
-            attachments: attachmentUrls,
-            createdAt: serverTimestamp(),
-          });
-        } catch (writeError) {
-          // FIXED: Handle permission denied gracefully
-          if (writeError.code === 'permission-denied') {
-            throw new Error('Messages are currently unavailable due to security restrictions. Please contact support.');
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            // Get sender name
+            senderName = userData.name || userData.displayName || userData.email || senderName;
+            // Get sender role
+            if (userData.role === 'constructor') {
+              senderRole = 'contractor';
+            } else if (userData.role === 'renovator') {
+              senderRole = 'renovator';
+            } else if (userData.role === 'admin') {
+              senderRole = 'admin';
+            } else {
+              senderRole = 'user';
+            }
           }
-          throw writeError;
+        } catch (roleError) {
+          console.error('Error fetching user role/name:', roleError);
+          // Default to 'user' if role fetch fails
         }
+
+        // Step 3: Create readBy object with all participants
+        const readBy = {};
+        participants.forEach((participantId) => {
+          readBy[participantId] = participantId === currentUser.uid; // Sender has read their own message
+        });
+
+        // FIXED: Log before Firestore write
+        console.log('🔵 [Chat Message] Preparing to write message:', {
+          authUid: currentUser.uid,
+          chatId: chatId,
+          targetPath: `chats/${chatId}/messages`,
+          senderName: senderName,
+          senderRole: senderRole,
+          messagePreview: text.trim().substring(0, 50) + '...',
+        });
+
+        // Step 4: Add message to subcollection using addDoc (CREATE only) - includes senderName
+        const messagesRef = collection(db, 'chats', chatId, 'messages');
+        const messageData = {
+          senderId: currentUser.uid,
+          senderName: senderName, // FIXED: Added senderName field
+          senderRole: senderRole,
+          receiverId: receiverId,
+          text: text.trim(),
+          attachments: attachmentUrls,
+          createdAt: serverTimestamp(),
+          readBy: readBy,
+        };
+        
+        console.log('🔵 [Chat Message] Payload:', {
+          ...messageData,
+          createdAt: '[serverTimestamp]',
+          attachments: attachmentUrls.length,
+        });
+
+        await addDoc(messagesRef, messageData);
+        console.log('✅ [Chat Message] Message created successfully');
 
         // Update parent chat document
         const unreadFor = {

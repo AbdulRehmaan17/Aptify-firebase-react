@@ -157,8 +157,9 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
     }
 
     try {
-      const chatId = await getOrCreateChat(project.userId || project.clientId, project.providerId);
-      navigate(`/chats?chatId=${chatId}`);
+      const { findOrCreateConversation } = await import('../../utils/chatHelpers');
+      const chatId = await findOrCreateConversation(project.userId || project.clientId, project.providerId);
+      navigate(`/chat?chatId=${chatId}`);
     } catch (error) {
       console.error('Error creating chat:', error);
       toast.error('Failed to start chat');

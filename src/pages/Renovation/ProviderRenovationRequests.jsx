@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import notificationService from '../../services/notificationService';
-import { getOrCreateChat } from '../../utils/chatHelpers';
+import { findOrCreateConversation } from '../../utils/chatHelpers';
 import reviewsService from '../../services/reviewsService';
 import {
   Wrench,
@@ -408,7 +408,7 @@ const ProviderRenovationRequests = () => {
     }
 
     try {
-      const chatId = await getOrCreateChat(currentUser.uid, clientId);
+      const chatId = await findOrCreateConversation(currentUser.uid, clientId);
       navigate(`/chat?chatId=${chatId}`);
     } catch (error) {
       console.error('Error starting chat:', error);
@@ -550,6 +550,10 @@ const ProviderRenovationRequests = () => {
                                 src={photo}
                                 alt={`Project image ${index + 1}`}
                                 className="w-16 h-16 object-cover rounded-base"
+                                onError={(e) => {
+                                  e.target.src = 'https://via.placeholder.com/64x64?text=No+Image';
+                                  e.target.onerror = null; // Prevent infinite loop
+                                }}
                               />
                             ))}
                             {request.photos.length > 3 && (

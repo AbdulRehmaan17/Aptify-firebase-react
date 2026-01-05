@@ -27,10 +27,12 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
   const [localFilters, setLocalFilters] = useState(defaultFilters);
 
   const handleFilterChange = (key, value) => {
+    // Only update local state - don't apply yet
     setLocalFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleArrayFilterToggle = (key, value) => {
+    // Only update local state - don't apply yet
     setLocalFilters((prev) => ({
       ...prev,
       [key]: prev[key].includes(value)
@@ -40,6 +42,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
   };
 
   const applyFilters = () => {
+    // Apply filters when user clicks "Apply Filters" button
     onFiltersChange(localFilters);
     onToggle();
   };
@@ -53,6 +56,7 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
       inStock: false,
     };
     setLocalFilters(resetFilters);
+    // Apply cleared filters immediately
     onFiltersChange(resetFilters);
   };
 
@@ -198,6 +202,9 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
           </div>
 
           <div className="hidden lg:block space-y-3">
+            <Button onClick={applyFilters} variant="primary" size="sm" fullWidth>
+              Apply Filters
+            </Button>
             <Button onClick={clearFilters} variant="outline" size="sm" fullWidth>
               Clear All
             </Button>

@@ -9,6 +9,7 @@ import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Modal from '../components/common/Modal';
 import { Home, MapPin, DollarSign, Bed, Bath, Square, Upload, CheckCircle } from 'lucide-react';
+import LocationPicker from '../components/maps/LocationPicker';
 
 const PostPropertyPage = () => {
   const navigate = useNavigate();
@@ -17,6 +18,30 @@ const PostPropertyPage = () => {
   const [createdPropertyId, setCreatedPropertyId] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadingProperty, setLoadingProperty] = useState(false);
+  
+  // State declarations (must be before useSubmitForm to be accessible in closure)
+  const [locationData, setLocationData] = useState(null);
+  const [images, setImages] = useState([]);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    price: '',
+    type: searchParams.get('type') || 'sale',
+    address: {
+      line1: '',
+      city: '',
+      state: '',
+      country: 'Pakistan',
+      postalCode: '',
+    },
+    bedrooms: '',
+    bathrooms: '',
+    areaSqFt: '',
+    furnished: false,
+    parking: false,
+    amenities: [],
+  });
+  const [errors, setErrors] = useState({});
 
   // Use standardized submit hook (only for create mode, edit mode uses direct update)
   const {
@@ -34,6 +59,27 @@ const PostPropertyPage = () => {
       const { images: formImages, ...formDataWithoutImages } = data;
       const imagesToUse = formImages || images;
 
+      // Safely build location data
+      const safeLocationData = locationData && 
+                               typeof locationData.lat === 'number' && 
+                               typeof locationData.lng === 'number'
+        ? {
+            lat: locationData.lat,
+            lng: locationData.lng,
+            address: locationData.address || formDataWithoutImages.address?.line1 || '',
+          }
+        : null;
+
+      // Safely build address data
+      const safeAddress = {
+        ...formDataWithoutImages.address,
+        line1: locationData?.address || formDataWithoutImages.address?.line1 || '',
+        city: locationData?.city || formDataWithoutImages.address?.city || '',
+        state: locationData?.state || formDataWithoutImages.address?.state || '',
+        country: locationData?.country || formDataWithoutImages.address?.country || 'Pakistan',
+        postalCode: locationData?.postalCode || formDataWithoutImages.address?.postalCode || '',
+      };
+
       const propertyData = {
         ...formDataWithoutImages,
         listingType: formDataWithoutImages.type,
@@ -44,6 +90,10 @@ const PostPropertyPage = () => {
         bedrooms: Number(formDataWithoutImages.bedrooms),
         bathrooms: Number(formDataWithoutImages.bathrooms),
         areaSqFt: Number(formDataWithoutImages.areaSqFt),
+        // Include location data from LocationPicker (only if valid)
+        location: safeLocationData,
+        // Update address from location data if available
+        address: safeAddress,
       };
 
       const propertyId = await propertyService.create(propertyData, imagesToUse);
@@ -88,28 +138,6 @@ const PostPropertyPage = () => {
   const isBuySellMode = typeFromQuery === 'sale' || !searchParams.get('type'); // Buy/sell mode when type=sale or no type param
   const editId = searchParams.get('edit');
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    price: '',
-    type: typeFromQuery, // sale, rent, renovation - set from query params
-    address: {
-      line1: '',
-      city: '',
-      state: '',
-      country: 'Pakistan',
-      postalCode: '',
-    },
-    bedrooms: '',
-    bathrooms: '',
-    areaSqFt: '',
-    furnished: false,
-    parking: false,
-    amenities: [],
-  });
-  const [images, setImages] = useState([]);
-  const [errors, setErrors] = useState({});
-
   // Ensure type is 'sale' when in buy/sell mode
   useEffect(() => {
     if (isBuySellMode && formData.type !== 'sale') {
@@ -132,6 +160,29 @@ const PostPropertyPage = () => {
           toast.error('You do not have permission to edit this property');
           navigate('/properties');
           return;
+        }
+
+        // Load location data if available
+        if (propertyData.location) {
+          const lat = propertyData.location.latitude || propertyData.location.lat || null;
+          const lng = propertyData.location.longitude || propertyData.location.lng || null;
+          
+          if (lat != null && lng != null && 
+              typeof lat === 'number' && typeof lng === 'number') {
+            setLocationData({
+              lat: lat,
+              lng: lng,
+              address: propertyData.address?.line1 || '',
+              city: propertyData.address?.city || '',
+              state: propertyData.address?.state || '',
+              country: propertyData.address?.country || 'Pakistan',
+              postalCode: propertyData.address?.postalCode || '',
+            });
+          } else {
+            setLocationData(null);
+          }
+        } else {
+          setLocationData(null);
         }
 
         // Populate form with existing data
@@ -228,8 +279,32 @@ const PostPropertyPage = () => {
       newErrors.price = 'Valid price is required';
     }
 
-    if (!formData.address.line1.trim()) {
-      newErrors['address.line1'] = 'Address is required';
+    // Validate location - allow manual address entry if Maps API is not available
+    // Use the same validation logic as other components
+    let hasApiKey = false;
+    try {
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (apiKey && typeof apiKey === 'string') {
+        const trimmed = apiKey.trim();
+        hasApiKey = trimmed !== '' && trimmed !== 'YOUR_GOOGLE_MAPS_API_KEY' && trimmed.length >= 10;
+      }
+    } catch (e) {
+      hasApiKey = false;
+    }
+    
+    if (hasApiKey) {
+      // If API key is configured, require coordinates
+      if (!locationData || !locationData.lat || !locationData.lng) {
+        newErrors['address.line1'] = 'Please select a location on the map';
+      }
+      if (!locationData || !locationData.address || !locationData.address.trim()) {
+        newErrors['address.line1'] = 'Please search and select an address';
+      }
+    } else {
+      // If no API key, allow manual address entry
+      if (!formData.address.line1 || !formData.address.line1.trim()) {
+        newErrors['address.line1'] = 'Please enter a property address';
+      }
     }
 
     if (!formData.address.city.trim()) {
@@ -418,38 +493,41 @@ const PostPropertyPage = () => {
                   {errors.price && <p className="text-error text-sm mt-1">{errors.price}</p>}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-textSecondary mb-2">
-                    Property Type <span className="text-error">*</span>
-                  </label>
-                  <select
-                    name="type"
-                    value={formData.type}
-                    onChange={handleChange}
-                    disabled={isRentalMode || isBuySellMode} // Lock to rent if coming from rental services, or to sale if coming from buy/sell
-                    className={`w-full px-4 py-3 border border-muted rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
-                      isRentalMode || isBuySellMode ? 'bg-muted cursor-not-allowed' : ''
-                    }`}
-                  >
-                    <option value="sale">For Sale</option>
-                    {!isBuySellMode && <option value="rent">For Rent</option>}
-                    {!isBuySellMode && <option value="renovation">Renovation Service</option>}
-                  </select>
-                  {isRentalMode && (
-                    <p className="mt-1 text-sm text-primary">
-                      Listing type is set to "For Rent" for rental properties
-                    </p>
-                  )}
-                  {isBuySellMode && !isRentalMode && (
-                    <p className="mt-1 text-sm text-primary">
-                      Listing type is set to "For Sale" for buy/sell properties
-                    </p>
-                  )}
-                </div>
+                {/* Property Type - Show dropdown only if multiple options, otherwise show static text */}
+                {isRentalMode || isBuySellMode ? (
+                  <div>
+                    <label className="block text-sm font-medium text-textSecondary mb-2">
+                      Property Type <span className="text-error">*</span>
+                    </label>
+                    <div className="w-full px-4 py-3 border border-muted rounded-lg bg-muted/50">
+                      <p className="text-textMain font-medium">
+                        {isRentalMode ? 'For Rent' : 'For Sale'}
+                      </p>
+                    </div>
+                    {/* Hidden input to ensure backend receives correct type */}
+                    <input type="hidden" name="type" value={formData.type} />
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-textSecondary mb-2">
+                      Property Type <span className="text-error">*</span>
+                    </label>
+                    <select
+                      name="type"
+                      value={formData.type}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-muted rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors"
+                    >
+                      <option value="sale">For Sale</option>
+                      <option value="rent">For Rent</option>
+                      <option value="renovation">Renovation Service</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Address */}
+            {/* Address with Google Maps */}
             <div className="space-y-6 border-b border-muted pb-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-accent rounded-lg">
@@ -458,57 +536,39 @@ const PostPropertyPage = () => {
                 <h2 className="text-2xl font-display font-bold text-textMain">Address</h2>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-textSecondary mb-2">
-                  Street Address <span className="text-error">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="address.line1"
-                  value={formData.address.line1}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
-                    errors['address.line1'] ? 'border-error' : 'border-muted'
-                  }`}
-                  placeholder="123 Main Street"
-                />
-                {errors['address.line1'] && (
-                  <p className="text-error text-sm mt-1">{errors['address.line1']}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-textSecondary mb-2">
-                    City <span className="text-error">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="address.city"
-                    value={formData.address.city}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
-                      errors['address.city'] ? 'border-error' : 'border-muted'
-                    }`}
-                    placeholder="Lahore"
-                  />
-                  {errors['address.city'] && (
-                    <p className="text-error text-sm mt-1">{errors['address.city']}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-textSecondary mb-2">State</label>
-                  <input
-                    type="text"
-                    name="address.state"
-                    value={formData.address.state}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 border border-muted rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors"
-                    placeholder="Punjab"
-                  />
-                </div>
-              </div>
+              <LocationPicker
+                location={locationData && 
+                         typeof locationData.lat === 'number' && 
+                         typeof locationData.lng === 'number' 
+                  ? locationData 
+                  : null}
+                onLocationChange={(location) => {
+                  // Safely update location data
+                  if (location && 
+                      typeof location.lat === 'number' && 
+                      typeof location.lng === 'number') {
+                    setLocationData(location);
+                    // Update form data for backward compatibility
+                    setFormData((prev) => ({
+                      ...prev,
+                      address: {
+                        ...prev.address,
+                        line1: location.address || prev.address.line1 || '',
+                        city: location.city || prev.address.city || '',
+                        state: location.state || prev.address.state || '',
+                        country: location.country || prev.address.country || 'Pakistan',
+                        postalCode: location.postalCode || prev.address.postalCode || '',
+                      },
+                    }));
+                    // Clear address error
+                    if (errors['address.line1']) {
+                      setErrors((prev) => ({ ...prev, 'address.line1': '' }));
+                    }
+                  }
+                }}
+                required={true}
+                error={errors['address.line1']}
+              />
             </div>
 
             {/* Property Details */}

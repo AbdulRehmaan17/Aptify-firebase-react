@@ -8,9 +8,13 @@ export default defineConfig({
     exclude: ['lucide-react'],
   },
   // Ensure environment variables are loaded
+  // Only variables with VITE_ prefix are exposed to client code
   envPrefix: 'VITE_',
   // Clear cache on build issues
   server: {
     hmr: true,
   },
+  // Explicitly define which env files to load
+  // Vite loads: .env, .env.local, .env.[mode], .env.[mode].local
+  // Priority: .env.[mode].local > .env.local > .env.[mode] > .env
 });

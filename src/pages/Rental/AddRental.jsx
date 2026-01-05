@@ -9,6 +9,7 @@ import { db } from '../../firebase';
 import { MapPin, DollarSign, Home, FileText, Image as ImageIcon, X, Upload } from 'lucide-react';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
+import LocationPicker from '../../components/maps/LocationPicker';
 import toast from 'react-hot-toast';
 
 const AddRental = () => {
@@ -31,6 +32,15 @@ const AddRental = () => {
     furnished: false,
     parking: false,
     available: true,
+  });
+  const [locationData, setLocationData] = useState({
+    lat: null,
+    lng: null,
+    address: '',
+    city: '',
+    state: '',
+    country: 'Pakistan',
+    postalCode: '',
   });
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -74,6 +84,24 @@ const AddRental = () => {
         parking: property.parking || false,
         available: property.available !== false,
       });
+
+      // Load location data if available
+      if (property.location) {
+        const lat = property.location.latitude || property.location.lat || null;
+        const lng = property.location.longitude || property.location.lng || null;
+        
+        if (lat && lng) {
+          setLocationData({
+            lat: lat,
+            lng: lng,
+            address: property.address?.line1 || '',
+            city: property.address?.city || '',
+            state: property.address?.state || '',
+            country: property.address?.country || 'Pakistan',
+            postalCode: property.address?.postalCode || '',
+          });
+        }
+      }
 
       // Set existing images as previews
       const existingImages = property.photos || property.images || [];
@@ -174,12 +202,32 @@ const AddRental = () => {
       newErrors.price = 'Valid price is required';
     }
 
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
+    // Validate location - allow manual address entry if Maps API is not available
+    // Use consistent validation logic
+    let hasApiKey = false;
+    try {
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (apiKey && typeof apiKey === 'string') {
+        const trimmed = apiKey.trim();
+        hasApiKey = trimmed !== '' && trimmed !== 'YOUR_GOOGLE_MAPS_API_KEY' && trimmed.length >= 10;
+      }
+    } catch (e) {
+      hasApiKey = false;
     }
-
-    if (!formData.city.trim()) {
-      newErrors.city = 'City is required';
+    
+    if (hasApiKey) {
+      // If API key is configured, require coordinates
+      if (!locationData.lat || !locationData.lng) {
+        newErrors.location = 'Please select a location on the map';
+      }
+      if (!locationData.address || !locationData.address.trim()) {
+        newErrors.location = 'Please search and select an address';
+      }
+    } else {
+      // If no API key, allow manual address entry
+      if (!formData.location || !formData.location.trim()) {
+        newErrors.location = 'Please enter a property address';
+      }
     }
 
     // FIXED: Images are now optional - removed required validation
@@ -228,10 +276,17 @@ const AddRental = () => {
           description: formData.description.trim(),
           price: parseFloat(formData.price),
           address: {
-            line1: formData.location.trim(),
-            city: formData.city.trim(),
-            country: 'Pakistan',
+            line1: locationData.address || formData.location.trim(),
+            city: locationData.city || formData.city.trim(),
+            state: locationData.state || null,
+            country: locationData.country || 'Pakistan',
+            postalCode: locationData.postalCode || null,
           },
+          location: locationData.lat && locationData.lng ? {
+            lat: locationData.lat,
+            lng: locationData.lng,
+            address: locationData.address,
+          } : null,
           category: formData.category,
           bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : 0,
           bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : 0,
@@ -278,10 +333,17 @@ const AddRental = () => {
           description: formData.description.trim(),
           price: parseFloat(formData.price),
           address: {
-            line1: formData.location.trim(),
-            city: formData.city.trim(),
-            country: 'Pakistan',
+            line1: locationData.address || formData.location.trim(),
+            city: locationData.city || formData.city.trim(),
+            state: locationData.state || null,
+            country: locationData.country || 'Pakistan',
+            postalCode: locationData.postalCode || null,
           },
+          location: locationData.lat && locationData.lng ? {
+            lat: locationData.lat,
+            lng: locationData.lng,
+            address: locationData.address,
+          } : null,
           type: 'rent',
           category: formData.category,
           bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : 0,
@@ -427,30 +489,27 @@ const AddRental = () => {
               </div>
             </div>
 
-            {/* Location */}
+            {/* Location with Google Maps */}
             <div>
               <h2 className="text-xl font-semibold text-textMain mb-4">Location</h2>
-              
-              <div className="space-y-4">
-                <Input
-                  label="Address"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  error={errors.location}
-                  leftIcon={<MapPin className="w-4 h-4" />}
-                  placeholder="Street address"
-                  required
-                />
-
-                <Input
-                  label="City"
-                  value={formData.city}
-                  onChange={(e) => handleInputChange('city', e.target.value)}
-                  error={errors.city}
-                  placeholder="City name"
-                  required
-                />
-              </div>
+              <LocationPicker
+                location={locationData.lat && locationData.lng ? locationData : null}
+                onLocationChange={(location) => {
+                  setLocationData(location);
+                  // Update form data for backward compatibility
+                  setFormData((prev) => ({
+                    ...prev,
+                    location: location.address || prev.location,
+                    city: location.city || prev.city,
+                  }));
+                  // Clear location error
+                  if (errors.location) {
+                    setErrors((prev) => ({ ...prev, location: '' }));
+                  }
+                }}
+                required={true}
+                error={errors.location}
+              />
             </div>
 
             {/* Property Details */}

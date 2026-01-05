@@ -31,7 +31,7 @@ import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import ProjectTimeline from '../../components/constructor/ProjectTimeline';
 import ProjectStatusBadge from '../../components/constructor/ProjectStatusBadge';
-import { getOrCreateChat } from '../../utils/chatHelpers';
+import { findOrCreateConversation } from '../../utils/chatHelpers';
 import notificationService from '../../services/notificationService';
 import toast from 'react-hot-toast';
 
@@ -385,7 +385,7 @@ const ConstructorProjectDetails = () => {
 
     try {
       setStartingChat(true);
-      const chatId = await getOrCreateChat(currentUser.uid, clientId);
+      const chatId = await findOrCreateConversation(currentUser.uid, clientId);
       navigate(`/chat?chatId=${chatId}`);
     } catch (error) {
       console.error('Error starting chat:', error);

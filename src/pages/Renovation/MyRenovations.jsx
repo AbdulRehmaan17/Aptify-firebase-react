@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { getOrCreateChat } from '../../utils/chatHelpers';
+import { findOrCreateConversation } from '../../utils/chatHelpers';
 import {
   Wrench,
   Calendar,
@@ -113,7 +113,7 @@ const MyRenovations = () => {
     }
 
     try {
-      const chatId = await getOrCreateChat(currentUser.uid, request.providerId);
+      const chatId = await findOrCreateConversation(currentUser.uid, request.providerId);
       navigate(`/chat?chatId=${chatId}`);
     } catch (error) {
       console.error('Error starting chat:', error);

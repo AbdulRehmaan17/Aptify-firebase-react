@@ -87,11 +87,10 @@ export default function useChatList() {
         },
         (err) => {
           console.error('Error fetching chats:', err);
-          // FIXED: Handle permission denied gracefully
+          // Handle permission denied gracefully
           if (err.code === 'permission-denied') {
-            console.warn('Chats collection is blocked by Firestore rules');
+            console.error('Permission denied accessing chats collection:', err);
             setChats([]);
-            setError('Messages are currently unavailable due to security restrictions.');
             setLoading(false);
             return;
           }
@@ -160,10 +159,9 @@ export default function useChatList() {
               },
               (fallbackErr) => {
                 console.error('Error fetching chats (fallback):', fallbackErr);
-                // FIXED: Handle permission denied in fallback
+                // Handle permission denied in fallback
                 if (fallbackErr.code === 'permission-denied') {
-                  console.warn('Chats collection is blocked by Firestore rules');
-                  setError('Messages are currently unavailable due to security restrictions.');
+                  console.error('Permission denied accessing chats collection:', fallbackErr);
                 } else {
                   setError(fallbackErr.message);
                 }

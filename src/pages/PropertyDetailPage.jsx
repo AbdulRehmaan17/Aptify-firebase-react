@@ -16,6 +16,8 @@ import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import RentalRequestForm from './RentalRequestForm';
 import BuySellOfferForm from './BuySellOfferForm';
+import GoogleMap from '../components/maps/GoogleMap';
+import MapErrorBoundary from '../components/maps/MapErrorBoundary';
 
 const PropertyDetailPage = () => {
   const { id } = useParams();
@@ -201,7 +203,37 @@ const PropertyDetailPage = () => {
     );
   }
 
-  const images = property.photos || (property.coverImage ? [property.coverImage] : []);
+  // NORMALIZED: Get images array - filter out invalid values
+  const getNormalizedImages = () => {
+    const images = [];
+    
+    // Add coverImage if valid
+    if (property.coverImage && typeof property.coverImage === 'string') {
+      const trimmed = property.coverImage.trim();
+      if (trimmed.length > 0 && (trimmed.startsWith('http://') || trimmed.startsWith('https://'))) {
+        images.push(trimmed);
+      }
+    }
+    
+    // Add photos array (filter invalid values)
+    if (property.photos && Array.isArray(property.photos)) {
+      for (const photo of property.photos) {
+        if (typeof photo === 'string') {
+          const trimmed = photo.trim();
+          if (trimmed.length > 0 && (trimmed.startsWith('http://') || trimmed.startsWith('https://'))) {
+            // Avoid duplicates if coverImage is same as first photo
+            if (images.length === 0 || images[0] !== trimmed) {
+              images.push(trimmed);
+            }
+          }
+        }
+      }
+    }
+    
+    return images;
+  };
+  
+  const images = getNormalizedImages();
   const displayImage = images[activeImageIndex] || images[0] || '';
 
   return (
@@ -234,6 +266,10 @@ const PropertyDetailPage = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.5 }}
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/600x400?text=Image+Not+Available';
+                  e.target.onerror = null; // Prevent infinite loop
+                }}
               />
                 {/* Navigation Arrows */}
                 {images.length > 1 && (
@@ -282,6 +318,10 @@ const PropertyDetailPage = () => {
                       src={img}
                       alt={`Thumbnail ${index + 1}`}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/80x80?text=Image+Error';
+                        e.target.onerror = null; // Prevent infinite loop
+                      }}
                     />
                   </button>
                 ))}
@@ -383,6 +423,52 @@ const PropertyDetailPage = () => {
                 </div>
               )}
 
+              {/* Location Map - Always show if location data exists */}
+              {property.location && property.location.lat && property.location.lng ? (
+                <div className="mb-8">
+                  <h3 className="text-xl font-semibold mb-4">Location</h3>
+                  <MapErrorBoundary height="400px">
+                    <GoogleMap
+                      center={{
+                        lat: property.location.lat,
+                        lng: property.location.lng,
+                      }}
+                      zoom={15}
+                      height="400px"
+                      draggable={false}
+                      clickable={false}
+                    />
+                  </MapErrorBoundary>
+                  {property.location.address && (
+                    <p className="text-sm text-textSecondary mt-2">
+                      <MapPin className="w-4 h-4 inline mr-1" />
+                      {property.location.address}
+                    </p>
+                  )}
+                </div>
+              ) : property.address || property.location?.address ? (
+                // Show placeholder if address exists but no coordinates
+                <div className="mb-8">
+                  <h3 className="text-xl font-semibold mb-4">Location</h3>
+                  <MapErrorBoundary height="400px">
+                    <GoogleMap
+                      center={{
+                        lat: 24.8607,
+                        lng: 67.0011,
+                      }}
+                      zoom={15}
+                      height="400px"
+                      draggable={false}
+                      clickable={false}
+                    />
+                  </MapErrorBoundary>
+                  <p className="text-sm text-textSecondary mt-2">
+                    <MapPin className="w-4 h-4 inline mr-1" />
+                    {property.location?.address || property.address || 'Address not available'}
+                  </p>
+                </div>
+              ) : null}
+
               {/* Owner Contact & Action Buttons */}
               {property.ownerName && !isOwner && (
                 <div className="mb-8 p-4 card-base shadow-md">
@@ -424,9 +510,9 @@ const PropertyDetailPage = () => {
                             return;
                           }
                           try {
-                            const { getOrCreateChat } = await import('../utils/chatHelpers');
-                            const chatId = await getOrCreateChat(user.uid, property.ownerId);
-                            navigate(`/chats?chatId=${chatId}`);
+                            const { findOrCreateConversation } = await import('../utils/chatHelpers');
+                            const chatId = await findOrCreateConversation(user.uid, property.ownerId);
+                            navigate(`/chat?chatId=${chatId}`);
                           } catch (error) {
                             console.error('Error creating chat:', error);
                             toast.error('Failed to start chat. Please try again.');

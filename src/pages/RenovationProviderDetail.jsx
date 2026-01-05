@@ -293,9 +293,9 @@ const RenovationProviderDetail = () => {
                       className="w-full bg-primary hover:bg-primaryDark text-white"
                       onClick={async () => {
                         try {
-                          const { getOrCreateChat } = await import('../utils/chatHelpers');
-                          const chatId = await getOrCreateChat(user.uid, provider.userId);
-                          navigate(`/chats?chatId=${chatId}`);
+                          const { findOrCreateConversation } = await import('../utils/chatHelpers');
+                          const chatId = await findOrCreateConversation(user.uid, provider.userId);
+                          navigate(`/chat?chatId=${chatId}`);
                         } catch (error) {
                           console.error('Error creating chat:', error);
                           toast.error('Failed to start chat. Please try again.');

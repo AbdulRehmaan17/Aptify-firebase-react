@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  setDoc,
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
@@ -41,13 +42,14 @@ import reviewsService from '../../services/reviewsService';
  * Profile management page for construction service providers
  * Allows editing profile information, portfolio, and credentials
  * 
- * Fetches serviceProviders/{providerId} where userId == currentUser.uid
+ * Fetches constructorProfiles/{uid} collection
+ * Auto-creates profile if user has role === "constructor" and isApprovedProvider === true but profile doesn't exist
  * Shows provider info, ratings & reviews, portfolio images
- * Allows editing and saving updates
+ * Allows editing and saving updates to constructorProfiles collection
  */
 const ConstructorProfile = () => {
   const navigate = useNavigate();
-  const { currentUser, loading: authLoading, userProfile } = useAuth();
+  const { currentUser, loading: authLoading, userProfile, currentUserRole, isApprovedProvider } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -105,25 +107,61 @@ const ConstructorProfile = () => {
       try {
         setLoading(true);
 
-        // Query serviceProviders where userId == currentUser.uid and serviceType == 'Construction'
-        const providersQuery = query(
-          collection(db, 'serviceProviders'),
-          where('userId', '==', currentUser.uid),
-          where('serviceType', '==', 'Construction')
-        );
+        // CRITICAL: Check constructorProfiles/{uid} collection first
+        const profileRef = doc(db, 'constructorProfiles', currentUser.uid);
+        let profileDoc = await getDoc(profileRef);
+        let data = null;
 
-        const snapshot = await getDocs(providersQuery);
+        if (profileDoc.exists()) {
+          // Profile exists - use it
+          data = { id: profileDoc.id, ...profileDoc.data() };
+          setProviderId(profileDoc.id);
+          setProviderData(data);
+        } else {
+          // Profile doesn't exist - check if user has constructor role
+          if (currentUserRole === 'constructor' && isApprovedProvider) {
+            // User is approved constructor but profile missing - auto-create it
+            try {
+              const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+              const userData = userDoc.exists() ? userDoc.data() : {};
+              
+              const newProfileData = {
+                uid: currentUser.uid,
+                name: userData.displayName || userData.name || currentUser.displayName || '',
+                email: userData.email || currentUser.email || '',
+                phone: userData.phone || userData.phoneNumber || '',
+                approvedAt: serverTimestamp(),
+                createdAt: serverTimestamp(),
+                status: 'approved',
+                portfolio: [],
+                services: [],
+                isActive: true,
+                description: '',
+                experience: '',
+                city: userData.city || '',
+                address: userData.address || '',
+                availability: true,
+                updatedAt: serverTimestamp(),
+              };
 
-        if (snapshot.empty) {
-          toast.error('Constructor profile not found. Please register as a constructor first.');
-          navigate('/register-constructor');
-          return;
+              await setDoc(profileRef, newProfileData, { merge: true });
+              data = { id: profileRef.id, ...newProfileData };
+              setProviderId(profileRef.id);
+              setProviderData(data);
+              toast.success('Profile created successfully');
+            } catch (createError) {
+              console.error('Error auto-creating constructor profile:', createError);
+              toast.error('Failed to create profile. Please try again.');
+              setLoading(false);
+              return;
+            }
+          } else {
+            // User is not approved constructor - show error
+            toast.error('Constructor profile not found. Please register as a constructor first.');
+            navigate('/constructor-dashboard');
+            return;
+          }
         }
-
-        const providerDoc = snapshot.docs[0];
-        const data = { id: providerDoc.id, ...providerDoc.data() };
-        setProviderId(providerDoc.id);
-        setProviderData(data);
 
         // Set form data
         setFormData({
@@ -174,7 +212,7 @@ const ConstructorProfile = () => {
     };
 
     fetchProviderProfile();
-  }, [currentUser, authLoading, navigate]);
+  }, [currentUser, authLoading, navigate, currentUserRole, isApprovedProvider]);
 
   // Fetch reviews
   useEffect(() => {
@@ -302,7 +340,13 @@ const ConstructorProfile = () => {
 
   // Save profile updates
   const handleSave = async () => {
-    if (!providerId || !db) {
+    if (!currentUser || !db) {
+      toast.error('User not authenticated');
+      return;
+    }
+    
+    // Ensure profile exists
+    if (!providerData) {
       toast.error('Profile not found');
       return;
     }
@@ -337,8 +381,8 @@ const ConstructorProfile = () => {
         updatedAt: serverTimestamp(),
       };
 
-      // Update Firestore document
-      const providerRef = doc(db, 'serviceProviders', providerId);
+      // Update constructorProfiles collection
+      const providerRef = doc(db, 'constructorProfiles', currentUser.uid);
       await updateDoc(providerRef, updateData);
 
       // Update local state

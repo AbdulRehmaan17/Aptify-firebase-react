@@ -19,8 +19,16 @@ const Marketplace = () => {
   const [listings, setListings] = useState([]);
   const [filteredListings, setFilteredListings] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     listingType: 'all', // 'all', 'sell', 'buy'
+    category: 'all',
+    minPrice: '',
+    maxPrice: '',
+    city: '',
+  });
+  const [appliedFilters, setAppliedFilters] = useState({
+    listingType: 'all',
     category: 'all',
     minPrice: '',
     maxPrice: '',
@@ -42,9 +50,10 @@ const Marketplace = () => {
     loadListings();
   }, []);
 
+  // Apply filters only when appliedFilters or listings change (not on every filter state change)
   useEffect(() => {
     applyFilters();
-  }, [listings, searchQuery, filters]);
+  }, [listings, appliedSearchQuery, appliedFilters]);
 
   const loadListings = () => {
     if (!db) {
@@ -133,8 +142,8 @@ const Marketplace = () => {
     let filtered = [...listings];
 
     // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    if (appliedSearchQuery.trim()) {
+      const query = appliedSearchQuery.toLowerCase();
       filtered = filtered.filter(
         (listing) =>
           listing.title?.toLowerCase().includes(query) ||
@@ -145,32 +154,32 @@ const Marketplace = () => {
     }
 
     // Listing type filter
-    if (filters.listingType !== 'all') {
+    if (appliedFilters.listingType !== 'all') {
       filtered = filtered.filter(
         (listing) =>
-          (listing.listingType || listing.type) === filters.listingType
+          (listing.listingType || listing.type) === appliedFilters.listingType
       );
     }
 
     // Category filter
-    if (filters.category !== 'all') {
-      filtered = filtered.filter((listing) => listing.category === filters.category);
+    if (appliedFilters.category !== 'all') {
+      filtered = filtered.filter((listing) => listing.category === appliedFilters.category);
     }
 
     // Price filters
-    if (filters.minPrice) {
-      const minPrice = parseFloat(filters.minPrice);
+    if (appliedFilters.minPrice) {
+      const minPrice = parseFloat(appliedFilters.minPrice);
       filtered = filtered.filter((listing) => listing.price >= minPrice);
     }
 
-    if (filters.maxPrice) {
-      const maxPrice = parseFloat(filters.maxPrice);
+    if (appliedFilters.maxPrice) {
+      const maxPrice = parseFloat(appliedFilters.maxPrice);
       filtered = filtered.filter((listing) => listing.price <= maxPrice);
     }
 
     // City filter
-    if (filters.city.trim()) {
-      const city = filters.city.toLowerCase();
+    if (appliedFilters.city.trim()) {
+      const city = appliedFilters.city.toLowerCase();
       filtered = filtered.filter(
         (listing) =>
           listing.address?.city?.toLowerCase().includes(city) ||
@@ -179,6 +188,34 @@ const Marketplace = () => {
     }
 
     setFilteredListings(filtered);
+  };
+
+  // Apply filters when user clicks "Apply Filters" button
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters);
+    setAppliedSearchQuery(searchQuery);
+    setShowFilters(false);
+  };
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    const emptyFilters = {
+      listingType: 'all',
+      category: 'all',
+      minPrice: '',
+      maxPrice: '',
+      city: '',
+    };
+    setFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setSearchQuery('');
+    setAppliedSearchQuery('');
+  };
+
+  // Handle search form submission
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    handleApplyFilters();
   };
 
   const formatPrice = (price) => {
@@ -216,7 +253,7 @@ const Marketplace = () => {
 
         {/* Search and Filters */}
         <div className="bg-surface rounded-base shadow-md p-4 border border-muted mb-6">
-          <div className="flex flex-col md:flex-row gap-4">
+          <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <Input
                 placeholder="Search by title, description, or location..."
@@ -226,6 +263,15 @@ const Marketplace = () => {
               />
             </div>
             <Button
+              type="submit"
+              variant="primary"
+              className="flex items-center"
+            >
+              <Search className="w-4 h-4 mr-2" />
+              Search
+            </Button>
+            <Button
+              type="button"
               variant="ghost"
               onClick={() => setShowFilters(!showFilters)}
               className="flex items-center"
@@ -233,7 +279,7 @@ const Marketplace = () => {
               <Filter className="w-4 h-4 mr-2" />
               Filters
             </Button>
-          </div>
+          </form>
 
           {/* Filter Panel */}
           {showFilters && (
@@ -295,6 +341,24 @@ const Marketplace = () => {
                 placeholder="Any city"
               />
             </div>
+            
+            {/* Filter Actions */}
+            <div className="col-span-full flex gap-3 pt-2 border-t border-muted">
+              <Button
+                onClick={handleApplyFilters}
+                variant="primary"
+                className="flex-1"
+              >
+                Apply Filters
+              </Button>
+              <Button
+                onClick={handleClearFilters}
+                variant="outline"
+                className="flex-1"
+              >
+                Clear Filters
+              </Button>
+            </div>
           )}
         </div>
 
@@ -309,7 +373,7 @@ const Marketplace = () => {
             <Home className="w-16 h-16 text-textSecondary mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-textMain mb-2">No listings found</h2>
             <p className="text-textSecondary mb-6">
-              {searchQuery || Object.values(filters).some((f) => f && f !== 'all')
+              {appliedSearchQuery || Object.values(appliedFilters).some((f) => f && f !== 'all')
                 ? 'Try adjusting your search or filters'
                 : 'Be the first to add a listing!'}
             </p>
@@ -331,6 +395,9 @@ const Marketplace = () => {
                       src={listing.coverImage || listing.photos?.[0] || 'https://via.placeholder.com/400x250?text=No+Image'}
                       alt={listing.title}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/400x250?text=No+Image+Available';
+                      }}
                     />
                     <div className="absolute top-2 left-2 flex space-x-2">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${

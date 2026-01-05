@@ -18,18 +18,20 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false); // Track when auth is fully ready
   const [error, setError] = useState(null);
   const [currentUserRole, setCurrentUserRole] = useState('user');
   const [isApprovedProvider, setIsApprovedProvider] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Safe AuthContext: register single auth listener, store loading state, no direct navigate in listener
+  // Global onAuthStateChanged listener: register single auth listener, store loading state, no direct navigate in listener
   useEffect(() => {
     // Check if auth is available
     if (!auth) {
       console.error('Firebase auth is not initialized');
       setError('Firebase authentication is not available. Please check your configuration.');
       setLoading(false);
+      setAuthReady(true); // Mark as ready even if auth is not available
       return;
     }
 
@@ -42,7 +44,7 @@ export const AuthProvider = ({ children }) => {
 
       if (user) {
         try {
-          // FIXED: Get ID token to check for admin custom claim
+          // FIXED: Get ID token to check for admin custom claim - force refresh to get latest claims
           let adminClaim = false;
           try {
             const tokenResult = await getIdTokenResult(user, true); // Force refresh to get latest claims
@@ -70,7 +72,9 @@ export const AuthProvider = ({ children }) => {
         setIsApprovedProvider(false);
       }
 
+      // Mark auth as ready after initial state is determined
       setLoading(false);
+      setAuthReady(true);
     });
 
     return () => unsubscribe();
@@ -403,6 +407,7 @@ export const AuthProvider = ({ children }) => {
     user: currentUser, // Alias for backward compatibility
     userProfile,
     loading,
+    authReady, // Expose auth readiness state
     error,
     currentUserRole,
     isApprovedProvider,
@@ -419,7 +424,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   // AUTO-FIXED: Show loading state while auth is initializing to prevent blank screens
-  if (loading) {
+  // Block UI until auth is fully loaded and ready
+  if (loading || !authReady) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC' }}>
         <div style={{ textAlign: 'center' }}>

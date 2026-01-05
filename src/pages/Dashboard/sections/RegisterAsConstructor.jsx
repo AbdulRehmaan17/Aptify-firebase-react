@@ -41,7 +41,7 @@ import toast from 'react-hot-toast';
  * Supports CRUD operations: Create, Read, Update, Delete
  */
 const RegisterAsConstructor = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, currentUserRole, isApprovedProvider } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -359,6 +359,12 @@ const RegisterAsConstructor = () => {
       return;
     }
 
+    // CRITICAL: Block duplicate registration if user is already approved constructor
+    if (currentUserRole === 'constructor' && isApprovedProvider) {
+      toast.error('You are already an approved constructor. You cannot submit a new registration request.');
+      return;
+    }
+
     if (!validateForm()) {
       toast.error('Please fix the errors in the form');
       return;
@@ -468,6 +474,52 @@ const RegisterAsConstructor = () => {
           throw new Error('Permission denied. Please ensure you are logged in.');
         }
         throw new Error('Failed to submit request. Please try again.');
+      }
+
+      // CRITICAL: Also create provider document in constructionProviders collection
+      // Document ID = userId for easy querying
+      const providerDocRef = doc(db, 'constructionProviders', currentUser.uid);
+      
+      // CRITICAL: Ensure location is always a string, not an object
+      let locationString = '';
+      if (registrationData.city) {
+        locationString = registrationData.city;
+        if (registrationData.officeAddress) {
+          locationString = `${registrationData.city}, ${registrationData.officeAddress}`;
+        }
+      } else if (registrationData.officeAddress) {
+        locationString = registrationData.officeAddress;
+      }
+      
+      const providerDocData = {
+        userId: currentUser.uid,
+        providerType: 'construction',
+        name: registrationData.fullName,
+        companyName: registrationData.companyName || '',
+        phone: registrationData.phoneNumber,
+        location: locationString, // MUST be string, not object
+        experience: Number(registrationData.yearsOfExperience) || 0,
+        servicesOffered: registrationData.constructionServices || [],
+        approved: false, // Will be set to true when admin approves
+        isActive: true,
+        createdAt: serverTimestamp(),
+        // Additional fields
+        email: registrationData.email,
+        city: registrationData.city,
+        officeAddress: registrationData.officeAddress,
+        description: registrationData.description || '',
+        portfolio: allPortfolioImages,
+        licenseFiles: allLicenseFiles,
+        updatedAt: serverTimestamp(),
+      };
+
+      try {
+        await setDoc(providerDocRef, providerDocData, { merge: true });
+        console.log('Provider saved:', providerDocData);
+      } catch (providerError) {
+        console.error('Error creating provider document:', providerError);
+        // Don't block registration if provider document creation fails
+        // Admin approval will create it anyway
       }
 
       // FIXED: Update state only after successful save

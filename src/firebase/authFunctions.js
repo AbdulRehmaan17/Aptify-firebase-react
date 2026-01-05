@@ -7,6 +7,8 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
   updateProfile as updateFirebaseProfile,
+  getIdToken,
+  getIdTokenResult,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 // AUTO-FIXED: Removed duplicate auth import - only import once
@@ -32,7 +34,39 @@ export const login = async (email, password) => {
     }
 
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return { success: true, user: userCredential.user };
+    const user = userCredential.user;
+
+    // Force getIdToken(true) on admin login to ensure latest claims are available
+    try {
+      // Check if user is admin by checking token claims or user document
+      let isAdmin = false;
+      try {
+        const tokenResult = await getIdTokenResult(user, true); // Force refresh to get latest claims
+        isAdmin = tokenResult.claims.admin === true;
+      } catch (tokenError) {
+        // If token check fails, try checking user document
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            isAdmin = userData.role === 'admin';
+          }
+        } catch (docError) {
+          console.warn('Could not check admin status:', docError);
+        }
+      }
+
+      // If admin, force token refresh to ensure latest claims are available
+      if (isAdmin) {
+        await getIdToken(user, true); // Force refresh token for admin
+        console.log('✅ [Admin Login] Token refreshed for admin user');
+      }
+    } catch (tokenRefreshError) {
+      // Log but don't fail login if token refresh fails
+      console.warn('⚠️ [Admin Login] Token refresh warning (continuing):', tokenRefreshError);
+    }
+
+    return { success: true, user };
   } catch (error) {
     console.error('Login error:', error);
     let errorMessage = 'Failed to login';
@@ -141,6 +175,35 @@ export const loginWithGoogle = async (useRedirect = false) => {
       const result = await signInWithPopup(auth, googleProvider);
       user = result.user;
 
+      // Force getIdToken(true) on admin login to ensure latest claims are available
+      try {
+        let isAdmin = false;
+        try {
+          const tokenResult = await getIdTokenResult(user, true); // Force refresh to get latest claims
+          isAdmin = tokenResult.claims.admin === true;
+        } catch (tokenError) {
+          // If token check fails, try checking user document
+          try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              isAdmin = userData.role === 'admin';
+            }
+          } catch (docError) {
+            console.warn('Could not check admin status:', docError);
+          }
+        }
+
+        // If admin, force token refresh to ensure latest claims are available
+        if (isAdmin) {
+          await getIdToken(user, true); // Force refresh token for admin
+          console.log('✅ [Admin Login] Token refreshed for admin user (Google)');
+        }
+      } catch (tokenRefreshError) {
+        // Log but don't fail login if token refresh fails
+        console.warn('⚠️ [Admin Login] Token refresh warning (continuing):', tokenRefreshError);
+      }
+
       // Create or update user profile
       const profileResult = await createOrUpdateUserProfile(user);
       if (!profileResult.success) {
@@ -189,6 +252,35 @@ export const handleGoogleRedirect = async () => {
     }
 
     const user = result.user;
+
+    // Force getIdToken(true) on admin login to ensure latest claims are available
+    try {
+      let isAdmin = false;
+      try {
+        const tokenResult = await getIdTokenResult(user, true); // Force refresh to get latest claims
+        isAdmin = tokenResult.claims.admin === true;
+      } catch (tokenError) {
+        // If token check fails, try checking user document
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            isAdmin = userData.role === 'admin';
+          }
+        } catch (docError) {
+          console.warn('Could not check admin status:', docError);
+        }
+      }
+
+      // If admin, force token refresh to ensure latest claims are available
+      if (isAdmin) {
+        await getIdToken(user, true); // Force refresh token for admin
+        console.log('✅ [Admin Login] Token refreshed for admin user (Google Redirect)');
+      }
+    } catch (tokenRefreshError) {
+      // Log but don't fail login if token refresh fails
+      console.warn('⚠️ [Admin Login] Token refresh warning (continuing):', tokenRefreshError);
+    }
 
     // Create or update user profile
     const profileResult = await createOrUpdateUserProfile(user);

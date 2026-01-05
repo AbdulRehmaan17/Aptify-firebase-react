@@ -19,21 +19,44 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
   };
 
   const getImageUrl = () => {
-    // FIXED: Check multiple possible image fields - return null if no image for better fallback handling
-    if (property.photos && Array.isArray(property.photos) && property.photos.length > 0) {
-      const url = property.photos[0];
-      if (url && url.trim()) return url;
+    // NORMALIZED: Use coverImage if exists, else first photo, else null (fallback UI will show)
+    // Priority: coverImage -> photos[0] -> legacy fields -> null
+    
+    // 1. Check coverImage (highest priority)
+    if (property.coverImage && typeof property.coverImage === 'string') {
+      const trimmed = property.coverImage.trim();
+      if (trimmed.length > 0 && (trimmed.startsWith('http://') || trimmed.startsWith('https://'))) {
+        return trimmed;
+      }
     }
-    if (property.coverImage && property.coverImage.trim()) {
-      return property.coverImage;
+    
+    // 2. Check photos array (first valid URL)
+    if (property.photos && Array.isArray(property.photos)) {
+      for (const photo of property.photos) {
+        if (typeof photo === 'string') {
+          const trimmed = photo.trim();
+          if (trimmed.length > 0 && (trimmed.startsWith('http://') || trimmed.startsWith('https://'))) {
+            return trimmed;
+          }
+        }
+      }
     }
-    if (property.imageUrl && property.imageUrl.trim()) {
-      return property.imageUrl;
+    
+    // 3. Legacy fields (backward compatibility)
+    if (property.imageUrl && typeof property.imageUrl === 'string') {
+      const trimmed = property.imageUrl.trim();
+      if (trimmed.length > 0 && (trimmed.startsWith('http://') || trimmed.startsWith('https://'))) {
+        return trimmed;
+      }
     }
-    if (property.image && property.image.trim()) {
-      return property.image;
+    if (property.image && typeof property.image === 'string') {
+      const trimmed = property.image.trim();
+      if (trimmed.length > 0 && (trimmed.startsWith('http://') || trimmed.startsWith('https://'))) {
+        return trimmed;
+      }
     }
-    // FIXED: Return null instead of placeholder URL - will use fallback UI
+    
+    // 4. Return null - fallback UI will show
     return null;
   };
 

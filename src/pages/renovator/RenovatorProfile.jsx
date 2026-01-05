@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   updateDoc,
+  setDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -41,14 +42,15 @@ import reviewsService from '../../services/reviewsService';
  * Profile management page for renovation service providers
  * Allows editing profile information, portfolio, and credentials
  * 
- * Fetches serviceProviders/{providerId} where userId == currentUser.uid and serviceType == 'Renovation'
+ * Fetches renovatorProfiles/{uid} collection
+ * Auto-creates profile if user has role === "renovator" and isApprovedProvider === true but profile doesn't exist
  * Also fetches users/{uid} for user profile data
  * Shows provider info, ratings & reviews, portfolio images
- * Allows editing and saving updates to both users and serviceProviders collections
+ * Allows editing and saving updates to both users and renovatorProfiles collections
  */
 const RenovatorProfile = () => {
   const navigate = useNavigate();
-  const { currentUser, loading: authLoading, userProfile } = useAuth();
+  const { currentUser, loading: authLoading, userProfile, currentUserRole, isApprovedProvider } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -118,25 +120,61 @@ const RenovatorProfile = () => {
           setUserData({ id: userDoc.id, ...userDocData });
         }
 
-        // Query serviceProviders where userId == currentUser.uid and serviceType == 'Renovation'
-        const providersQuery = query(
-          collection(db, 'serviceProviders'),
-          where('userId', '==', currentUser.uid),
-          where('serviceType', '==', 'Renovation')
-        );
+        // CRITICAL: Check renovatorProfiles/{uid} collection first
+        const profileRef = doc(db, 'renovatorProfiles', currentUser.uid);
+        let profileDoc = await getDoc(profileRef);
+        let data = null;
 
-        const snapshot = await getDocs(providersQuery);
+        if (profileDoc.exists()) {
+          // Profile exists - use it
+          data = { id: profileDoc.id, ...profileDoc.data() };
+          setProviderId(profileDoc.id);
+          setProviderData(data);
+        } else {
+          // Profile doesn't exist - check if user has renovator role
+          if (currentUserRole === 'renovator' && isApprovedProvider) {
+            // User is approved renovator but profile missing - auto-create it
+            try {
+              const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+              const userData = userDoc.exists() ? userDoc.data() : {};
+              
+              const newProfileData = {
+                uid: currentUser.uid,
+                name: userData.displayName || userData.name || currentUser.displayName || '',
+                email: userData.email || currentUser.email || '',
+                phone: userData.phone || userData.phoneNumber || '',
+                approvedAt: serverTimestamp(),
+                createdAt: serverTimestamp(),
+                status: 'approved',
+                portfolio: [],
+                services: [],
+                isActive: true,
+                description: '',
+                experience: '',
+                city: userData.city || '',
+                address: userData.address || '',
+                availability: true,
+                updatedAt: serverTimestamp(),
+              };
 
-        if (snapshot.empty) {
-          toast.error('Renovator profile not found. Please register as a renovator first.');
-          navigate('/renovator/dashboard');
-          return;
+              await setDoc(profileRef, newProfileData, { merge: true });
+              data = { id: profileRef.id, ...newProfileData };
+              setProviderId(profileRef.id);
+              setProviderData(data);
+              toast.success('Profile created successfully');
+            } catch (createError) {
+              console.error('Error auto-creating renovator profile:', createError);
+              toast.error('Failed to create profile. Please try again.');
+              setLoading(false);
+              return;
+            }
+          } else {
+            // User is not approved renovator - show error
+            toast.error('Renovator profile not found. Please register as a renovator first.');
+            navigate('/renovator/dashboard');
+            return;
+          }
         }
-
-        const providerDoc = snapshot.docs[0];
-        const data = { id: providerDoc.id, ...providerDoc.data() };
-        setProviderId(providerDoc.id);
-        setProviderData(data);
 
         // Set form data from provider and user data
         const userDocData = userDoc.exists() ? userDoc.data() : {};
@@ -175,7 +213,7 @@ const RenovatorProfile = () => {
     };
 
     fetchProfile();
-  }, [currentUser, authLoading, navigate]);
+  }, [currentUser, authLoading, navigate, currentUserRole, isApprovedProvider]);
 
   // Fetch reviews
   useEffect(() => {
@@ -340,7 +378,13 @@ const RenovatorProfile = () => {
 
   // Save profile updates
   const handleSave = async () => {
-    if (!providerId || !currentUser || !db) {
+    if (!currentUser || !db) {
+      toast.error('User not authenticated');
+      return;
+    }
+    
+    // Ensure profile exists
+    if (!providerData) {
       toast.error('Profile not found');
       return;
     }
@@ -386,8 +430,8 @@ const RenovatorProfile = () => {
 
       await updateDoc(userRef, userUpdateData);
 
-      // Update serviceProviders collection
-      const providerRef = doc(db, 'serviceProviders', providerId);
+      // Update renovatorProfiles collection
+      const providerRef = doc(db, 'renovatorProfiles', currentUser.uid);
       const providerUpdateData = {
         name: formData.name.trim(),
         email: formData.email.trim(),

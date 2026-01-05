@@ -10,6 +10,7 @@ import { MapPin, DollarSign, Home, Bed, Bath, Square, Car, CheckCircle, XCircle,
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import LocationPicker from '../../components/maps/LocationPicker';
 import toast from 'react-hot-toast';
 
 const AddListing = () => {
@@ -33,6 +34,15 @@ const AddListing = () => {
     parking: false,
     available: true,
     listingType: 'sell', // 'buy' or 'sell'
+  });
+  const [locationData, setLocationData] = useState({
+    lat: null,
+    lng: null,
+    address: '',
+    city: '',
+    state: '',
+    country: 'Pakistan',
+    postalCode: '',
   });
   const [images, setImages] = useState([]); // New images to upload
   const [imagePreviews, setImagePreviews] = useState([]); // All image URLs/previews
@@ -86,6 +96,25 @@ const AddListing = () => {
         available: property.status === 'active',
         listingType: property.listingType || property.type || 'sell',
       });
+
+      // Load location data if available
+      if (property.location) {
+        // Handle GeoPoint or object format
+        const lat = property.location.latitude || property.location.lat || null;
+        const lng = property.location.longitude || property.location.lng || null;
+        
+        if (lat && lng) {
+          setLocationData({
+            lat: lat,
+            lng: lng,
+            address: property.address?.line1 || '',
+            city: property.address?.city || '',
+            state: property.address?.state || '',
+            country: property.address?.country || 'Pakistan',
+            postalCode: property.address?.postalCode || '',
+          });
+        }
+      }
 
       if (property.photos && property.photos.length > 0) {
         setImagePreviews(property.photos); // Existing image URLs
@@ -181,12 +210,32 @@ const AddListing = () => {
       newErrors.price = 'Valid price is required';
     }
 
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
+    // Validate location - allow manual address entry if Maps API is not available
+    // Use consistent validation logic
+    let hasApiKey = false;
+    try {
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (apiKey && typeof apiKey === 'string') {
+        const trimmed = apiKey.trim();
+        hasApiKey = trimmed !== '' && trimmed !== 'YOUR_GOOGLE_MAPS_API_KEY' && trimmed.length >= 10;
+      }
+    } catch (e) {
+      hasApiKey = false;
     }
-
-    if (!formData.city.trim()) {
-      newErrors.city = 'City is required';
+    
+    if (hasApiKey) {
+      // If API key is configured, require coordinates
+      if (!locationData.lat || !locationData.lng) {
+        newErrors.location = 'Please select a location on the map';
+      }
+      if (!locationData.address || !locationData.address.trim()) {
+        newErrors.location = 'Please search and select an address';
+      }
+    } else {
+      // If no API key, allow manual address entry
+      if (!formData.location || !formData.location.trim()) {
+        newErrors.location = 'Please enter a property address';
+      }
     }
 
     // FIXED: Images are now optional - removed required validation
@@ -199,6 +248,11 @@ const AddListing = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // OPTIMIZED: Prevent duplicate submissions by checking loading state
+    if (loading) {
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -210,15 +264,15 @@ const AddListing = () => {
     }
 
     setLoading(true);
+    console.time('submit');
     try {
-      let finalImageUrls = [];
-
       if (isEditMode) {
-        // FIXED: Upload new images if any - optional, don't block if empty
+        // Edit mode: Upload new images if any, then update
         let newImageUrls = [];
         if (images && images.length > 0) {
           try {
             toast.loading('Uploading new images...', { id: 'upload' });
+            // OPTIMIZED: Upload images in parallel
             newImageUrls = await uploadMultipleImages(
               images,
               `properties/${currentUser.uid}/${Date.now()}`
@@ -231,72 +285,73 @@ const AddListing = () => {
           } catch (uploadError) {
             console.error('Error uploading images:', uploadError);
             toast.dismiss('upload');
-            // Continue without images
+            toast.error('Failed to upload some images. Continuing with update...');
             newImageUrls = [];
           }
         }
 
         const existingImagesKept = (imagePreviews || []).filter((img) => typeof img === 'string');
-        finalImageUrls = [...existingImagesKept, ...newImageUrls];
+        const finalImageUrls = [...existingImagesKept, ...newImageUrls];
 
         const updateData = {
           title: formData.title.trim(),
           description: formData.description.trim(),
           price: parseFloat(formData.price),
           address: {
-            line1: formData.location.trim(),
-            city: formData.city.trim(),
-            country: 'Pakistan',
+            line1: locationData.address || formData.location.trim(),
+            city: locationData.city || formData.city.trim(),
+            state: locationData.state || null,
+            country: locationData.country || 'Pakistan',
+            postalCode: locationData.postalCode || null,
           },
+          location: locationData.lat && locationData.lng ? {
+            lat: locationData.lat,
+            lng: locationData.lng,
+            address: locationData.address,
+          } : null,
           category: formData.category,
           bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : 0,
           bathrooms: formData.bathrooms ? parseInt(formData.bathrooms) : 0,
           areaSqFt: formData.area ? parseFloat(formData.area) : 0,
           furnished: formData.furnished,
           parking: formData.parking,
-          status: formData.available ? 'active' : 'inactive',
+          status: 'published', // FIXED: Keep status as 'published' to match browse query filters
           photos: finalImageUrls,
           coverImage: finalImageUrls[0] || null,
           listingType: formData.listingType,
         };
 
+        // CRITICAL PATH: Only await the Firestore write
         await propertyService.update(id, updateData);
+        console.timeEnd('submit');
+        
+        // OPTIMIZED: Release UI immediately after Firestore write
+        setLoading(false);
         toast.success('Listing updated successfully!');
-        navigate(`/buy-sell/listing/${id}`);
+        
+        // OPTIMIZED: Non-blocking navigation with setTimeout
+        setTimeout(() => {
+          navigate(`/buy-sell/listing/${id}`);
+        }, 300);
       } else {
-        // FIXED: Create new listing - images are optional
-        if (images && images.length > 0) {
-          try {
-            toast.loading('Uploading images...', { id: 'upload' });
-            finalImageUrls = await uploadMultipleImages(
-              images,
-              `properties/${currentUser.uid}/${Date.now()}`
-            );
-            if (finalImageUrls.length > 0) {
-              toast.success('Images uploaded successfully', { id: 'upload' });
-            } else {
-              toast.dismiss('upload');
-            }
-          } catch (uploadError) {
-            console.error('Error uploading images:', uploadError);
-            toast.dismiss('upload');
-            // Continue without images - form can still submit
-            finalImageUrls = [];
-          }
-        } else {
-          // No images provided - that's fine, use empty array
-          finalImageUrls = [];
-        }
-
+        // OPTIMIZED: Create new listing - pass images to propertyService.create()
+        // Images will be uploaded in parallel BEFORE document creation (single Firestore write)
         const propertyData = {
           title: formData.title.trim(),
           description: formData.description.trim(),
           price: parseFloat(formData.price),
           address: {
-            line1: formData.location.trim(),
-            city: formData.city.trim(),
-            country: 'Pakistan',
+            line1: locationData.address || formData.location.trim(),
+            city: locationData.city || formData.city.trim(),
+            state: locationData.state || null,
+            country: locationData.country || 'Pakistan',
+            postalCode: locationData.postalCode || null,
           },
+          location: locationData.lat && locationData.lng ? {
+            lat: locationData.lat,
+            lng: locationData.lng,
+            address: locationData.address,
+          } : null,
           type: formData.listingType,
           listingType: formData.listingType,
           category: formData.category,
@@ -305,58 +360,69 @@ const AddListing = () => {
           areaSqFt: formData.area ? parseFloat(formData.area) : 0,
           furnished: formData.furnished,
           parking: formData.parking,
-          status: formData.available ? 'active' : 'inactive',
-          photos: finalImageUrls,
-          coverImage: finalImageUrls[0] || null,
+          status: 'published', // FIXED: Set to 'published' to match browse query filters
           ownerId: currentUser.uid,
           ownerName: currentUser.displayName || currentUser.email,
         };
 
-        const propertyId = await propertyService.create(propertyData);
+        // CRITICAL PATH: Only await the Firestore write
+        // propertyService.create() will upload images in parallel BEFORE creating document
+        const propertyId = await propertyService.create(propertyData, images);
+        console.timeEnd('submit');
         
-        // Notify admin about new property
-        try {
-          const adminQuery = query(
-            collection(db, 'users'),
-            where('role', '==', 'admin')
-          );
-          const adminSnapshot = await getDocs(adminQuery);
-          
-          const notificationPromises = adminSnapshot.docs.map((adminDoc) => {
-            return sendNotification({
-              userId: adminDoc.id,
-              title: 'Property Posted',
-              message: `A user posted a property: ${formData.title.trim()}`,
-              type: 'system',
-              meta: { propertyId, propertyTitle: formData.title.trim() }
+        // OPTIMIZED: Release UI immediately after Firestore write succeeds
+        setLoading(false);
+        toast.success('Property listed successfully!', {
+          duration: 3000,
+          icon: '✅',
+        });
+        
+        // OPTIMIZED: Non-blocking navigation with setTimeout
+        setTimeout(() => {
+          navigate(`/buy-sell/listing/${propertyId}`);
+        }, 300);
+        
+        // FIRE-AND-FORGET: Notify admin about new property (non-critical)
+        // Do NOT await - let it run in background
+        (async () => {
+          try {
+            const adminQuery = query(
+              collection(db, 'users'),
+              where('role', '==', 'admin')
+            );
+            const adminSnapshot = await getDocs(adminQuery);
+            
+            adminSnapshot.docs.forEach((adminDoc) => {
+              sendNotification({
+                userId: adminDoc.id,
+                title: 'Property Posted',
+                message: `A user posted a property: ${formData.title.trim()}`,
+                type: 'system',
+                meta: { propertyId, propertyTitle: formData.title.trim() }
+              }).catch((notifError) => {
+                console.error('Error notifying admin:', notifError);
+              });
             });
-          });
-          
-          await Promise.all(notificationPromises);
-        } catch (notifError) {
-          console.error('Error notifying admin:', notifError);
-        }
+          } catch (notifError) {
+            console.error('Error fetching admins for notification:', notifError);
+          }
+        })();
         
-        // Notify user (confirmation)
-        try {
-          await sendNotification({
-            userId: currentUser.uid,
-            title: 'Listing Created',
-            message: `Your listing "${formData.title.trim()}" has been created successfully.`,
-            type: 'success',
-            meta: { propertyId }
-          });
-        } catch (notifError) {
+        // FIRE-AND-FORGET: Notify user (confirmation) - non-critical
+        sendNotification({
+          userId: currentUser.uid,
+          title: 'Listing Created',
+          message: `Your listing "${formData.title.trim()}" has been created successfully.`,
+          type: 'success',
+          meta: { propertyId }
+        }).catch((notifError) => {
           console.error('Error sending user notification:', notifError);
-        }
-        
-        toast.success('Listing created successfully!');
-        navigate(`/buy-sell/listing/${propertyId}`);
+        });
       }
     } catch (error) {
       console.error('Error saving listing:', error);
-      toast.error(error.message || 'Failed to save listing');
-    } finally {
+      // OPTIMIZED: Show error popup instead of silent failure
+      toast.error(error.message || 'Failed to save listing. Please try again.');
       setLoading(false);
     }
   };
@@ -474,27 +540,29 @@ const AddListing = () => {
               </div>
             </div>
 
-            {/* Location */}
+            {/* Location with Google Maps */}
             <div>
               <h2 className="text-xl font-semibold text-textMain mb-4">Location</h2>
-              <div className="space-y-4">
-                <Input
-                  label="Address"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
+              <div className="border border-muted rounded-lg p-4">
+                <LocationPicker
+                  location={locationData.lat && locationData.lng ? locationData : null}
+                  onLocationChange={(location) => {
+                    if (location && typeof location.lat === 'number' && typeof location.lng === 'number') {
+                      setLocationData(location);
+                      // Update form data for backward compatibility
+                      setFormData((prev) => ({
+                        ...prev,
+                        location: location.address || prev.location,
+                        city: location.city || prev.city,
+                      }));
+                      // Clear location error
+                      if (errors.location) {
+                        setErrors((prev) => ({ ...prev, location: '' }));
+                      }
+                    }
+                  }}
+                  required={true}
                   error={errors.location}
-                  leftIcon={<MapPin className="w-4 h-4" />}
-                  placeholder="Street address"
-                  required
-                />
-
-                <Input
-                  label="City"
-                  value={formData.city}
-                  onChange={(e) => handleInputChange('city', e.target.value)}
-                  error={errors.city}
-                  placeholder="City name"
-                  required
                 />
               </div>
             </div>

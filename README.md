@@ -18,6 +18,7 @@ A comprehensive real estate platform with property listings, construction/renova
 
 - **Frontend:** React 18, Vite, Tailwind CSS
 - **Backend:** Firebase (Firestore, Storage, Functions, Auth)
+- **Maps:** Google Maps JavaScript API, Places API, Geocoding API
 - **Real-time:** Firestore onSnapshot listeners
 - **State Management:** React Context API
 - **Routing:** React Router DOM
@@ -52,21 +53,81 @@ A comprehensive real estate platform with property listings, construction/renova
 3. **Set up environment variables**
    ```bash
    cp env.example .env.local
-   # Edit .env.local with your Firebase credentials
+   # Edit .env.local with your Firebase credentials and Google Maps API key
    ```
+   
+   **CRITICAL:** Vite reads environment variables ONLY when the dev server starts. After adding or changing variables in `.env.local`, you MUST restart the dev server:
+   ```bash
+   # Stop current server (Ctrl+C)
+   npm run dev
+   ```
+   
+   **File Location:** `.env.local` must be in the **project root** (same folder as `package.json`)
+   
+   **Variable Naming:** All variables MUST start with `VITE_` prefix for Vite to expose them
+   
+   Required environment variables:
+   - `VITE_FIREBASE_API_KEY` - Firebase API key
+   - `VITE_FIREBASE_AUTH_DOMAIN` - Firebase auth domain
+   - `VITE_FIREBASE_PROJECT_ID` - Firebase project ID
+   - `VITE_FIREBASE_STORAGE_BUCKET` - Firebase storage bucket
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID` - Firebase messaging sender ID
+   - `VITE_FIREBASE_APP_ID` - Firebase app ID
+   - `VITE_GOOGLE_MAPS_API_KEY` - **Google Maps API key (required for location features)**
+   
+   **Example .env.local (in project root):**
+   ```env
+   VITE_FIREBASE_API_KEY=your_firebase_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your-project-id
+   VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+   VITE_FIREBASE_APP_ID=1:123456789:web:abcdef
+   VITE_GOOGLE_MAPS_API_KEY=AIzaSyYourActualGoogleMapsAPIKeyHere
+   ```
+   
+   **Troubleshooting:** If `VITE_GOOGLE_MAPS_API_KEY` is undefined:
+   - Open browser console (F12) and run: `window.debugGoogleMapsKey()`
+   - Or run: `window.validateGoogleMapsConfig()` for detailed validation
+   - This will show exactly what Vite is reading and why it's failing
+   - See [GOOGLE_MAPS_SETUP.md](GOOGLE_MAPS_SETUP.md) and [ENV_TROUBLESHOOTING.md](ENV_TROUBLESHOOTING.md) for detailed troubleshooting
+   
+   **Common Issues:**
+   - Variable undefined → Check `.env.local` exists in project root, variable name is correct, dev server was restarted
+   - Variable empty → Check `.env.local` file has the key on the same line (no line breaks)
+   - Variable is placeholder → Replace `YOUR_GOOGLE_MAPS_API_KEY` with actual key
 
 4. **Configure Firebase**
    - Create a Firebase project
    - Enable Authentication, Firestore, Storage, Functions, and Hosting
    - Copy credentials to `.env.local`
 
-5. **Run development server**
+5. **Set up Google Maps API**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/google/maps-apis)
+   - Create a new project or select existing project
+   - Enable the following APIs:
+     - **Maps JavaScript API** (for map display)
+     - **Places API** (for address autocomplete)
+     - **Geocoding API** (for address to coordinates conversion)
+   - Create an API key
+   - (Optional) Restrict the API key to your domain for production
+   - Add the API key to `.env.local` as `VITE_GOOGLE_MAPS_API_KEY`
+   - **CRITICAL:** Restart the dev server after adding the API key:
+     ```bash
+     # Stop the current dev server (Ctrl+C)
+     npm run dev
+     ```
+   - The app will automatically detect the API key and enable map features
+
+6. **Run development server**
    ```bash
    npm run dev
    ```
 
 ## Documentation
 
+- **[Google Maps Setup Guide](GOOGLE_MAPS_SETUP.md)** - Complete guide for setting up Google Maps API key
+- **[Environment Variables Troubleshooting](ENV_TROUBLESHOOTING.md)** - Fix "VITE_GOOGLE_MAPS_API_KEY is undefined" issues
 - **[Manual Test Checklist](docs/MANUAL_TEST_CHECKLIST.md)** - Complete end-to-end testing guide
 - **[Deployment Guide](docs/deployment.md)** - Environment setup and deployment instructions
 - **[Database Structure](docs/structure.md)** - Firestore database schema

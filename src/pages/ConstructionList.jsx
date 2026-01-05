@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, getDocs, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Star, Phone, Mail, Building2, Eye } from 'lucide-react';
+import { Star, Phone, Mail, Building2, Eye, MapPin } from 'lucide-react';
 import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -11,155 +11,163 @@ import toast from 'react-hot-toast';
  * ConstructionList Component
  *
  * Displays a list of construction service providers from Firestore.
- * Fetches providers from "serviceProviders" collection where serviceType == "Construction".
- * Seeds default providers if collection is empty.
- * Each provider card shows name, expertise, rating, and contact information.
- * Users can click "Request Service" to navigate to the construction request form.
+ * Fetches providers from "constructionProviders" collection where:
+ *   - approved === true
+ *   - isActive === true
+ * 
+ * This is a PUBLIC page and does NOT require authentication.
+ * Uses real-time Firestore listener for live updates.
+ * Each provider card shows name, company, location, experience, and contact information.
  */
 const ConstructionList = () => {
   const navigate = useNavigate();
 
-  // State management
+  // State management - initialize as empty array
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [seeding, setSeeding] = useState(false);
-
-  /**
-   * Seed default construction providers if collection is empty
-   * This function creates sample providers for first-time setup
-   * @returns {Promise<void>}
-   */
-  const seedDefaultProviders = async () => {
-    try {
-      setSeeding(true);
-      console.log('Seeding default construction providers...');
-
-      const defaultProviders = [
-        {
-          name: 'Malik Builders',
-          serviceType: 'Construction',
-          expertise: ['House Construction', 'Interior Finishing', 'Renovation'],
-          rating: 4.5,
-          phone: '+92 300 123-4567',
-          email: 'info@malikbuilders.com',
-          createdAt: serverTimestamp(),
-        },
-        {
-          name: 'Urban Construct',
-          serviceType: 'Construction',
-          expertise: ['Commercial Building', 'Grey Structure', 'Architectural Design'],
-          rating: 4.7,
-          phone: '+92 300 234-5678',
-          email: 'contact@urbanconstruct.com',
-          createdAt: serverTimestamp(),
-        },
-      ];
-
-      // Add each provider to Firestore
-      const addPromises = defaultProviders.map((provider) =>
-        addDoc(collection(db, 'serviceProviders'), provider)
-      );
-
-      await Promise.all(addPromises);
-      console.log(`Seeded ${defaultProviders.length} default construction providers`);
-      toast.success('Default providers have been added.');
-    } catch (err) {
-      console.error('Error seeding default providers:', err);
-      toast.error('Failed to seed default providers. Please try again.');
-      throw err;
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   /**
    * Fetch construction providers from Firestore
-   * Queries "serviceProviders" collection where serviceType == "Construction"
-   * Seeds default providers if collection is empty
+   * Queries "constructionProviders" collection with filters:
+   *   - approved === true
+   *   - isActive === true
+   * Uses real-time listener (onSnapshot) for live updates
    */
   useEffect(() => {
-    const fetchProviders = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    if (!db) {
+      console.warn('Firestore db is not initialized');
+      setProviders([]);
+      setLoading(false);
+      return;
+    }
 
-        // Query serviceProviders collection filtered by serviceType == "Construction"
-        const providersQuery = query(
-          collection(db, 'serviceProviders'),
-          where('serviceType', '==', 'Construction')
-        );
+    setLoading(true);
+    setError(null);
 
-        const snapshot = await getDocs(providersQuery);
+    console.log('🔍 DEBUG: Setting up query for constructionProviders collection');
+    console.log('🔍 DEBUG: Filters: approved === true AND isActive === true');
 
-        // Map documents to array with id
-        const providersList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+    // Query constructionProviders with filters: approved === true AND isActive === true
+    const providersQuery = query(
+      collection(db, 'constructionProviders'),
+      where('approved', '==', true),
+      where('isActive', '==', true),
+      orderBy('createdAt', 'desc')
+    );
 
-        console.log(`Fetched ${providersList.length} construction providers`);
+    console.log('✅ DEBUG: Setting up real-time listener for constructionProviders');
 
-        // If no providers found, seed default providers
-        if (providersList.length === 0) {
-          console.log('No providers found. Seeding default providers...');
-          try {
-            await seedDefaultProviders();
+    // Use onSnapshot for real-time updates
+    const unsubscribe = onSnapshot(
+      providersQuery,
+      (snapshot) => {
+        console.log('✅ SUCCESS: constructionProviders query - Snapshot size:', snapshot.size);
+        console.log('✅ SUCCESS: Raw snapshot docs count:', snapshot.docs.length);
 
-            // Fetch again after seeding
-            const newSnapshot = await getDocs(providersQuery);
-            const newProvidersList = newSnapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
-
-            setProviders(newProvidersList);
-            console.log(`Fetched ${newProvidersList.length} providers after seeding`);
-          } catch (seedError) {
-            console.error('Error during seeding:', seedError);
-            // Continue even if seeding fails - show empty state
-            setProviders([]);
+        const providersList = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          
+          // Normalize location to string if it's an object
+          if (data.location && typeof data.location === 'object') {
+            data.location = data.location.city
+              ? `${data.location.city}${data.location.state ? ', ' + data.location.state : ''}`
+              : (data.location.city || data.location.state || JSON.stringify(data.location));
           }
-        } else {
-          setProviders(providersList);
-        }
-      } catch (err) {
-        console.error('Error fetching construction providers:', err);
 
-        // Handle case where collection doesn't exist gracefully
-        if (err.code === 'permission-denied' || err.message?.includes('permission')) {
-          setError('Permission denied. Please check Firestore security rules.');
-          toast.error('Permission denied. Please contact administrator.');
-        } else if (err.code === 'not-found' || err.message?.includes('not found')) {
-          // Collection doesn't exist - this is okay, we'll seed it
-          console.log('Collection does not exist yet. Seeding default providers...');
-          try {
-            await seedDefaultProviders();
-            // Retry fetch after seeding
-            const providersQuery = query(
-              collection(db, 'serviceProviders'),
-              where('serviceType', '==', 'Construction')
-            );
-            const newSnapshot = await getDocs(providersQuery);
-            const newProvidersList = newSnapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
-            setProviders(newProvidersList);
-          } catch (seedError) {
-            console.error('Error during seeding:', seedError);
-            setProviders([]);
-          }
+          return {
+            id: doc.id,
+            ...data,
+          };
+        });
+
+        console.log('✅ SUCCESS: Construction providers fetched:', providersList.length, 'providers');
+        if (providersList.length > 0) {
+          console.log('✅ SUCCESS: First provider sample:', {
+            id: providersList[0].id,
+            name: providersList[0].name,
+            companyName: providersList[0].companyName,
+            location: providersList[0].location || providersList[0].city,
+            approved: providersList[0].approved,
+            isActive: providersList[0].isActive,
+            experience: providersList[0].experience,
+          });
         } else {
-          setError(err.message || 'Failed to load construction providers');
-          toast.error('Failed to load construction providers. Please try again.');
+          console.warn('⚠️ WARNING: No approved and active contractors found');
+          console.warn('⚠️ DEBUG: Check Firestore collection "constructionProviders" for documents with approved=true and isActive=true');
         }
-      } finally {
+
+        setProviders(providersList);
         setLoading(false);
-      }
-    };
+      },
+      (error) => {
+        console.error('❌ ERROR: Error fetching constructionProviders:', error);
+        
+        // Handle index error - try query without orderBy
+        if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+          console.warn('⚠️ WARNING: Index required for query. Falling back to query without orderBy.');
+          
+          // Fallback: Query without orderBy
+          const fallbackQuery = query(
+            collection(db, 'constructionProviders'),
+            where('approved', '==', true),
+            where('isActive', '==', true)
+          );
+          
+          const fallbackUnsubscribe = onSnapshot(
+            fallbackQuery,
+            (snapshot) => {
+              console.log('✅ SUCCESS (Fallback): Snapshot size:', snapshot.size);
+              
+              const providersList = snapshot.docs.map((doc) => {
+                const data = doc.data();
+                
+                // Normalize location
+                if (data.location && typeof data.location === 'object') {
+                  data.location = data.location.city
+                    ? `${data.location.city}${data.location.state ? ', ' + data.location.state : ''}`
+                    : (data.location.city || data.location.state || JSON.stringify(data.location));
+                }
 
-    fetchProviders();
+                return {
+                  id: doc.id,
+                  ...data,
+                };
+              });
+
+              // Sort client-side by createdAt
+              providersList.sort((a, b) => {
+                const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
+                const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
+                return bTime - aTime;
+              });
+
+              console.log('✅ SUCCESS (Fallback): Providers fetched:', providersList.length);
+              setProviders(providersList);
+              setLoading(false);
+            },
+            (fallbackError) => {
+              console.error('❌ ERROR: Fallback query also failed:', fallbackError);
+              setError(fallbackError.message || 'Failed to load construction providers');
+              toast.error('Failed to load construction providers. Please try again.');
+              setProviders([]);
+              setLoading(false);
+            }
+          );
+
+          // Return cleanup for fallback
+          return () => fallbackUnsubscribe();
+        } else {
+          setError(error.message || 'Failed to load construction providers');
+          toast.error('Failed to load construction providers. Please try again.');
+          setProviders([]);
+          setLoading(false);
+        }
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
   /**
@@ -172,15 +180,19 @@ const ConstructionList = () => {
   };
 
   /**
-   * Format expertise array as comma-separated string
-   * @param {Array} expertise - Array of expertise areas
-   * @returns {string} - Comma-separated expertise string
+   * Format services array as comma-separated string
+   * Handles servicesOffered, specialization, or expertise fields
+   * @param {Array|string} services - Array of services or single service string
+   * @returns {string} - Comma-separated services string
    */
-  const formatExpertise = (expertise) => {
-    if (!expertise || !Array.isArray(expertise)) {
-      return 'Not specified';
+  const formatServices = (services) => {
+    if (!services) return 'Not specified';
+    
+    if (Array.isArray(services)) {
+      return services.length > 0 ? services.join(', ') : 'Not specified';
     }
-    return expertise.join(', ');
+    
+    return String(services);
   };
 
   /**
@@ -215,13 +227,13 @@ const ConstructionList = () => {
     );
   };
 
-  // Loading state (including seeding state)
-  if (loading || seeding) {
+  // Loading state
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <LoadingSpinner size="lg" />
-          {seeding && <p className="mt-4 text-textSecondary">Setting up default providers...</p>}
+          <p className="mt-4 text-textSecondary">Loading construction providers...</p>
         </div>
       </div>
     );
@@ -263,7 +275,7 @@ const ConstructionList = () => {
               No Construction Providers Available
             </h2>
             <p className="text-lg text-textSecondary mb-8 max-w-2xl mx-auto">
-              No construction providers are currently available. You can still submit a construction
+              No approved construction providers are currently available. You can still submit a construction
               request, and a provider will be assigned automatically.
             </p>
             <Button variant="primary" size="lg" onClick={() => navigate('/construction-request')}>
@@ -298,23 +310,45 @@ const ConstructionList = () => {
               {/* Card Content */}
               <div className="p-6">
                 {/* Provider Name - Clickable to view details */}
-                <Link to={`/construction-provider/${provider.id}`} className="block mb-3 group">
+                <Link to={`/construction-provider/${provider.userId || provider.id}`} className="block mb-3 group">
                   <h3 className="text-xl font-semibold text-textMain group-hover:text-primary transition-colors">
-                    {provider.name || 'Unnamed Provider'}
+                    {provider.name || provider.companyName || 'Unnamed Provider'}
                   </h3>
+                  {provider.companyName && provider.name && (
+                    <p className="text-sm text-textSecondary mt-1">{provider.companyName}</p>
+                  )}
                 </Link>
+
+                {/* Location */}
+                {(provider.location || provider.city) && (
+                  <div className="flex items-center text-sm text-textSecondary mb-3">
+                    <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
+                    <span className="truncate">{provider.location || provider.city}</span>
+                  </div>
+                )}
+
+                {/* Experience */}
+                {provider.experience !== undefined && provider.experience !== null && (
+                  <div className="mb-3">
+                    <p className="text-sm text-textSecondary">
+                      <span className="font-medium">Experience:</span> {provider.experience} {provider.experience === 1 ? 'year' : 'years'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Services Offered */}
+                {(provider.servicesOffered || provider.specialization || provider.expertise) && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-textSecondary mb-2">Services:</h4>
+                    <p className="text-sm text-textSecondary">
+                      {formatServices(provider.servicesOffered || provider.specialization || provider.expertise)}
+                    </p>
+                  </div>
+                )}
 
                 {/* Rating */}
                 {provider.rating !== undefined && provider.rating !== null && (
                   <div className="mb-4">{renderRating(provider.rating)}</div>
-                )}
-
-                {/* Expertise */}
-                {provider.expertise && (
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-textSecondary mb-2">Expertise:</h4>
-                    <p className="text-sm text-textSecondary">{formatExpertise(provider.expertise)}</p>
-                  </div>
                 )}
 
                 {/* Contact Information */}
@@ -339,11 +373,11 @@ const ConstructionList = () => {
                   <Button
                     variant="primary"
                     fullWidth
-                    onClick={() => handleRequestService(provider.id)}
+                    onClick={() => handleRequestService(provider.userId || provider.id)}
                   >
                     Request Service
                   </Button>
-                  <Link to={`/construction-provider/${provider.id}`}>
+                  <Link to={`/construction-provider/${provider.userId || provider.id}`}>
                     <Button
                       variant="outline"
                       fullWidth

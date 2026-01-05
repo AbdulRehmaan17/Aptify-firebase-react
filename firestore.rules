@@ -3,30 +3,319 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Helper function to check if user is admin via users collection (fallback)
+    function isAdminByRole(userId) {
+      let userDoc = get(/databases/$(database)/documents/users/$(userId));
+      return userDoc.data != null && userDoc.data.role == 'admin';
+    }
+
+    // Helper function to check if user is in an array (for arrays, we check each element)
+    // Note: Firestore rules don't have direct array.contains, so we check the array structure
+    function isInArray(array, value) {
+      return array != null && value in array;
+    }
+
     // Requests readable by admin only (create allowed for signed-in users)
     match /requests/{requestId} {
       allow read: if true;
       allow create: if request.auth != null;
-      allow update, delete: if request.auth.token.admin == true;
+      allow update, delete: if isAdmin();
     }
 
     // Messages collection - authenticated users can read/create
     match /messages/{messageId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth.token.admin == true;
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
 
-    // Generic collections
+    // Conversations Collection - User-to-user messaging
+    // Supports both 'members' and 'participants' field names (arrays)
+    // Note: Firestore rules don't support direct array membership checks
+    // We use a workaround: check if UID exists at any index (for small arrays) or use map structure
+    match /conversations/{conversationId} {
+      // Helper to check if user is in members array (checking common indices for small arrays)
+      // For larger arrays, consider restructuring data to use a map: {uid1: true, uid2: true}
+      function isInMembers() {
+        let members = resource.data.members;
+        return request.auth != null && members != null &&
+               (members[0] == request.auth.uid || 
+                members[1] == request.auth.uid ||
+                members[2] == request.auth.uid ||
+                members[3] == request.auth.uid ||
+                members[4] == request.auth.uid ||
+                request.auth.uid in members); // Fallback: works if members is a map
+      }
+      
+      // Helper to check if user is in participants array
+      function isInParticipants() {
+        let participants = resource.data.participants;
+        return request.auth != null && participants != null &&
+               (participants[0] == request.auth.uid || 
+                participants[1] == request.auth.uid ||
+                participants[2] == request.auth.uid ||
+                participants[3] == request.auth.uid ||
+                participants[4] == request.auth.uid ||
+                request.auth.uid in participants); // Fallback: works if participants is a map
+      }
+      
+      // Helper to check if user is in members array on create
+      function isInMembersCreate() {
+        let members = request.resource.data.members;
+        return request.auth != null && members != null &&
+               (members[0] == request.auth.uid || 
+                members[1] == request.auth.uid ||
+                members[2] == request.auth.uid ||
+                members[3] == request.auth.uid ||
+                members[4] == request.auth.uid ||
+                request.auth.uid in members);
+      }
+      
+      // Helper to check if user is in participants array on create
+      function isInParticipantsCreate() {
+        let participants = request.resource.data.participants;
+        return request.auth != null && participants != null &&
+               (participants[0] == request.auth.uid || 
+                participants[1] == request.auth.uid ||
+                participants[2] == request.auth.uid ||
+                participants[3] == request.auth.uid ||
+                participants[4] == request.auth.uid ||
+                request.auth.uid in participants);
+      }
+      
+      // Read conversation only if user is a member/participant
+      allow read: if isAuthenticated() && 
+                     (isInMembers() || isInParticipants());
+      
+      // Create conversation only if user is included in members/participants array
+      allow create: if isAuthenticated() && 
+                       (isInMembersCreate() || isInParticipantsCreate());
+      
+      // Update conversation only if user is a member/participant
+      allow update: if isAuthenticated() && 
+                       (isInMembers() || isInParticipants());
+      
+      // Delete conversation only if user is a member/participant
+      allow delete: if isAuthenticated() && 
+                       (isInMembers() || isInParticipants());
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Get parent conversation data
+        function getConversationData() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+        }
+        
+        // Check if user is in conversation members
+        function isInConversationMembers() {
+          let convData = getConversationData();
+          let members = convData.members;
+          return request.auth != null && members != null &&
+                 (members[0] == request.auth.uid || 
+                  members[1] == request.auth.uid ||
+                  members[2] == request.auth.uid ||
+                  members[3] == request.auth.uid ||
+                  members[4] == request.auth.uid ||
+                  request.auth.uid in members);
+        }
+        
+        // Check if user is in conversation participants
+        function isInConversationParticipants() {
+          let convData = getConversationData();
+          let participants = convData.participants;
+          return request.auth != null && participants != null &&
+                 (participants[0] == request.auth.uid || 
+                  participants[1] == request.auth.uid ||
+                  participants[2] == request.auth.uid ||
+                  participants[3] == request.auth.uid ||
+                  participants[4] == request.auth.uid ||
+                  request.auth.uid in participants);
+        }
+        
+        // Read messages only if user is a conversation member/participant
+        allow read: if isAuthenticated() && 
+                       (isInConversationMembers() || isInConversationParticipants());
+        
+        // Create message only if user is a conversation member/participant and senderId matches
+        allow create: if isAuthenticated() && 
+                         request.resource.data.senderId == request.auth.uid &&
+                         (isInConversationMembers() || isInConversationParticipants());
+        
+        // Update/delete message only if user is the sender
+        allow update, delete: if isAuthenticated() && 
+                                 resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    // Chats Collection - Alternative chat system (using 'participants' field as array)
+    match /chats/{chatId} {
+      // Helper to check if user is in participants array
+      function isInChatParticipants() {
+        let participants = resource.data.participants;
+        return request.auth != null && participants != null &&
+               (participants[0] == request.auth.uid || 
+                participants[1] == request.auth.uid ||
+                participants[2] == request.auth.uid ||
+                participants[3] == request.auth.uid ||
+                participants[4] == request.auth.uid ||
+                request.auth.uid in participants); // Fallback: works if participants is a map
+      }
+      
+      // Helper to check if user is in participants array on create
+      function isInChatParticipantsCreate() {
+        let participants = request.resource.data.participants;
+        return request.auth != null && participants != null &&
+               (participants[0] == request.auth.uid || 
+                participants[1] == request.auth.uid ||
+                participants[2] == request.auth.uid ||
+                participants[3] == request.auth.uid ||
+                participants[4] == request.auth.uid ||
+                request.auth.uid in participants);
+      }
+      
+      // Read chat only if user is a participant
+      allow read: if isAuthenticated() && isInChatParticipants();
+      
+      // Create chat only if user is included in participants array
+      allow create: if isAuthenticated() && isInChatParticipantsCreate();
+      
+      // Update chat only if user is a participant
+      allow update: if isAuthenticated() && isInChatParticipants();
+      
+      // Delete chat only if user is a participant
+      allow delete: if isAuthenticated() && isInChatParticipants();
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Get parent chat data
+        function getChatData() {
+          return get(/databases/$(database)/documents/chats/$(chatId)).data;
+        }
+        
+        // Check if user is in chat participants
+        function isInChatParticipantsForMessage() {
+          let chatData = getChatData();
+          let participants = chatData.participants;
+          return request.auth != null && participants != null &&
+                 (participants[0] == request.auth.uid || 
+                  participants[1] == request.auth.uid ||
+                  participants[2] == request.auth.uid ||
+                  participants[3] == request.auth.uid ||
+                  participants[4] == request.auth.uid ||
+                  request.auth.uid in participants);
+        }
+        
+        // Read messages only if user is a chat participant
+        allow read: if isAuthenticated() && isInChatParticipantsForMessage();
+        
+        // Create message only if user is a chat participant and senderId matches
+        allow create: if isAuthenticated() && 
+                         request.resource.data.senderId == request.auth.uid &&
+                         isInChatParticipantsForMessage();
+        
+        // Update/delete message only if user is the sender
+        allow update, delete: if isAuthenticated() && 
+                                 resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    // Support Messages Collection - Contact Us messages
+    match /supportMessages/{messageId} {
+      // Read support message if user is the creator or admin
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      isAdmin() || 
+                      isAdminByRole(request.auth.uid));
+      
+      // Create support message if user is authenticated
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Update support message only by admin
+      allow update: if isAdmin() || isAdminByRole(request.auth.uid);
+      
+      // Delete support message only by admin
+      allow delete: if isAdmin() || isAdminByRole(request.auth.uid);
+
+      // Replies subcollection
+      match /replies/{replyId} {
+        // Read replies if user is the message creator or admin
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/supportMessages/$(messageId)).data.userId == request.auth.uid || 
+                        isAdmin() || 
+                        isAdminByRole(request.auth.uid));
+        
+        // Create reply if user is admin (by custom claim or role in users collection)
+        allow create: if isAuthenticated() && 
+                         (isAdmin() || isAdminByRole(request.auth.uid));
+        
+        // Update/delete reply only by admin
+        allow update, delete: if isAdmin() || isAdminByRole(request.auth.uid);
+      }
+    }
+
+    // Support Chats Collection - Customer support messaging
+    match /supportChats/{chatId} {
+      // Read support chat if user is the requester, assigned admin, or any admin
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      resource.data.adminId == request.auth.uid || 
+                      isAdmin());
+      
+      // Create support chat if user is authenticated
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // Update support chat if user is requester, assigned admin, or any admin
+      allow update: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || 
+                        resource.data.adminId == request.auth.uid || 
+                        isAdmin());
+      
+      // Delete support chat only by admin
+      allow delete: if isAdmin();
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Read messages if user is requester, assigned admin, or any admin
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/supportChats/$(chatId)).data.userId == request.auth.uid || 
+                        get(/databases/$(database)/documents/supportChats/$(chatId)).data.adminId == request.auth.uid || 
+                        isAdmin());
+        
+        // Create message if user is requester, assigned admin, or any admin
+        allow create: if isAuthenticated() && 
+                         request.resource.data.senderId == request.auth.uid &&
+                         (get(/databases/$(database)/documents/supportChats/$(chatId)).data.userId == request.auth.uid || 
+                          get(/databases/$(database)/documents/supportChats/$(chatId)).data.adminId == request.auth.uid || 
+                          isAdmin());
+        
+        // Update/delete message only if user is the sender
+        allow update, delete: if isAuthenticated() && 
+                                 resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    // Generic collections - fallback for other collections
     match /{collection}/{document} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAuthenticated();
     }
 
-    // Subcollections
+    // Subcollections - fallback for other subcollections
     match /{collection}/{document}/{subcollection}/{subdocument} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAuthenticated();
     }
   }
 }

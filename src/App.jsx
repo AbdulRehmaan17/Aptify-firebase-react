@@ -6,6 +6,7 @@ import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import LoadingSpinner from './components/common/LoadingSpinner';
+import ScrollToTop from './components/common/ScrollToTop';
 import Home from './pages/Home';
 import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
@@ -14,6 +15,10 @@ import Auth from './pages/Auth';
 import About from './pages/About';
 import Contact from './pages/Contact';
 import MyAccount from './pages/MyAccount';
+import MyProjects from './pages/MyProjects';
+import ConstructionProjectDetail from './pages/Construction/ConstructionProjectDetail';
+import RenovationProjectDetail from './pages/Renovation/RenovationProjectDetail';
+import ViewBooking from './pages/Rental/ViewBooking';
 import Construction from './pages/Construction';
 import ConstructionServicesPage from './pages/ConstructionServicesPage';
 import ConstructionRequestForm from './pages/ConstructionRequestForm';
@@ -72,6 +77,7 @@ function App() {
           v7_relativeSplatPath: true,
         }}
       >
+        <ScrollToTop />
         <div className="min-h-screen bg-background flex flex-col">
           <Navbar />
           <main className="flex-1">
@@ -97,6 +103,39 @@ function App() {
               <Route path="/sell" element={<SellPage />} />
 
               {/* Protected Routes */}
+              <Route
+                path="/my-projects"
+                element={
+                  <ProtectedRoute>
+                    <MyProjects />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Project Detail Routes */}
+              <Route
+                path="/construction/project/:id"
+                element={
+                  <ProtectedRoute>
+                    <ConstructionProjectDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/renovation/my-renovations/:id"
+                element={
+                  <ProtectedRoute>
+                    <RenovationProjectDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/rental/booking/:id"
+                element={
+                  <ProtectedRoute>
+                    <ViewBooking />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/dashboard"
                 element={

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import notificationService from '../../services/notificationService';
 import { uploadMultipleImages } from '../../firebase/storageFunctions';
@@ -148,8 +148,10 @@ const RequestRenovation = () => {
     }
 
     setLoading(true);
+    let projectId = null;
+    
     try {
-      // Upload images if any
+      // Upload images if any (do this first before Firestore writes)
       let imageUrls = [];
       if (images.length > 0) {
         toast.loading('Uploading images...', { id: 'upload' });
@@ -160,7 +162,7 @@ const RequestRenovation = () => {
         toast.success('Images uploaded successfully', { id: 'upload' });
       }
 
-      // Create renovation project request
+      // Prepare project data
       const projectData = {
         userId: currentUser.uid,
         clientId: currentUser.uid,
@@ -179,61 +181,67 @@ const RequestRenovation = () => {
         updatedAt: serverTimestamp(),
       };
 
-      const docRef = await addDoc(collection(db, 'renovationProjects'), projectData);
-      const projectId = docRef.id;
+      // OPTIMIZED: Use batch write for project + update log (minimal Firestore writes)
+      const batch = writeBatch(db);
+      
+      // Create project document reference
+      const projectRef = doc(collection(db, 'renovationProjects'));
+      batch.set(projectRef, projectData);
+      projectId = projectRef.id;
 
-      // Add initial update log
-      try {
-        const { addProjectUpdate } = await import('../../utils/projectUpdates');
-        await addProjectUpdate(
-          'renovationProjects',
-          projectId,
-          'Pending',
-          currentUser.uid,
-          'Request submitted'
-        );
-      } catch (updateError) {
-        console.error('Error adding initial update log:', updateError);
-        // Don't fail the request if update log fails
-      }
+      // Add initial update log in the same batch
+      const updateRef = doc(collection(db, 'renovationProjects', projectId, 'projectUpdates'));
+      batch.set(updateRef, {
+        status: 'Pending',
+        updatedBy: currentUser.uid,
+        note: 'Request submitted',
+        createdAt: serverTimestamp(),
+      });
 
-      // Notify all renovation providers
-      try {
-        const providersQuery = query(
-          collection(db, 'users'),
-          where('role', 'in', ['renovator', 'provider'])
-        );
-        const providersSnapshot = await getDocs(providersQuery);
-        
-        const notificationPromises = providersSnapshot.docs.map((doc) => {
-          const providerId = doc.id;
-          return notificationService.create(
-            providerId,
-            'New Renovation Request',
-            `A new renovation project request has been submitted: ${formData.serviceCategory}`,
-            'service-request',
-            `/renovation/provider-requests/${projectId}`
-          );
-        });
+      // Commit batch write (single network call)
+      await batch.commit();
 
-        await Promise.all(notificationPromises);
-        toast.success(`Notified ${providersSnapshot.docs.length} provider(s)`);
-      } catch (notifError) {
-        console.error('Error notifying providers:', notifError);
-      }
-
-      // Notify user (confirmation)
-      try {
-        await notificationService.create(
+      // OPTIMIZED: Show immediate UI feedback
+      toast.success('Renovation request submitted successfully!');
+      
+      // OPTIMIZED: Run notifications in parallel (non-blocking)
+      Promise.allSettled([
+        // Notify user (confirmation) - run in parallel
+        notificationService.create(
           currentUser.uid,
           'Renovation Request Submitted',
           `Your renovation request has been submitted. Providers will review it soon.`,
           'success',
           `/renovation/my-renovations/${projectId}`
-        );
-      } catch (notifError) {
-        console.error('Error sending user notification:', notifError);
-      }
+        ).catch((err) => console.error('Error sending user notification:', err)),
+
+        // Notify providers - run in parallel (fire and forget)
+        (async () => {
+          try {
+            const providersQuery = query(
+              collection(db, 'users'),
+              where('role', 'in', ['renovator', 'provider'])
+            );
+            const providersSnapshot = await getDocs(providersQuery);
+            
+            const notificationPromises = providersSnapshot.docs.map((providerDoc) => {
+              const providerId = providerDoc.id;
+              return notificationService.create(
+                providerId,
+                'New Renovation Request',
+                `A new renovation project request has been submitted: ${formData.serviceCategory}`,
+                'service-request',
+                `/renovation/provider-requests/${projectId}`
+              ).catch((err) => console.error(`Error notifying provider ${providerId}:`, err));
+            });
+
+            await Promise.allSettled(notificationPromises);
+            console.log(`Notified ${providersSnapshot.docs.length} provider(s)`);
+          } catch (notifError) {
+            console.error('Error notifying providers:', notifError);
+          }
+        })(),
+      ]).catch((err) => console.error('Error in notification batch:', err));
 
       // Use standardized success handler
       handleSuccess();

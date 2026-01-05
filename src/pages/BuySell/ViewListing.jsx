@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import propertyService from '../../services/propertyService';
 import userService from '../../services/userService';
-import { getOrCreateChat } from '../../utils/chatHelpers';
+import { findOrCreateConversation } from '../../utils/chatHelpers';
 import {
   MapPin,
   DollarSign,
@@ -126,7 +126,7 @@ const ViewListing = () => {
     }
 
     try {
-      const chatId = await getOrCreateChat(currentUser.uid, listing.ownerId);
+      const chatId = await findOrCreateConversation(currentUser.uid, listing.ownerId);
       navigate(`/chat?chatId=${chatId}`);
     } catch (error) {
       console.error('Error starting chat:', error);

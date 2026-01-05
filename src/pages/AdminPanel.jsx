@@ -49,7 +49,7 @@ import {
   writeBatch,
   limit,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
@@ -61,6 +61,11 @@ import reviewsService from '../services/reviewsService';
 import transactionService from '../services/transactionService';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { 
+  getMigrationStats, 
+  migrateAllProperties, 
+  FALLBACK_IMAGE_URL 
+} from '../utils/propertyImageMigration';
 
 const AdminPanel = () => {
   const { user, currentUser, currentUserRole, loading } = useAuth();
@@ -151,6 +156,11 @@ const AdminPanel = () => {
     targetType: '',
     userId: '',
   });
+  const [migrationModalOpen, setMigrationModalOpen] = useState(false);
+  const [migrationRunning, setMigrationRunning] = useState(false);
+  const [migrationStats, setMigrationStats] = useState(null);
+  const [migrationProgress, setMigrationProgress] = useState(null);
+  const [migrationResults, setMigrationResults] = useState(null);
 
   // Fetch transactions when transactions tab is active
   useEffect(() => {
@@ -296,8 +306,9 @@ const AdminPanel = () => {
     return () => unsubscribe();
   }, [activeTab, db, userNames]);
 
-  // Show loading while checking auth
-  if (loading) {
+  // Block admin UI until auth is fully loaded and ready
+  // Check both loading state and auth.currentUser to ensure auth is fully initialized
+  if (loading || !auth?.currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <LoadingSpinner size="lg" />
@@ -835,6 +846,37 @@ const AdminPanel = () => {
                   const bTime = b.createdAt?.toDate?.() || new Date(0);
                   return aTime - bTime; // Oldest first
                 });
+                
+                // FIXED: Fetch sender names for replies
+                const senderIds = new Set();
+                replies.forEach((reply) => {
+                  if (reply.senderId) {
+                    senderIds.add(reply.senderId);
+                  }
+                  // Backward compatibility: also check adminId
+                  if (reply.adminId) {
+                    senderIds.add(reply.adminId);
+                  }
+                });
+                
+                // Fetch sender names
+                for (const senderId of senderIds) {
+                  if (!userNames[senderId]) {
+                    try {
+                      const senderDoc = await getDoc(doc(db, 'users', senderId));
+                      if (senderDoc.exists()) {
+                        const senderData = senderDoc.data();
+                        setUserNames((prev) => ({
+                          ...prev,
+                          [senderId]: senderData.name || senderData.displayName || senderData.email || 'Admin',
+                        }));
+                      }
+                    } catch (senderError) {
+                      console.error(`Error fetching sender ${senderId}:`, senderError);
+                    }
+                  }
+                }
+                
                 setMessageReplies((prev) => ({
                   ...prev,
                   [message.id]: replies,
@@ -1408,35 +1450,129 @@ const AdminPanel = () => {
             await setDoc(
               doc(db, 'users', requestUid),
               {
-                role: request.type, // 'contractor' or 'renovator'
+                role: request.type, // 'constructor' or 'renovator'
                 isApprovedProvider: true,
                 approvedAt: serverTimestamp(),
               },
               { merge: true }
             );
 
-            // Create provider profile in providers collection (optional - for public listings)
-            const providerRef = doc(db, 'providers', requestUid);
-            await setDoc(providerRef, {
-              userId: requestUid,
-              type: request.type,
+            // CRITICAL: Create profile document in the correct collection based on type
+            const profileCollection = request.type === 'renovator' ? 'renovatorProfiles' : 'constructorProfiles';
+            const profileRef = doc(db, profileCollection, requestUid);
+            
+            // Get user document for name and email if not in request
+            let userName = request.fullName || '';
+            let userEmail = request.email || '';
+            try {
+              const userDoc = await getDoc(doc(db, 'users', requestUid));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                userName = userName || userData.displayName || userData.name || '';
+                userEmail = userEmail || userData.email || '';
+              }
+            } catch (userError) {
+              console.warn('Could not fetch user document for profile creation:', userError);
+            }
+
+            // Create/update profile document with all required fields
+            await setDoc(profileRef, {
+              uid: requestUid,
+              name: userName,
+              email: userEmail,
+              phone: request.phoneNumber || '',
+              approvedAt: serverTimestamp(),
+              createdAt: serverTimestamp(),
+              status: 'approved',
               portfolio: request.portfolio || [],
+              services: request.serviceCategories || request.constructionServices || [],
+              isActive: true,
+              // Additional fields from request
               description: request.description || '',
               experience: request.experience || '',
-              fullName: request.fullName || '',
+              fullName: request.fullName || userName,
               companyName: request.companyName || '',
-              email: request.email || '',
               phoneNumber: request.phoneNumber || '',
               officeAddress: request.officeAddress || '',
               city: request.city || '',
-              serviceCategories: request.serviceCategories || request.constructionServices || [],
               licenseFiles: request.licenseFiles || [],
               availability: request.availability || '',
               workingHours: request.workingHours || '',
               teamSize: request.teamSize || null,
-              createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             }, { merge: true });
+
+            // CRITICAL: Create provider document in dedicated provider collection for public listings
+            // Use constructionProviders or renovators based on type
+            const providerCollection = request.type === 'renovator' ? 'renovators' : 'constructionProviders';
+            const providerType = request.type === 'renovator' ? 'renovation' : 'construction';
+            const providerDocRef = doc(db, providerCollection, requestUid);
+            
+            // Calculate experience as number
+            const experienceYears = request.experience ? Number(request.experience) : 0;
+            
+            // Prepare services array
+            const servicesOffered = request.serviceCategories || request.constructionServices || [];
+            
+            // CRITICAL: Ensure location is always a string, not an object
+            let locationString = '';
+            if (request.city) {
+              locationString = request.city;
+              if (request.officeAddress) {
+                locationString = `${request.city}, ${request.officeAddress}`;
+              }
+            } else if (request.officeAddress) {
+              locationString = request.officeAddress;
+            }
+            
+            // Check if document already exists
+            const existingProviderDoc = await getDoc(providerDocRef);
+            
+            if (existingProviderDoc.exists()) {
+              // CRITICAL: Use updateDoc ONLY to avoid overwriting existing fields
+              // Only update approval-related fields, preserve all existing data
+              await updateDoc(providerDocRef, {
+                approved: true,
+                isActive: true,
+                updatedAt: serverTimestamp(),
+              });
+              console.log('Updated provider document (approved):', { 
+                collection: providerCollection, 
+                userId: requestUid,
+                documentExists: true
+              });
+            } else {
+              // Create new document with all required fields
+              const newProviderData = {
+                userId: requestUid,
+                providerType: providerType,
+                name: userName,
+                companyName: request.companyName || '',
+                phone: request.phoneNumber || '',
+                location: locationString,
+                experience: experienceYears,
+                servicesOffered: servicesOffered,
+                approved: true,
+                isActive: true,
+                createdAt: serverTimestamp(),
+                // Additional fields for compatibility
+                email: userEmail,
+                city: request.city || '',
+                officeAddress: request.officeAddress || '',
+                description: request.description || '',
+                portfolio: request.portfolio || [],
+                updatedAt: serverTimestamp(),
+              };
+              await setDoc(providerDocRef, newProviderData);
+              console.log('Created provider document:', { 
+                collection: providerCollection, 
+                userId: requestUid,
+                hasName: !!newProviderData.name,
+                hasLocation: !!newProviderData.location,
+                approved: newProviderData.approved,
+                isActive: newProviderData.isActive
+              });
+            }
 
             // Send notification
             await notificationService.sendNotification(
@@ -1683,37 +1819,196 @@ const AdminPanel = () => {
       return;
     }
 
+    if (!selectedMessage.userId) {
+      toast.error('Unable to send reply: User ID is missing');
+      return;
+    }
+
+    // CRITICAL: Prevent reply write if auth.currentUser is null - enforce auth readiness
+    if (!auth || !auth.currentUser) {
+      toast.error('Authentication error. Please log in again.');
+      console.error('❌ [Admin Reply] auth.currentUser is null - blocking write');
+      return;
+    }
+
+    // Additional check: ensure auth.currentUser.uid exists
+    if (!auth.currentUser.uid) {
+      toast.error('Authentication error. User ID is missing.');
+      console.error('❌ [Admin Reply] auth.currentUser.uid is missing - blocking write');
+      return;
+    }
+
     try {
       setProcessing(true);
+
+      // FIXED: Force Firebase ID token refresh before sending reply
+      try {
+        console.log('🔄 [Admin Reply] Refreshing ID token...');
+        await auth.currentUser.getIdToken(true); // Force refresh
+        console.log('✅ [Admin Reply] ID token refreshed');
+      } catch (tokenError) {
+        console.warn('⚠️ [Admin Reply] Token refresh warning (continuing):', tokenError);
+        // Continue even if token refresh fails - Firestore rules will handle auth
+      }
+
+      // FIXED: Verify users/{uid} exists for admin and ensure role === "admin" (lowercase)
+      let userDocExists = false;
+      let userRole = null;
+      let isAdmin = false;
+      try {
+        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          userDocExists = true;
+          const userData = userDoc.data();
+          userRole = userData.role;
+          // FIXED: Ensure role === "admin" (lowercase) - explicit lowercase check
+          isAdmin = userRole === 'admin'; // Exact lowercase match
+          
+          console.log('✅ [Admin Reply] Verified users/{uid} exists and role check:', {
+            uid: auth.currentUser.uid,
+            userDocExists: true,
+            role: userRole,
+            roleType: typeof userRole,
+            isAdmin: isAdmin,
+            roleMatchesAdmin: userRole === 'admin',
+          });
+          
+          if (!isAdmin) {
+            console.warn('⚠️ [Admin Reply] User role is not "admin" (lowercase):', {
+              uid: auth.currentUser.uid,
+              actualRole: userRole,
+              expectedRole: 'admin',
+              roleMatch: userRole === 'admin',
+            });
+          }
+        } else {
+          userDocExists = false;
+          console.warn('⚠️ [Admin Reply] users/{uid} document does NOT exist:', {
+            uid: auth.currentUser.uid,
+            userDocExists: false,
+            note: 'User document must exist in users collection with role: "admin"',
+          });
+        }
+      } catch (roleError) {
+        console.error('❌ [Admin Reply] Error checking users/{uid} existence and role:', {
+          error: roleError,
+          uid: auth.currentUser.uid,
+        });
+        // Continue - let Firestore rules handle permission check
+      }
+
+      // FIXED: Log auth.currentUser.uid before reply write
+      console.log('🔍 [Admin Reply] auth.currentUser.uid before reply write:', {
+        uid: auth.currentUser.uid,
+      });
+
+      // FIXED: Log Firestore write path
+      const collectionPath = `supportMessages/${selectedMessage.id}/replies`;
+      console.log('📝 [Admin Reply] Firestore write path:', {
+        writePath: collectionPath,
+        fullPath: `${collectionPath}/{replyId}`,
+        messageId: selectedMessage.id,
+        note: 'Reply writes ONLY to supportMessages/{messageId}/replies subcollection',
+      });
+
+      // FIXED: Log summary before Firestore write
+      console.log('🔵 [Admin Reply] Preparing to write reply:', {
+        authUid: auth.currentUser.uid,
+        userDocExists: userDocExists,
+        userRole: userRole,
+        isAdmin: isAdmin,
+        messageId: selectedMessage.id,
+        writePath: collectionPath,
+        replyText: replyText.trim().substring(0, 50) + '...',
+      });
+
+      // FIXED: Ensure reply writes ONLY to supportMessages/{messageId}/replies (matches Firestore rules)
+      // Note: Codebase uses 'supportMessages' collection (not 'contactMessages') to match Firestore rules
+      // FIXED: Ensure addDoc() is used (not setDoc/updateDoc)
       const repliesRef = collection(db, 'supportMessages', selectedMessage.id, 'replies');
 
-      await addDoc(repliesRef, {
-        adminId: currentUser.uid,
-        adminName: currentUser.email || user?.email || 'Admin',
-        replyText: replyText.trim(),
+      // FIXED: Reply payload includes: message, senderId, senderRole, createdAt
+      const replyData = {
+        message: replyText.trim(),
+        senderId: auth.currentUser.uid,
+        senderRole: 'admin',
         createdAt: serverTimestamp(),
+      };
+
+      console.log('🔵 [Admin Reply] Payload before addDoc():', {
+        ...replyData,
+        createdAt: '[serverTimestamp]',
       });
 
-      // Update message updatedAt
-      await updateDoc(doc(db, 'supportMessages', selectedMessage.id), {
-        updatedAt: serverTimestamp(),
+      // FIXED: Ensure addDoc() is used (not setDoc/updateDoc) - Firestore rules will verify admin permission
+      console.log('✍️ [Admin Reply] Calling addDoc() with:', {
+        collectionRef: collectionPath,
+        payload: replyData,
       });
+      const replyDocRef = await addDoc(repliesRef, replyData);
+      const actualWritePath = `supportMessages/${selectedMessage.id}/replies/${replyDocRef.id}`;
+      console.log('✅ [Admin Reply] addDoc() succeeded, actual write path:', {
+        replyId: replyDocRef.id,
+        actualWritePath: actualWritePath,
+        collectionPath: collectionPath,
+      });
+
+      // Update message updatedAt and status
+      const messageRef = doc(db, 'supportMessages', selectedMessage.id);
+      await updateDoc(messageRef, {
+        updatedAt: serverTimestamp(),
+        status: 'in-progress', // Update status to indicate reply was sent
+      });
+      console.log('✅ [Admin Reply] Message status updated');
 
       // Create notification for user
-      await notificationService.sendNotification(
-        selectedMessage.userId,
-        'Support Message Reply',
-        `An admin has replied to your support message: "${selectedMessage.subject}".`,
-        'admin',
-        '/account'
-      );
+      try {
+        await notificationService.create(
+          selectedMessage.userId,
+          'Support Message Reply',
+          `An admin has replied to your support message: "${selectedMessage.subject}". Click to view the reply.`,
+          'admin',
+          '/account'
+        );
+        console.log('✅ [Admin Reply] Notification sent to user');
+      } catch (notifError) {
+        console.error('⚠️ [Admin Reply] Error sending notification:', notifError);
+        // Don't fail the reply if notification fails
+      }
 
       toast.success('Reply sent successfully');
       setReplyModalOpen(false);
       setReplyText('');
+      
+      // Refresh replies list by updating selectedMessage (triggers useEffect)
+      // The onSnapshot listener will automatically update the replies
     } catch (error) {
-      console.error('Error replying to message:', error);
-      toast.error('Failed to send reply');
+      const collectionPath = `supportMessages/${selectedMessage.id}/replies`;
+      console.error('❌ [Admin Reply] Error replying to message:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack,
+        authUid: auth?.currentUser?.uid || 'unknown',
+        authEmail: auth?.currentUser?.email || 'unknown',
+        messageId: selectedMessage.id,
+        writePath: collectionPath,
+        errorName: error.name,
+      });
+      
+      if (error.code === 'permission-denied') {
+        toast.error('Permission denied. Please check Firestore rules and ensure you have admin privileges.');
+        console.error('❌ [Admin Reply] Permission denied details:', {
+          uid: auth?.currentUser?.uid || 'unknown',
+          email: auth?.currentUser?.email || 'unknown',
+          messageId: selectedMessage.id,
+          writePath: collectionPath,
+          note: 'Check Firestore rules for supportMessages/{messageId}/replies/{replyId}',
+        });
+      } else {
+        toast.error(error.message || 'Failed to send reply');
+      }
     } finally {
       setProcessing(false);
     }
@@ -2575,7 +2870,25 @@ const AdminPanel = () => {
 
       return (
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-textMain mb-6">Manage Properties</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-textMain">Manage Properties</h2>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                try {
+                  setMigrationModalOpen(true);
+                  const stats = await getMigrationStats();
+                  setMigrationStats(stats);
+                } catch (error) {
+                  console.error('Error getting migration stats:', error);
+                  toast.error('Failed to get migration statistics');
+                }
+              }}
+            >
+              <ImageIcon className="w-4 h-4 mr-2" />
+              Fix Missing Images
+            </Button>
+          </div>
 
           {/* Search/Filter */}
             <div className="bg-surface rounded-lg shadow-sm border border-muted p-4 mb-6">
@@ -2789,6 +3102,10 @@ const AdminPanel = () => {
                             src={selectedProperty.coverImage}
                             alt="Cover"
                             className="w-full h-48 object-cover rounded-lg border border-muted"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/200x150?text=Image+Error';
+                              e.target.onerror = null; // Prevent infinite loop
+                            }}
                           />
                           <p className="text-xs text-textSecondary mt-1">Cover Image</p>
                         </div>
@@ -2799,6 +3116,10 @@ const AdminPanel = () => {
                             src={photo}
                             alt={`Property ${idx + 1}`}
                             className="w-full h-48 object-cover rounded-lg border border-muted"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/200x150?text=Image+Error';
+                              e.target.onerror = null; // Prevent infinite loop
+                            }}
                           />
                         </div>
                       ))}
@@ -3542,26 +3863,39 @@ const AdminPanel = () => {
                           Replies ({replies.length})
                         </p>
                         <div className="space-y-3">
-                          {replies.map((reply) => (
-                            <div
-                              key={reply.id}
-                              className="bg-background rounded-lg p-4 border border-muted"
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-textMain">
-                                    {reply.adminName || 'Admin'}
-                                  </span>
-                                  <span className="text-xs text-textSecondary">
-                                    {formatDate(reply.createdAt)}
-                                  </span>
+                          {replies.map((reply) => {
+                            // FIXED: Support both new structure (message, senderId, senderRole) and old (replyText, adminId, adminName)
+                            const replyMessage = reply.message || reply.replyText || '';
+                            const senderId = reply.senderId || reply.adminId;
+                            const senderName = senderId ? (userNames[senderId] || 'Admin') : (reply.adminName || 'Admin');
+                            const senderRole = reply.senderRole || (reply.senderId ? 'admin' : 'admin');
+                            
+                            return (
+                              <div
+                                key={reply.id}
+                                className="bg-background rounded-lg p-4 border border-muted"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-textMain">
+                                      {senderName}
+                                    </span>
+                                    {senderRole && (
+                                      <span className="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-full">
+                                        {senderRole === 'admin' ? 'Admin' : senderRole}
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-textSecondary">
+                                      {formatDate(reply.createdAt)}
+                                    </span>
+                                  </div>
                                 </div>
+                                <p className="text-sm text-textSecondary whitespace-pre-wrap">
+                                  {replyMessage}
+                                </p>
                               </div>
-                              <p className="text-sm text-textSecondary whitespace-pre-wrap">
-                                {reply.replyText || reply.message}
-                              </p>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -3658,26 +3992,39 @@ const AdminPanel = () => {
                       Reply History ({messageReplies[selectedMessage.id].length})
                     </h3>
                     <div className="space-y-3">
-                      {messageReplies[selectedMessage.id].map((reply) => (
-                        <div
-                          key={reply.id}
-                          className="bg-background rounded-lg p-4 border border-muted"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-textMain">
-                                {reply.adminName || 'Admin'}
-                              </span>
-                              <span className="text-xs text-textSecondary">
-                                {formatDate(reply.createdAt)}
-                              </span>
+                      {messageReplies[selectedMessage.id].map((reply) => {
+                        // FIXED: Support both new structure (message, senderId, senderRole) and old (replyText, adminId, adminName)
+                        const replyMessage = reply.message || reply.replyText || '';
+                        const senderId = reply.senderId || reply.adminId;
+                        const senderName = senderId ? (userNames[senderId] || 'Admin') : (reply.adminName || 'Admin');
+                        const senderRole = reply.senderRole || (reply.senderId ? 'admin' : 'admin');
+                        
+                        return (
+                          <div
+                            key={reply.id}
+                            className="bg-background rounded-lg p-4 border border-muted"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-textMain">
+                                  {senderName}
+                                </span>
+                                {senderRole && (
+                                  <span className="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-full">
+                                    {senderRole === 'admin' ? 'Admin' : senderRole}
+                                  </span>
+                                )}
+                                <span className="text-xs text-textSecondary">
+                                  {formatDate(reply.createdAt)}
+                                </span>
+                              </div>
                             </div>
+                            <p className="text-sm text-textSecondary whitespace-pre-wrap">
+                              {replyMessage}
+                            </p>
                           </div>
-                          <p className="text-sm text-textSecondary whitespace-pre-wrap">
-                            {reply.replyText || reply.message}
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -4607,6 +4954,152 @@ const AdminPanel = () => {
     );
   };
 
+  // Image Migration Modal
+  const renderMigrationModal = () => {
+    return (
+      <Modal
+        isOpen={migrationModalOpen}
+        onClose={() => {
+          if (!migrationRunning) {
+            setMigrationModalOpen(false);
+            setMigrationStats(null);
+            setMigrationProgress(null);
+            setMigrationResults(null);
+          }
+        }}
+        title="Fix Missing Property Images"
+        size="lg"
+      >
+        <div className="space-y-6">
+          {!migrationRunning && !migrationResults && migrationStats && (
+            <>
+              <div className="bg-muted/50 rounded-lg p-4">
+                <h3 className="font-semibold text-textMain mb-2">Migration Statistics</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-textSecondary">Total Properties:</span>
+                    <span className="ml-2 font-medium text-textMain">{migrationStats.total}</span>
+                  </div>
+                  <div>
+                    <span className="text-textSecondary">Need Migration:</span>
+                    <span className="ml-2 font-medium text-primary">{migrationStats.needsMigration}</span>
+                  </div>
+                  <div>
+                    <span className="text-textSecondary">Invalid Photos:</span>
+                    <span className="ml-2 font-medium text-textMain">{migrationStats.hasInvalidPhotos}</span>
+                  </div>
+                  <div>
+                    <span className="text-textSecondary">Invalid Cover Image:</span>
+                    <span className="ml-2 font-medium text-textMain">{migrationStats.hasInvalidCoverImage}</span>
+                  </div>
+                  <div>
+                    <span className="text-textSecondary">Missing Cover Image:</span>
+                    <span className="ml-2 font-medium text-textMain">{migrationStats.missingCoverImage}</span>
+                  </div>
+                  <div>
+                    <span className="text-textSecondary">Empty Photos:</span>
+                    <span className="ml-2 font-medium text-textMain">{migrationStats.emptyPhotos}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="primary"
+                  onClick={async () => {
+                    try {
+                      setMigrationRunning(true);
+                      setMigrationProgress({ current: 0, total: migrationStats.needsMigration });
+                      
+                      const results = await migrateAllProperties({
+                        addFallback: false, // Don't add fallback - just normalize
+                        batchSize: 50,
+                        onProgress: (propertyId, result) => {
+                          setMigrationProgress((prev) => ({
+                            current: (prev?.current || 0) + 1,
+                            total: prev?.total || migrationStats.needsMigration,
+                          }));
+                        },
+                      });
+                      
+                      setMigrationResults(results);
+                      toast.success(`Migration completed: ${results.migrated} migrated, ${results.skipped} skipped`);
+                    } catch (error) {
+                      console.error('Migration error:', error);
+                      toast.error(`Migration failed: ${error.message}`);
+                    } finally {
+                      setMigrationRunning(false);
+                    }
+                  }}
+                  disabled={migrationStats.needsMigration === 0}
+                >
+                  Run Migration
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setMigrationModalOpen(false);
+                    setMigrationStats(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
+
+          {migrationRunning && (
+            <div className="text-center py-8">
+              <LoadingSpinner size="lg" />
+              <p className="mt-4 text-textMain">
+                Migrating properties... {migrationProgress?.current || 0} / {migrationProgress?.total || 0}
+              </p>
+            </div>
+          )}
+
+          {migrationResults && (
+            <div className="space-y-4">
+              <div className="bg-primary/10 rounded-lg p-4">
+                <h3 className="font-semibold text-textMain mb-2">Migration Complete</h3>
+                <div className="space-y-1 text-sm">
+                  <div>
+                    <span className="text-textSecondary">Total Processed:</span>
+                    <span className="ml-2 font-medium text-textMain">{migrationResults.total}</span>
+                  </div>
+                  <div>
+                    <span className="text-textSecondary">Migrated:</span>
+                    <span className="ml-2 font-medium text-primary">{migrationResults.migrated}</span>
+                  </div>
+                  <div>
+                    <span className="text-textSecondary">Skipped:</span>
+                    <span className="ml-2 font-medium text-textMain">{migrationResults.skipped}</span>
+                  </div>
+                  {migrationResults.errors > 0 && (
+                    <div>
+                      <span className="text-textSecondary">Errors:</span>
+                      <span className="ml-2 font-medium text-error">{migrationResults.errors}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setMigrationModalOpen(false);
+                  setMigrationStats(null);
+                  setMigrationProgress(null);
+                  setMigrationResults(null);
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          )}
+        </div>
+      </Modal>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -4654,6 +5147,9 @@ const AdminPanel = () => {
             </div>
           </main>
         </div>
+        
+        {/* Image Migration Modal */}
+        {renderMigrationModal()}
       </div>
     </div>
   );

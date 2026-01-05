@@ -94,6 +94,7 @@ const MyAccount = () => {
   const tabs = [
     { key: 'profile', label: 'Profile', icon: User },
     { key: 'properties', label: 'My Listings', icon: Home },
+    { key: 'my-projects', label: 'My Projects', icon: Building2 },
     { key: 'requests', label: 'Service Requests', icon: Calendar },
     { key: 'reviews', label: 'My Reviews', icon: Star },
     { key: 'messages', label: 'Messages', icon: MessageCircle },
@@ -163,9 +164,63 @@ const MyAccount = () => {
     };
   }, [authLoading, currentUser]);
 
-  // Fetch user properties
+  // Fetch property count for summary (always runs, includes both sale and rent)
   useEffect(() => {
-    if (!currentUser?.uid || !db || activeTab !== 'properties') return;
+    if (!currentUser?.uid || !db) return;
+
+    try {
+      // Query all properties owned by user (includes both sale and rent)
+      const propertiesCountQuery = query(
+        collection(db, 'properties'),
+        where('ownerId', '==', currentUser.uid)
+      );
+
+      const unsubscribe = onSnapshot(
+        propertiesCountQuery,
+        (snapshot) => {
+          // Get all properties, including both type: 'sale' and type: 'rent'
+          const allProperties = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          
+          // Remove duplicates by ID (shouldn't happen, but safety check)
+          const uniqueProperties = Array.from(
+            new Map(allProperties.map((p) => [p.id, p])).values()
+          );
+
+          // Update summary count with total properties (sale + rent)
+          setSummaryCounts((prev) => ({ ...prev, properties: uniqueProperties.length }));
+        },
+        (error) => {
+          console.error('Error fetching property count:', error);
+          // Handle permission errors gracefully
+          if (error.code === 'permission-denied') {
+            console.warn('Permission denied - user may not have access to properties');
+            setSummaryCounts((prev) => ({ ...prev, properties: 0 }));
+            return;
+          }
+          // Set count to 0 on error
+          setSummaryCounts((prev) => ({ ...prev, properties: 0 }));
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error setting up property count listener:', error);
+      setSummaryCounts((prev) => ({ ...prev, properties: 0 }));
+    }
+  }, [currentUser?.uid, db]);
+
+  // Fetch user properties (for properties tab only)
+  useEffect(() => {
+    if (!currentUser?.uid || !db || activeTab !== 'properties') {
+      // Clear properties when not on properties tab to save memory
+      if (activeTab !== 'properties') {
+        setMyProperties([]);
+      }
+      return;
+    }
 
     setPropertiesLoading(true);
 
@@ -184,7 +239,6 @@ const MyAccount = () => {
             ...doc.data(),
           }));
           setMyProperties(properties);
-          setSummaryCounts((prev) => ({ ...prev, properties: properties.length }));
           setPropertiesLoading(false);
         },
         (error) => {
@@ -216,7 +270,6 @@ const MyAccount = () => {
                   return bTime - aTime;
                 });
                 setMyProperties(properties);
-                setSummaryCounts((prev) => ({ ...prev, properties: properties.length }));
                 setPropertiesLoading(false);
               },
               (fallbackError) => {
@@ -767,6 +820,25 @@ const MyAccount = () => {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* My Projects Tab */}
+                {activeTab === 'my-projects' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-bold text-textMain">My Projects</h2>
+                      <Button onClick={() => navigate('/my-projects')} variant="outline">
+                        View Full Page
+                      </Button>
+                    </div>
+                    <p className="text-textSecondary mb-6">
+                      View and manage all your service requests and projects in one place.
+                    </p>
+                    <Button onClick={() => navigate('/my-projects')} variant="primary" fullWidth>
+                      <Building2 className="w-4 h-4 mr-2" />
+                      Open My Projects
+                    </Button>
                   </div>
                 )}
 
