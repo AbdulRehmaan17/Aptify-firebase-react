@@ -4,7 +4,9 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
-import ProtectedRoute from './components/common/ProtectedRoute';
+// Route guards (React Router v6, Outlet-based, case-sensitive for Netlify)
+import ProtectedRoute from './routes/ProtectedRoute';
+import PublicRoute from './routes/PublicRoute';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ScrollToTop from './components/common/ScrollToTop';
 import Home from './pages/Home';
@@ -83,17 +85,12 @@ function App() {
           <main className="flex-1">
             <Routes>
               {/* Public Routes */}
+              <Route element={<PublicRoute />}>
+                <Route path="/auth" element={<Auth />} />
+              </Route>
               <Route path="/" element={<Home />} />
               <Route path="/properties" element={<PropertiesPage />} />
               <Route path="/properties/:id" element={<PropertyDetailPage />} />
-              <Route
-                path="/auth"
-                element={
-                  <PublicRoute>
-                    <Auth />
-                  </PublicRoute>
-                }
-              />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/renovation" element={<Renovation />} />
@@ -109,394 +106,164 @@ function App() {
               <Route path="/buy" element={<BuyPage />} />
               <Route path="/sell" element={<SellPage />} />
 
-              {/* Protected Routes */}
-              <Route
-                path="/my-projects"
-                element={
-                  <ProtectedRoute>
-                    <MyProjects />
-                  </ProtectedRoute>
-                }
-              />
-              {/* Project Detail Routes */}
-              <Route
-                path="/construction/project/:id"
-                element={
-                  <ProtectedRoute>
-                    <ConstructionProjectDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovation/my-renovations/:id"
-                element={
-                  <ProtectedRoute>
-                    <RenovationProjectDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/rental/booking/:id"
-                element={
-                  <ProtectedRoute>
-                    <ViewBooking />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/notifications"
-                element={
-                  <ProtectedRoute>
-                    <NotificationsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/chats"
-                element={
-                  <ProtectedRoute>
-                    <UserChatsPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/chat"
-                element={
-                  <ProtectedRoute>
+              {/* Authenticated user routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/my-projects" element={<MyProjects />} />
+                {/* Project Detail Routes */}
+                <Route
+                  path="/construction/project/:id"
+                  element={<ConstructionProjectDetail />}
+                />
+                <Route
+                  path="/renovation/my-renovations/:id"
+                  element={<RenovationProjectDetail />}
+                />
+                <Route path="/rental/booking/:id" element={<ViewBooking />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/chats" element={<UserChatsPage />} />
+                <Route
+                  path="/chat"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <Chat />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/chatbot"
-                element={
-                  <ProtectedRoute>
-                    <Chatbot />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/construction"
-                element={
-                  <ProtectedRoute>
-                    <Construction />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/post-property"
-                element={
-                  <ProtectedRoute>
-                    <PostPropertyPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/account"
-                element={
-                  <ProtectedRoute>
-                    <MyAccount />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/owner-dashboard"
-                element={
-                  <ProtectedRoute>
-                    <OwnerDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <ProtectedRoute adminOnly>
+                  }
+                />
+                <Route path="/chatbot" element={<Chatbot />} />
+                <Route path="/construction" element={<Construction />} />
+                <Route path="/post-property" element={<PostPropertyPage />} />
+                <Route path="/account" element={<MyAccount />} />
+                <Route path="/owner-dashboard" element={<OwnerDashboard />} />
+                <Route path="/payment-mock" element={<PaymentMock />} />
+
+                {/* Construction Module Routes */}
+                <Route path="/construction-request" element={<ConstructionRequestForm />} />
+                <Route path="/request-construction" element={<RequestConstruction />} />
+                <Route path="/construction-list" element={<ConstructionList />} />
+                <Route
+                  path="/construction-provider/:id"
+                  element={<ConstructionProviderDetail />}
+                />
+                <Route path="/construction-dashboard" element={<ConstructionDashboard />} />
+                <Route
+                  path="/provider-construction"
+                  element={<ProviderConstructionPanel />}
+                />
+                <Route path="/providers" element={<ProviderOptions />} />
+                <Route path="/register-constructor" element={<RegisterConstructor />} />
+
+                {/* Renovation Module Routes */}
+                <Route path="/renovation-list" element={<RenovationList />} />
+                <Route
+                  path="/renovation-provider/:id"
+                  element={<RenovationProviderDetail />}
+                />
+                <Route path="/renovation-request" element={<RenovationRequestForm />} />
+                <Route path="/request-renovation" element={<RequestRenovation />} />
+                <Route path="/renovation-dashboard" element={<RenovationDashboard />} />
+                <Route
+                  path="/provider-renovation"
+                  element={<ProviderRenovationPanel />}
+                />
+                <Route path="/register-renovator" element={<RegisterRenovator />} />
+
+                {/* Rental Module Routes */}
+                <Route path="/rental-request" element={<RentalRequestForm />} />
+              </Route>
+
+              {/* Admin-only routes */}
+              <Route element={<ProtectedRoute adminOnly />}>
+                <Route
+                  path="/admin"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <AdminPanel />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment-mock"
-                element={
-                  <ProtectedRoute>
-                    <PaymentMock />
-                  </ProtectedRoute>
-                }
-              />
+                  }
+                />
+              </Route>
 
-              {/* Construction Module Routes */}
-              <Route
-                path="/construction-request"
-                element={
-                  <ProtectedRoute>
-                    <ConstructionRequestForm />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/request-construction"
-                element={
-                  <ProtectedRoute>
-                    <RequestConstruction />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/construction-list"
-                element={
-                  <ProtectedRoute>
-                    <ConstructionList />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/construction-provider/:id"
-                element={
-                  <ProtectedRoute>
-                    <ConstructionProviderDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/construction-dashboard"
-                element={
-                  <ProtectedRoute>
-                    <ConstructionDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/constructor-dashboard"
-                element={
-                  <ProtectedRoute>
+              {/* Constructor-only routes */}
+              <Route element={<ProtectedRoute constructorOnly />}>
+                <Route
+                  path="/constructor/dashboard"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <ConstructorDashboard />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/provider-construction"
-                element={
-                  <ProtectedRoute>
-                    <ProviderConstructionPanel />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/providers"
-                element={
-                  <ProtectedRoute>
-                    <ProviderOptions />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/register-constructor"
-                element={
-                  <ProtectedRoute>
-                    <RegisterConstructor />
-                  </ProtectedRoute>
-                }
-              />
+                  }
+                />
+                <Route
+                  path="/constructor/projects"
+                  element={<ConstructorProjects />}
+                />
+                <Route
+                  path="/constructor/projects/:id"
+                  element={<ConstructorProjectDetails />}
+                />
+                <Route path="/constructor/profile" element={<ConstructorProfile />} />
+              </Route>
 
-              {/* Renovation Module Routes */}
-              <Route
-                path="/renovation-list"
-                element={
-                  <ProtectedRoute>
-                    <RenovationList />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovation-provider/:id"
-                element={
-                  <ProtectedRoute>
-                    <RenovationProviderDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovation-request"
-                element={
-                  <ProtectedRoute>
-                    <RenovationRequestForm />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/request-renovation"
-                element={
-                  <ProtectedRoute>
-                    <RequestRenovation />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovation-dashboard"
-                element={
-                  <ProtectedRoute>
-                    <RenovationDashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovator-dashboard"
-                element={
-                  <ProtectedRoute>
+              {/* Renovator-only routes */}
+              <Route element={<ProtectedRoute renovatorOnly />}>
+                <Route
+                  path="/renovator/dashboard"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorDashboard />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/provider-renovation"
-                element={
-                  <ProtectedRoute>
-                    <ProviderRenovationPanel />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/register-renovator"
-                element={
-                  <ProtectedRoute>
-                    <RegisterRenovator />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Rental Module Routes */}
-              <Route
-                path="/rental-request"
-                element={
-                  <ProtectedRoute>
-                    <RentalRequestForm />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Constructor Module Routes */}
-              <Route
-                path="/constructor/dashboard"
-                element={
-                  <ProtectedRoute constructorOnly>
-                    <Suspense fallback={<LoadingSpinner size="lg" />}>
-                      <ConstructorDashboard />
-                    </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/constructor/projects"
-                element={
-                  <ProtectedRoute constructorOnly>
-                    <ConstructorProjects />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/constructor/projects/:id"
-                element={
-                  <ProtectedRoute constructorOnly>
-                    <ConstructorProjectDetails />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/constructor/profile"
-                element={
-                  <ProtectedRoute constructorOnly>
-                    <ConstructorProfile />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* Renovator Module Routes */}
-              <Route
-                path="/renovator/dashboard"
-                element={
-                  <ProtectedRoute renovatorOnly>
-                    <Suspense fallback={<LoadingSpinner size="lg" />}>
-                      <RenovatorDashboard />
-                    </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovator/projects"
-                element={
-                  <ProtectedRoute renovatorOnly>
+                  }
+                />
+                <Route
+                  path="/renovator/projects"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorProjects />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovator/project/:id"
-                element={
-                  <ProtectedRoute renovatorOnly>
+                  }
+                />
+                <Route
+                  path="/renovator/project/:id"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorProjectDetails />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovator/profile"
-                element={
-                  <ProtectedRoute renovatorOnly>
+                  }
+                />
+                <Route
+                  path="/renovator/profile"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorProfile />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovator/chat"
-                element={
-                  <ProtectedRoute renovatorOnly>
+                  }
+                />
+                <Route
+                  path="/renovator/chat"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <Chat />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovator/notifications"
-                element={
-                  <ProtectedRoute renovatorOnly>
+                  }
+                />
+                <Route
+                  path="/renovator/notifications"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <NotificationsPage />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/renovator/portfolio"
-                element={
-                  <ProtectedRoute renovatorOnly>
+                  }
+                />
+                <Route
+                  path="/renovator/portfolio"
+                  element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorPortfolio />
                     </Suspense>
-                  </ProtectedRoute>
-                }
-              />
+                  }
+                />
+              </Route>
 
               {/* 404 Route */}
               <Route

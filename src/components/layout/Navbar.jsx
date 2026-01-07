@@ -258,10 +258,14 @@ const Navbar = () => {
                   aria-haspopup="true"
                 >
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    {userProfile?.photoURL ? (
+                    {/* Avatar fallback order:
+                       1) Firestore profile photoURL
+                       2) Firebase Auth currentUser.photoURL (e.g. Google avatar)
+                       3) Default icon */}
+                    {userProfile?.photoURL || currentUser?.photoURL ? (
                       <img
-                        src={userProfile.photoURL}
-                        alt={userProfile.displayName || 'User'}
+                        src={userProfile?.photoURL || currentUser?.photoURL}
+                        alt={userProfile?.displayName || currentUser?.displayName || 'User'}
                         className="w-8 h-8 rounded-full object-cover"
                       />
                     ) : (

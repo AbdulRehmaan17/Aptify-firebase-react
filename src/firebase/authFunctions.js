@@ -368,6 +368,7 @@ export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
       // Also check users collection for backward compatibility
       const userDoc = await getDoc(userRef);
 
+      // Base profile data from Firebase Auth + any additional fields
       const profileData = {
         email: user.email || '',
         displayName: user.displayName || additionalData.name || user.email?.split('@')[0] || 'User',
@@ -380,16 +381,41 @@ export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
         ...additionalData,
       };
 
-      // AUTO-FIXED: Update both userProfiles and users collections
-      const existingData = userProfileDoc?.exists() ? userProfileDoc.data() : (userDoc.exists() ? userDoc.data() : {});
+      // Existing Firestore data (from userProfiles or users collection)
+      const existingData = userProfileDoc?.exists()
+        ? userProfileDoc.data()
+        : userDoc.exists()
+        ? userDoc.data()
+        : {};
 
+      // FINAL PROFILE MERGE (Google/profile sync point)
+      // IMPORTANT:
+      // - We PREFILL missing fields from Firebase Auth
+      // - We DO NOT overwrite existing Firestore values (including photoURL)
+      //   so manual profile updates and custom avatars are preserved.
       const finalProfileData = {
-        ...profileData,
+        // Preserve any existing fields by default
+        ...existingData,
+        // Core identity fields: only set if missing in Firestore
+        uid: existingData.uid || user.uid,
+        email: existingData.email || profileData.email,
+        displayName: existingData.displayName || profileData.displayName,
+        name: existingData.name || profileData.name,
+        // Google photo sync:
+        // - Use existing Firestore photoURL if present
+        // - Otherwise fill from Firebase Auth / additionalData
+        photoURL: existingData.photoURL || profileData.photoURL,
+        // Metadata & role
         createdAt: existingData.createdAt || serverTimestamp(),
         role: existingData.role || additionalData.role || 'customer',
+        // Contact info: don't drop existing values
         phone: existingData.phone || profileData.phone,
         phoneNumber: existingData.phoneNumber || profileData.phoneNumber,
+        // Structured fields
         addresses: existingData.addresses || [],
+        // Always refresh lastLogin/updatedAt on auth events
+        lastLogin: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       };
 
       // Update userProfiles (per Firestore rules)

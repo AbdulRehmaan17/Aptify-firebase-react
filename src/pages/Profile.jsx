@@ -45,7 +45,9 @@ const Profile = () => {
         phone: userProfile.phone || '',
         address: userProfile.address || userProfile.addresses?.[0]?.fullAddress || '',
       });
-      setProfileImagePreview(userProfile.photoURL || null);
+      // Avatar preview:
+      // Prefer Firestore photoURL, fall back to Auth photoURL (e.g. Google avatar)
+      setProfileImagePreview(userProfile.photoURL || currentUser?.photoURL || null);
     }
   }, [userProfile]);
 

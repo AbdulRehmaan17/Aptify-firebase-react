@@ -132,6 +132,10 @@ const MyAccount = () => {
               typeof userProfile?.address === 'string'
                 ? userProfile.address
                 : userProfile?.address?.line1 || userProfile?.address || '',
+            // Avatar fallback order:
+            // 1) Firestore profile photoURL
+            // 2) Firebase Auth currentUser.photoURL (e.g. Google avatar)
+            // 3) Empty (handled by UI default icon)
             photoURL: userProfile?.photoURL || currentUser?.photoURL || '',
           });
         }
