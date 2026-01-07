@@ -133,6 +133,7 @@ function App() {
                 <Route path="/chatbot" element={<Chatbot />} />
                 <Route path="/construction" element={<Construction />} />
                 <Route path="/post-property" element={<PostPropertyPage />} />
+                {/* Account/Profile page - accessible via avatar click or "My Account" menu */}
                 <Route path="/account" element={<MyAccount />} />
                 <Route path="/owner-dashboard" element={<OwnerDashboard />} />
                 <Route path="/payment-mock" element={<PaymentMock />} />

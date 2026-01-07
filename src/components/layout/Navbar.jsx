@@ -257,7 +257,16 @@ const Navbar = () => {
                   aria-expanded={isUserMenuOpen}
                   aria-haspopup="true"
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  {/* Avatar - clickable to navigate to account */}
+                  <Link
+                    to="/account"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent dropdown toggle when clicking avatar
+                      setIsUserMenuOpen(false);
+                    }}
+                    className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:ring-2 hover:ring-primary transition-all cursor-pointer"
+                    aria-label="Go to account"
+                  >
                     {/* Avatar fallback order:
                        1) Firestore profile photoURL
                        2) Firebase Auth currentUser.photoURL (e.g. Google avatar)
@@ -271,7 +280,7 @@ const Navbar = () => {
                     ) : (
                       <User className="w-4 h-4 text-primary" />
                     )}
-                  </div>
+                  </Link>
                   <span className="hidden xl:block text-sm font-medium max-w-[120px] truncate">
                     {userProfile?.displayName || currentUser.email?.split('@')[0] || 'User'}
                   </span>
