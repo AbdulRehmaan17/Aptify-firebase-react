@@ -22,9 +22,9 @@ export default function ProtectedRoute({
   constructorOnly = false, 
   renovatorOnly = false 
 }) {
-  const { currentUser, userProfile, loading } = useAuth();
+  const { currentUser, userProfile, authLoading } = useAuth();
 
-  if (loading) {
+  if (authLoading) {
     // minimal loading placeholder so that router doesn't mis-route during initial auth
     return <div className="w-full h-full flex items-center justify-center">Loading...</div>;
   }

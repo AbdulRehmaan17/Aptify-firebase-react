@@ -402,12 +402,19 @@ export const AuthProvider = ({ children }) => {
     return role === 'constructor' || role === 'renovator' || role === 'provider';
   };
 
+  // Single source of truth for auth loading state
+  // authLoading stays true until Firebase has resolved the initial auth state
+  const authLoading = loading || !authReady;
+
   const value = {
     currentUser,
     user: currentUser, // Alias for backward compatibility
     userProfile,
+    // Keep original flags for backward compatibility
     loading,
     authReady, // Expose auth readiness state
+    // New consolidated flag used by routes/pages to avoid blinking & loops
+    authLoading,
     error,
     currentUserRole,
     isApprovedProvider,
@@ -424,8 +431,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   // AUTO-FIXED: Show loading state while auth is initializing to prevent blank screens
-  // Block UI until auth is fully loaded and ready
-  if (loading || !authReady) {
+  // Block UI until auth is fully loaded and ready to avoid route blinking
+  if (authLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F8FAFC' }}>
         <div style={{ textAlign: 'center' }}>

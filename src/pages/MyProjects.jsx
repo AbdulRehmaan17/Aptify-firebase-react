@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  collection,
-  query,
-  where,
-  onSnapshot,
-  orderBy,
-  getDocs,
-} from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   Building2,
@@ -87,7 +80,7 @@ const MyProjects = () => {
       }
     };
 
-    // 1. Load Construction Projects
+    // 1. Load Construction Projects (one-time read with graceful fallback)
     try {
       const constructionQuery = query(
         collection(db, 'constructionProjects'),
@@ -95,9 +88,8 @@ const MyProjects = () => {
         orderBy('createdAt', 'desc')
       );
 
-      const constructionUnsubscribe = onSnapshot(
-        constructionQuery,
-        (snapshot) => {
+      getDocs(constructionQuery)
+        .then((snapshot) => {
           snapshot.docs.forEach((doc) => {
             allProjects.push({
               id: doc.id,
@@ -107,11 +99,11 @@ const MyProjects = () => {
             });
           });
           handleQueryComplete();
-        },
-        (error) => {
+        })
+        .catch((error) => {
           console.error('Error loading construction projects:', error);
-          // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+            // Fallback without orderBy
             const fallbackQuery = query(
               collection(db, 'constructionProjects'),
               where('userId', '==', userId)
@@ -132,14 +124,13 @@ const MyProjects = () => {
           } else {
             handleQueryComplete();
           }
-        }
-      );
+        });
     } catch (error) {
-      console.error('Error setting up construction projects listener:', error);
+      console.error('Error setting up construction projects query:', error);
       handleQueryComplete();
     }
 
-    // 2. Load Renovation Projects
+    // 2. Load Renovation Projects (one-time read with graceful fallback)
     try {
       const renovationQuery = query(
         collection(db, 'renovationProjects'),
@@ -147,9 +138,8 @@ const MyProjects = () => {
         orderBy('createdAt', 'desc')
       );
 
-      const renovationUnsubscribe = onSnapshot(
-        renovationQuery,
-        (snapshot) => {
+      getDocs(renovationQuery)
+        .then((snapshot) => {
           snapshot.docs.forEach((doc) => {
             allProjects.push({
               id: doc.id,
@@ -159,10 +149,9 @@ const MyProjects = () => {
             });
           });
           handleQueryComplete();
-        },
-        (error) => {
+        })
+        .catch((error) => {
           console.error('Error loading renovation projects:', error);
-          // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
             const fallbackQuery = query(
               collection(db, 'renovationProjects'),
@@ -184,14 +173,13 @@ const MyProjects = () => {
           } else {
             handleQueryComplete();
           }
-        }
-      );
+        });
     } catch (error) {
-      console.error('Error setting up renovation projects listener:', error);
+      console.error('Error setting up renovation projects query:', error);
       handleQueryComplete();
     }
 
-    // 3. Load Rental Requests
+    // 3. Load Rental Requests (one-time read with graceful fallback)
     try {
       const rentalQuery = query(
         collection(db, 'rentalRequests'),
@@ -199,9 +187,8 @@ const MyProjects = () => {
         orderBy('createdAt', 'desc')
       );
 
-      const rentalUnsubscribe = onSnapshot(
-        rentalQuery,
-        (snapshot) => {
+      getDocs(rentalQuery)
+        .then((snapshot) => {
           snapshot.docs.forEach((doc) => {
             allProjects.push({
               id: doc.id,
@@ -211,10 +198,9 @@ const MyProjects = () => {
             });
           });
           handleQueryComplete();
-        },
-        (error) => {
+        })
+        .catch((error) => {
           console.error('Error loading rental requests:', error);
-          // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
             const fallbackQuery = query(
               collection(db, 'rentalRequests'),
@@ -236,14 +222,13 @@ const MyProjects = () => {
           } else {
             handleQueryComplete();
           }
-        }
-      );
+        });
     } catch (error) {
-      console.error('Error setting up rental requests listener:', error);
+      console.error('Error setting up rental requests query:', error);
       handleQueryComplete();
     }
 
-    // 4. Load Buy/Sell Requests
+    // 4. Load Buy/Sell Requests (one-time read with graceful fallback)
     try {
       const buySellQuery = query(
         collection(db, 'buySellRequests'),
@@ -251,9 +236,8 @@ const MyProjects = () => {
         orderBy('createdAt', 'desc')
       );
 
-      const buySellUnsubscribe = onSnapshot(
-        buySellQuery,
-        (snapshot) => {
+      getDocs(buySellQuery)
+        .then((snapshot) => {
           snapshot.docs.forEach((doc) => {
             allProjects.push({
               id: doc.id,
@@ -263,10 +247,9 @@ const MyProjects = () => {
             });
           });
           handleQueryComplete();
-        },
-        (error) => {
+        })
+        .catch((error) => {
           console.error('Error loading buy/sell requests:', error);
-          // Fallback without orderBy
           if (error.code === 'failed-precondition' || error.message?.includes('index')) {
             const fallbackQuery = query(
               collection(db, 'buySellRequests'),
@@ -288,10 +271,9 @@ const MyProjects = () => {
           } else {
             handleQueryComplete();
           }
-        }
-      );
+        });
     } catch (error) {
-      console.error('Error setting up buy/sell requests listener:', error);
+      console.error('Error setting up buy/sell requests query:', error);
       handleQueryComplete();
     }
   };

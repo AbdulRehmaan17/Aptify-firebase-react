@@ -8,10 +8,10 @@ import LoadingSpinner from './LoadingSpinner';
  * Allows only unauthenticated users to access the route
  */
 const PublicRoute = ({ children }) => {
-  const { currentUser, loading, getUserRole } = useAuth();
+  const { currentUser, authLoading, getUserRole } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -19,7 +19,7 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  // If user is authenticated, redirect to appropriate dashboard
+  // If user is authenticated (and auth has settled), redirect to appropriate dashboard
   if (currentUser) {
     const role = getUserRole();
     const from = location.state?.from?.pathname || '/';

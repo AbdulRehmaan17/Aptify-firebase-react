@@ -23,7 +23,15 @@ const Auth = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { signup, login, loginWithGoogle, handleGoogleRedirect, currentUser, loading, userProfile } = useAuth();
+  const {
+    signup,
+    login,
+    loginWithGoogle,
+    handleGoogleRedirect,
+    currentUser,
+    userProfile,
+    authLoading,
+  } = useAuth();
   // Get redirect path from URL query param or state
   const searchParams = new URLSearchParams(location.search);
   const nextPath = searchParams.get('next') || location.state?.from?.pathname || '/account';
@@ -31,7 +39,7 @@ const Auth = () => {
 
   // Safe redirect: only after loading is false
   useEffect(() => {
-    if (loading) return; // crucial: wait until auth resolved
+    if (authLoading) return; // crucial: wait until auth resolved
     if (currentUser && !redirectedRef.current) {
       redirectedRef.current = true; // avoid double redirect
       // Use role-based redirect path if available, otherwise use next param
@@ -39,11 +47,11 @@ const Auth = () => {
         navigate(redirectPath, { replace: true });
       });
     }
-  }, [loading, currentUser, userProfile, location, navigate, nextPath]);
+  }, [authLoading, currentUser, userProfile, location, navigate, nextPath]);
 
   // Handle Google redirect result on mount (only once, with proper guards)
   useEffect(() => {
-    if (loading || currentUser || redirectedRef.current) return; // Guard against re-runs
+    if (authLoading || currentUser || redirectedRef.current) return; // Guard against re-runs
     
     let mounted = true;
     const checkGoogleRedirect = async () => {
@@ -64,7 +72,7 @@ const Auth = () => {
     checkGoogleRedirect();
     
     return () => { mounted = false; };
-  }, [loading, currentUser, userProfile, nextPath, navigate]); // Include dependencies
+  }, [authLoading, currentUser, userProfile, nextPath, navigate]); // Include dependencies
 
   const validateForm = () => {
     const newErrors = {};
@@ -170,7 +178,7 @@ const Auth = () => {
   };
 
   // Show loading while auth initializes to prevent blinking
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">

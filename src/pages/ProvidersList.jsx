@@ -18,6 +18,7 @@ const ProvidersList = () => {
   const [filteredProviders, setFilteredProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState(''); // 'renovator', 'constructor', or ''
 
   useEffect(() => {
@@ -240,7 +241,16 @@ const ProvidersList = () => {
     };
   }, [authLoading]);
 
-  // Apply filters and search
+  // Debounce search term to avoid re-filtering on every keypress
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 250);
+
+    return () => clearTimeout(handle);
+  }, [searchTerm]);
+
+  // Apply filters and (debounced) search
   useEffect(() => {
     let filtered = [...providers];
 
@@ -255,8 +265,8 @@ const ProvidersList = () => {
     }
 
     // Apply search term
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase();
+    if (debouncedSearchTerm.trim()) {
+      const searchLower = debouncedSearchTerm.toLowerCase();
       filtered = filtered.filter(
         (p) =>
           (p.name || p.fullName || '').toLowerCase().includes(searchLower) ||
@@ -276,7 +286,7 @@ const ProvidersList = () => {
     }
 
     setFilteredProviders(filtered);
-  }, [providers, searchTerm, typeFilter]);
+  }, [providers, debouncedSearchTerm, typeFilter]);
 
   // Get unique cities for filter
   const cities = [...new Set(providers.map((p) => p.city || p.location || p.address).filter(Boolean))].sort();
