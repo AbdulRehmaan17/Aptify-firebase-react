@@ -86,34 +86,21 @@ class RentalRequestService {
    */
   async getByUser(userId) {
     try {
-      if (!db) {
-        const error = new Error('Firestore database is not initialized');
-        console.error('❌ ERROR [getByUser]: Firestore db is null!');
-        throw error;
-      }
-
+      const { queryCollection } = await import('../utils/firestoreQueryWrapper');
+      
       console.log(`🔍 Fetching rental requests for user: ${userId}`);
-      const q = query(
-        collection(db, RENTAL_REQUESTS_COLLECTION),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+      const result = await queryCollection(
+        RENTAL_REQUESTS_COLLECTION,
+        { userId },
+        { orderByField: 'createdAt', orderDirection: 'desc' }
       );
-
-      const snapshot = await getDocs(q);
-      console.log(`✅ Fetched ${snapshot.docs.length} rental requests`);
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      
+      console.log(`✅ Fetched ${result.data.length} rental requests${result.usedFallback ? ' (using fallback)' : ''}`);
+      return result.data;
     } catch (error) {
       console.error('❌ ERROR [getByUser]:', error);
-      console.error('   Error Code:', error.code);
-      console.error('   Error Message:', error.message);
-      console.error('   Collection:', RENTAL_REQUESTS_COLLECTION);
-      
-      if (error.code === 'permission-denied') {
-        throw new Error('Permission denied. Please check Firestore security rules.');
-      } else if (error.code === 'failed-precondition') {
-        throw new Error('Firestore index required. Please create the required index.');
-      }
-      throw new Error(error.message || 'Failed to fetch rental requests');
+      // Return empty array instead of throwing - never block navigation
+      return [];
     }
   }
 
@@ -124,21 +111,19 @@ class RentalRequestService {
    */
   async getByProperty(propertyId) {
     try {
-      if (!db) {
-        throw new Error('Firestore database is not initialized');
-      }
-
-      const q = query(
-        collection(db, RENTAL_REQUESTS_COLLECTION),
-        where('propertyId', '==', propertyId),
-        orderBy('createdAt', 'desc')
+      const { queryCollection } = await import('../utils/firestoreQueryWrapper');
+      
+      const result = await queryCollection(
+        RENTAL_REQUESTS_COLLECTION,
+        { propertyId },
+        { orderByField: 'createdAt', orderDirection: 'desc' }
       );
-
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      
+      return result.data;
     } catch (error) {
       console.error('Error fetching property rental requests:', error);
-      throw new Error(error.message || 'Failed to fetch rental requests');
+      // Return empty array instead of throwing - never block navigation
+      return [];
     }
   }
 
@@ -255,20 +240,19 @@ class RentalRequestService {
    */
   async getAll() {
     try {
-      if (!db) {
-        throw new Error('Firestore database is not initialized');
-      }
-
-      const q = query(
-        collection(db, RENTAL_REQUESTS_COLLECTION),
-        orderBy('createdAt', 'desc')
+      const { queryCollection } = await import('../utils/firestoreQueryWrapper');
+      
+      const result = await queryCollection(
+        RENTAL_REQUESTS_COLLECTION,
+        {},
+        { orderByField: 'createdAt', orderDirection: 'desc' }
       );
-
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      
+      return result.data;
     } catch (error) {
       console.error('Error fetching all rental requests:', error);
-      throw new Error(error.message || 'Failed to fetch rental requests');
+      // Return empty array instead of throwing - never block navigation
+      return [];
     }
   }
 }

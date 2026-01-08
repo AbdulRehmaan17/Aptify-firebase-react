@@ -18,6 +18,7 @@ import RentalRequestForm from './RentalRequestForm';
 import BuySellOfferForm from './BuySellOfferForm';
 import GoogleMap from '../components/maps/GoogleMap';
 import MapErrorBoundary from '../components/maps/MapErrorBoundary';
+import { formatAddress, safeText } from '../utils/formatHelpers';
 
 const PropertyDetailPage = () => {
   const { id } = useParams();
@@ -51,21 +52,26 @@ const PropertyDetailPage = () => {
     const fetchProperty = async () => {
       try {
         setLoading(true);
+        setError(null); // Clear previous errors
+        
         const propertyData = await propertyService.getById(id, true);
-        setProperty(propertyData);
-
-        // Check if property is in user's favorites
-        if (user) {
-          try {
-            const favorites = await userService.getFavorites(user.uid);
-            setIsFavorite(favorites.includes(id));
-          } catch (err) {
-            console.error('Error checking favorites:', err);
-          }
-        }
-
-        // Fetch similar properties
+        
+        // Always set property, even if some data is missing
         if (propertyData) {
+          setProperty(propertyData);
+
+          // Check if property is in user's favorites (non-blocking)
+          if (user) {
+            try {
+              const favorites = await userService.getFavorites(user.uid);
+              setIsFavorite(favorites.includes(id));
+            } catch (err) {
+              console.warn('Error checking favorites (non-critical):', err);
+              // Don't set error - favorites are optional
+            }
+          }
+
+          // Fetch similar properties (non-blocking)
           try {
             const similar = await propertyService.getAll(
               {
@@ -75,16 +81,24 @@ const PropertyDetailPage = () => {
               { limit: 4, sortBy: 'createdAt', sortOrder: 'desc' }
             );
             // Filter out current property
-            const filtered = similar.filter((p) => p.id !== id);
+            const filtered = similar.filter((p) => p && p.id && p.id !== id);
             setSimilarProperties(filtered.slice(0, 3));
           } catch (err) {
-            console.error('Error fetching similar properties:', err);
+            console.warn('Error fetching similar properties (non-critical):', err);
+            // Don't set error - similar properties are optional
+            setSimilarProperties([]);
           }
+        } else {
+          setError('Property not found');
         }
       } catch (err) {
         console.error('Error fetching property:', err);
+        // Set error but don't block page render
         setError(err.message || 'Failed to load property details.');
+        // Show toast but don't prevent navigation
         toast.error(err.message || 'Failed to load property.');
+        // Set property to null so page can show empty state
+        setProperty(null);
       } finally {
         setLoading(false);
       }
@@ -204,7 +218,10 @@ const PropertyDetailPage = () => {
   }
 
   // NORMALIZED: Get images array - filter out invalid values
+  // Defensive: Ensure property exists before accessing properties
   const getNormalizedImages = () => {
+    if (!property) return [];
+    
     const images = [];
     
     // Add coverImage if valid
@@ -233,6 +250,24 @@ const PropertyDetailPage = () => {
     return images;
   };
   
+  // Defensive: Only access property fields after validation
+  if (!property) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <p className="text-error mb-4 font-inter text-lg">Property not found</p>
+          <Button onClick={() => navigate('/properties')} variant="primary">
+            Back to Properties
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
+  
   const images = getNormalizedImages();
   const displayImage = images[activeImageIndex] || images[0] || '';
 
@@ -252,7 +287,7 @@ const PropertyDetailPage = () => {
           <span className="text-textMain">{property.title}</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           {/* Property Images Carousel */}
           <div className="relative group">
             {displayImage ? (
@@ -303,16 +338,18 @@ const PropertyDetailPage = () => {
 
             {/* Image Thumbnails */}
             {images.length > 1 && (
-              <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
+              <div className="flex gap-2 mt-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
                 {images.map((img, index) => (
                   <button
                     key={index}
                     onClick={() => setActiveImageIndex(index)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all focus:outline-none focus:ring-2 focus:ring-primary ${
                       activeImageIndex === index
                         ? 'border-primary scale-105'
                         : 'border-muted hover:border-primary'
                     }`}
+                    aria-label={`View image ${index + 1} of ${images.length}`}
+                    title={`Image ${index + 1}`}
                   >
                     <img
                       src={img}
@@ -336,22 +373,20 @@ const PropertyDetailPage = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            <div className="flex-1">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h1 className="text-4xl sm:text-5xl font-display font-bold text-textMain mb-3 tracking-tight">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-4 mb-4">
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-textMain mb-3 tracking-tight break-words">
                     {property.title}
                   </h1>
-                  <div className="flex items-center text-textSecondary mb-4">
-                    <MapPin className="w-5 h-5 mr-2" />
-                    <span>
-                      {property.address?.line1 || ''}
-                      {property.address?.city ? `, ${property.address.city}` : ''}
-                      {property.address?.state ? `, ${property.address.state}` : ''}
+                  <div className="flex items-center text-textSecondary mb-4 flex-wrap">
+                    <MapPin className="w-5 h-5 mr-2 flex-shrink-0" />
+                    <span className="break-words">
+                      {formatAddress(property.address)}
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
                   <button
                     onClick={handleToggleFavorite}
                     className={`p-2 rounded-full transition-colors ${
@@ -359,12 +394,16 @@ const PropertyDetailPage = () => {
                         ? 'bg-error text-white'
                         : 'bg-muted text-textSecondary hover:bg-accent'
                     }`}
+                    aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                   >
                     <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
                   </button>
                   <button
                     onClick={handleShare}
                     className="p-2 rounded-full bg-muted text-textSecondary hover:bg-accent transition-colors"
+                    aria-label="Share property"
+                    title="Share property"
                   >
                     <Share2 className="w-5 h-5" />
                   </button>
@@ -407,24 +446,33 @@ const PropertyDetailPage = () => {
               </p>
 
               {/* Amenities */}
-              {property.amenities && property.amenities.length > 0 && (
+              {/* Defensive: Validate amenities is an array before rendering */}
+              {property.amenities && 
+               Array.isArray(property.amenities) && 
+               property.amenities.length > 0 && (
                 <div className="mb-8">
                   <h3 className="text-xl font-semibold mb-4">Amenities</h3>
                   <div className="flex flex-wrap gap-2">
-                    {property.amenities.map((amenity, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-muted rounded-full text-sm text-textSecondary"
-                      >
-                        {amenity}
-                      </span>
-                    ))}
+                    {property.amenities
+                      .filter(amenity => amenity != null && String(amenity).trim().length > 0)
+                      .map((amenity, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-muted rounded-full text-sm text-textSecondary"
+                        >
+                          {String(amenity)}
+                        </span>
+                      ))}
                   </div>
                 </div>
               )}
 
               {/* Location Map - Always show if location data exists */}
-              {property.location && property.location.lat && property.location.lng ? (
+              {/* Defensive: Validate nested objects before access */}
+              {property.location && 
+               typeof property.location === 'object' && 
+               typeof property.location.lat === 'number' && 
+               typeof property.location.lng === 'number' ? (
                 <div className="mb-8">
                   <h3 className="text-xl font-semibold mb-4">Location</h3>
                   <MapErrorBoundary height="400px">
@@ -439,14 +487,14 @@ const PropertyDetailPage = () => {
                       clickable={false}
                     />
                   </MapErrorBoundary>
-                  {property.location.address && (
+                  {property.location.address && typeof property.location.address === 'string' && (
                     <p className="text-sm text-textSecondary mt-2">
                       <MapPin className="w-4 h-4 inline mr-1" />
                       {property.location.address}
                     </p>
                   )}
                 </div>
-              ) : property.address || property.location?.address ? (
+              ) : (property.address || (property.location && typeof property.location === 'object' && property.location.address)) ? (
                 // Show placeholder if address exists but no coordinates
                 <div className="mb-8">
                   <h3 className="text-xl font-semibold mb-4">Location</h3>
@@ -464,17 +512,25 @@ const PropertyDetailPage = () => {
                   </MapErrorBoundary>
                   <p className="text-sm text-textSecondary mt-2">
                     <MapPin className="w-4 h-4 inline mr-1" />
-                    {property.location?.address || property.address || 'Address not available'}
+                    {(property.location && typeof property.location === 'object' && property.location.address) || 
+                     formatAddress(property.address) || 
+                     'Address not available'}
                   </p>
                 </div>
               ) : null}
 
               {/* Owner Contact & Action Buttons */}
-              {property.ownerName && !isOwner && (
+              {/* Defensive: Validate ownerName is a string before rendering */}
+              {property.ownerName && 
+               typeof property.ownerName === 'string' && 
+               property.ownerName.trim().length > 0 && 
+               !isOwner && (
                 <div className="mb-8 p-4 card-base shadow-md">
                   <h3 className="text-xl font-semibold mb-4">Contact Owner</h3>
                   <p className="text-textMain mb-2 font-medium">{property.ownerName}</p>
-                  {property.ownerPhone && (
+                  {property.ownerPhone && 
+                   typeof property.ownerPhone === 'string' && 
+                   property.ownerPhone.trim().length > 0 && (
                     <div className="flex items-center gap-2 text-textSecondary mb-4">
                       <Phone className="w-4 h-4" />
                       <a
@@ -576,13 +632,16 @@ const PropertyDetailPage = () => {
         </div>
 
         {/* Similar Properties Section */}
-        {similarProperties.length > 0 && (
+        {/* Defensive: Validate similarProperties is an array before rendering */}
+        {Array.isArray(similarProperties) && similarProperties.length > 0 && (
           <div className="mt-12">
             <h2 className="text-3xl font-display font-bold text-textMain mb-6">Similar Properties</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {similarProperties.map((similarProperty) => (
-                <PropertyCard key={similarProperty.id} property={similarProperty} />
-              ))}
+              {similarProperties
+                .filter(p => p && p.id) // Ensure property has required fields
+                .map((similarProperty) => (
+                  <PropertyCard key={similarProperty.id} property={similarProperty} />
+                ))}
             </div>
           </div>
         )}

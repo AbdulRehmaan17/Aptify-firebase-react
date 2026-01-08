@@ -140,7 +140,7 @@ const Contact = () => {
           construction projects. Reach out via email, phone, or visit our office.
         </p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Contact Details */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}

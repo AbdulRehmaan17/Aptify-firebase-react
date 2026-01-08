@@ -667,84 +667,92 @@ class PropertyService {
           throw error;
         }
         
-        // If permission or index error, try fetching all and filtering client-side
-        if (queryError.code === 'permission-denied' || queryError.code === 'failed-precondition' || queryError.message?.includes('index')) {
-          if (queryError.code === 'permission-denied') {
-            console.error('🔒 PERMISSION DENIED - Check Firestore security rules!');
-            console.error('   Properties collection should allow public read access');
-            console.error('   Current user:', 'Check auth state in browser console');
-            console.warn('   Attempting fallback query without filters...');
-          } else if (queryError.code === 'failed-precondition' || queryError.message?.includes('index')) {
-            console.error('📊 INDEX REQUIRED - Create a Firestore index!');
-            console.error('   Check browser console for index creation link');
-            console.warn('   Attempting fallback query without orderBy...');
+        // Handle failed-precondition (missing composite index) with graceful fallback
+        if (queryError.code === 'failed-precondition' || queryError.message?.includes('index')) {
+          // Extract index creation URL from error if available
+          const indexUrlMatch = queryError.message?.match(/https?:\/\/[^\s]+/);
+          if (indexUrlMatch) {
+            console.warn('📊 INDEX REQUIRED - Firestore composite index needed');
+            console.warn('   🔗 Index creation URL:', indexUrlMatch[0]);
+            console.warn('   → Click the link above to create the required index in Firebase Console');
+          } else {
+            console.warn('📊 INDEX REQUIRED - Create a Firestore composite index');
+            console.warn('   → Check Firebase Console for index creation prompts');
           }
+          console.warn('   ⚠️  App will continue with fallback query (no orderBy, then no filters)');
           
-          // Fallback: fetch all properties without status filter (should be allowed by rules)
+          // FALLBACK STRATEGY 1: Try query without orderBy (keep filters)
           try {
-            console.log('🔄 Attempting fallback query without filters...');
-            let fallbackQ = query(
-              collection(db, PROPERTIES_COLLECTION),
-              limit(100)
+            console.log('🔄 Fallback 1: Attempting query without orderBy...');
+            let fallbackQ1 = query(collection(db, PROPERTIES_COLLECTION));
+            
+            // Rebuild where() clauses (without orderBy)
+            const constraints = [];
+            if (filters.status) {
+              constraints.push(where('status', '==', filters.status));
+            }
+            if (filters.type) {
+              constraints.push(where('listingType', '==', filters.type.toLowerCase()));
+            }
+            if (filters.city && filters.city.trim()) {
+              constraints.push(where('address.city', '==', filters.city.trim()));
+            }
+            if (filters.furnished !== undefined && filters.furnished !== null) {
+              constraints.push(where('furnished', '==', Boolean(filters.furnished)));
+            }
+            if (filters.parking !== undefined && filters.parking !== null) {
+              constraints.push(where('parking', '==', Boolean(filters.parking)));
+            }
+            if (filters.featured !== undefined) {
+              constraints.push(where('featured', '==', Boolean(filters.featured)));
+            }
+            if (typeof filters.minPrice === 'number' && filters.minPrice > 0) {
+              constraints.push(where('price', '>=', filters.minPrice));
+            }
+            if (typeof filters.minBedrooms === 'number' && filters.minBedrooms > 0) {
+              constraints.push(where('bedrooms', '>=', filters.minBedrooms));
+            }
+            if (typeof filters.minBathrooms === 'number' && filters.minBathrooms > 0) {
+              constraints.push(where('bathrooms', '>=', filters.minBathrooms));
+            }
+            
+            if (constraints.length > 0) {
+              fallbackQ1 = query(collection(db, PROPERTIES_COLLECTION), ...constraints);
+            }
+            
+            // Add limit only (no orderBy)
+            fallbackQ1 = query(fallbackQ1, limit(options.limit || 100));
+            
+            const fallbackSnapshot1 = await getDocs(fallbackQ1);
+            console.log(`✅ Fallback 1 successful: ${fallbackSnapshot1.docs.length} documents`);
+            
+            // Normalize and process results
+            let results = await Promise.all(
+              fallbackSnapshot1.docs.map(async (doc) => {
+                const data = doc.data();
+                const property = {
+                  id: doc.id,
+                  ...data,
+                  status: data.status || 'published',
+                };
+                return await normalizePropertyImages(property);
+              })
             );
             
-            const fallbackSnapshot = await getDocs(fallbackQ);
-            console.log(`✅ Fallback query successful: ${fallbackSnapshot.docs.length} documents`);
-            let results = fallbackSnapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-              status: doc.data().status || 'published',
-            }));
-            
-            // Apply remaining filters client-side
-            if (filters.type) {
-              results = results.filter((p) => p.type === filters.type.toLowerCase());
+            // Apply remaining filters client-side (maxPrice, etc.)
+            if (typeof filters.maxPrice === 'number') {
+              results = results.filter((p) => (p.price || 0) <= filters.maxPrice);
             }
-            
-            if (filters.city) {
-              results = results.filter((p) => p.address?.city === filters.city);
+            if (typeof filters.minArea === 'number') {
+              results = results.filter((p) => (p.areaSqFt || 0) >= filters.minArea);
             }
-            
             if (filters.ownerId) {
               results = results.filter((p) => p.ownerId === filters.ownerId);
             }
             
-            if (typeof filters.minPrice === 'number') {
-              results = results.filter((p) => (p.price || 0) >= filters.minPrice);
-            }
-            
-            if (typeof filters.maxPrice === 'number') {
-              results = results.filter((p) => (p.price || 0) <= filters.maxPrice);
-            }
-            
-            if (typeof filters.minBedrooms === 'number') {
-              results = results.filter((p) => (p.bedrooms || 0) >= filters.minBedrooms);
-            }
-            
-            if (typeof filters.minBathrooms === 'number') {
-              results = results.filter((p) => (p.bathrooms || 0) >= filters.minBathrooms);
-            }
-            
-            if (typeof filters.minArea === 'number') {
-              results = results.filter((p) => (p.areaSqFt || 0) >= filters.minArea);
-            }
-            
-            if (filters.furnished !== undefined) {
-              results = results.filter((p) => Boolean(p.furnished) === Boolean(filters.furnished));
-            }
-            
-            if (filters.parking !== undefined) {
-              results = results.filter((p) => Boolean(p.parking) === Boolean(filters.parking));
-            }
-            
-            if (filters.featured !== undefined) {
-              results = results.filter((p) => Boolean(p.featured) === Boolean(filters.featured));
-            }
-
             // Apply sorting client-side
             const sortBy = options.sortBy || 'createdAt';
             const sortOrder = options.sortOrder || 'desc';
-
             if (sortBy === 'createdAt' && sortOrder === 'desc') {
               results.sort((a, b) => {
                 const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
@@ -762,35 +770,141 @@ class PropertyService {
             } else if (sortBy === 'price' && sortOrder === 'asc') {
               results.sort((a, b) => (a.price || 0) - (b.price || 0));
             }
-
+            
             // Apply limit after filtering
             if (options.limit) {
               results = results.slice(0, options.limit);
             }
-
-            return results;
-          } catch (fallbackError) {
-            console.error('❌ CRITICAL: Fallback query also failed!');
-            console.error('   Error Code:', fallbackError.code);
-            console.error('   Error Message:', fallbackError.message);
-            console.error('   This indicates a serious Firestore configuration issue');
             
-            if (fallbackError.code === 'permission-denied') {
-              throw new Error(
-                'Permission denied. Please check Firestore security rules for the properties collection. ' +
-                'The rules should allow public read access: allow read: if true;'
-              );
-            } else if (fallbackError.code === 'failed-precondition') {
-              throw new Error(
-                'Firestore index required. Please create the required index. ' +
-                'Check the browser console for the index creation link.'
-              );
+            console.log(`✅ Returning ${results.length} properties (fallback 1: no orderBy)`);
+            return results;
+          } catch (fallbackError1) {
+            // FALLBACK STRATEGY 2: Try query without any filters (only limit)
+            if (fallbackError1.code === 'failed-precondition' || fallbackError1.message?.includes('index')) {
+              console.warn('⚠️  Fallback 1 also requires index. Trying fallback 2: no filters...');
+              try {
+                console.log('🔄 Fallback 2: Attempting query without filters...');
+                let fallbackQ2 = query(
+                  collection(db, PROPERTIES_COLLECTION),
+                  limit(options.limit || 100)
+                );
+                
+                const fallbackSnapshot2 = await getDocs(fallbackQ2);
+                console.log(`✅ Fallback 2 successful: ${fallbackSnapshot2.docs.length} documents`);
+                
+                // Normalize and process results
+                let results = await Promise.all(
+                  fallbackSnapshot2.docs.map(async (doc) => {
+                    const data = doc.data();
+                    const property = {
+                      id: doc.id,
+                      ...data,
+                      status: data.status || 'published',
+                    };
+                    return await normalizePropertyImages(property);
+                  })
+                );
+                
+                // Apply ALL filters client-side
+                if (filters.status) {
+                  results = results.filter((p) => p.status === filters.status);
+                }
+                if (filters.type) {
+                  results = results.filter((p) => p.type === filters.type.toLowerCase());
+                }
+                if (filters.city && filters.city.trim()) {
+                  const cityLower = filters.city.toLowerCase();
+                  results = results.filter((p) => {
+                    const propertyCity = p.address?.city?.toLowerCase() || p.city?.toLowerCase() || '';
+                    return propertyCity.includes(cityLower);
+                  });
+                }
+                if (filters.ownerId) {
+                  results = results.filter((p) => p.ownerId === filters.ownerId);
+                }
+                if (typeof filters.minPrice === 'number') {
+                  results = results.filter((p) => (p.price || 0) >= filters.minPrice);
+                }
+                if (typeof filters.maxPrice === 'number') {
+                  results = results.filter((p) => (p.price || 0) <= filters.maxPrice);
+                }
+                if (typeof filters.minBedrooms === 'number') {
+                  results = results.filter((p) => (p.bedrooms || 0) >= filters.minBedrooms);
+                }
+                if (typeof filters.minBathrooms === 'number') {
+                  results = results.filter((p) => (p.bathrooms || 0) >= filters.minBathrooms);
+                }
+                if (typeof filters.minArea === 'number') {
+                  results = results.filter((p) => (p.areaSqFt || 0) >= filters.minArea);
+                }
+                if (filters.furnished !== undefined) {
+                  results = results.filter((p) => Boolean(p.furnished) === Boolean(filters.furnished));
+                }
+                if (filters.parking !== undefined) {
+                  results = results.filter((p) => Boolean(p.parking) === Boolean(filters.parking));
+                }
+                if (filters.featured !== undefined) {
+                  results = results.filter((p) => Boolean(p.featured) === Boolean(filters.featured));
+                }
+                
+                // Apply sorting client-side
+                const sortBy = options.sortBy || 'createdAt';
+                const sortOrder = options.sortOrder || 'desc';
+                if (sortBy === 'createdAt' && sortOrder === 'desc') {
+                  results.sort((a, b) => {
+                    const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
+                    const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
+                    return bTime - aTime;
+                  });
+                } else if (sortBy === 'createdAt' && sortOrder === 'asc') {
+                  results.sort((a, b) => {
+                    const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
+                    const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
+                    return aTime - bTime;
+                  });
+                } else if (sortBy === 'price' && sortOrder === 'desc') {
+                  results.sort((a, b) => (b.price || 0) - (a.price || 0));
+                } else if (sortBy === 'price' && sortOrder === 'asc') {
+                  results.sort((a, b) => (a.price || 0) - (b.price || 0));
+                }
+                
+                // Apply limit after filtering
+                if (options.limit) {
+                  results = results.slice(0, options.limit);
+                }
+                
+                console.log(`✅ Returning ${results.length} properties (fallback 2: no filters)`);
+                return results;
+              } catch (fallbackError2) {
+                console.error('❌ CRITICAL: Both fallback queries failed!');
+                console.error('   Error Code:', fallbackError2.code);
+                console.error('   Error Message:', fallbackError2.message);
+                console.error('   This indicates a serious Firestore configuration issue');
+                
+                if (fallbackError2.code === 'permission-denied') {
+                  throw new Error(
+                    'Permission denied. Please check Firestore security rules for the properties collection. ' +
+                    'The rules should allow public read access: allow read: if true;'
+                  );
+                } else {
+                  // Return empty array instead of throwing - app can still function
+                  console.warn('⚠️  Returning empty array to prevent app crash');
+                  return [];
+                }
+              }
             } else {
-              throw new Error(
-                `Failed to fetch properties: ${fallbackError.message || 'Unknown error'}`
-              );
+              // Re-throw non-index errors
+              throw fallbackError1;
             }
           }
+        } else if (queryError.code === 'permission-denied') {
+          console.error('🔒 PERMISSION DENIED - Check Firestore security rules!');
+          console.error('   Properties collection should allow public read access');
+          console.error('   Current user:', 'Check auth state in browser console');
+          throw new Error(
+            'Permission denied. Please check Firestore security rules for the properties collection. ' +
+            'The rules should allow public read access: allow read: if true;'
+          );
         } else {
           // For other errors, throw with detailed message
           throw new Error(

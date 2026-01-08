@@ -366,12 +366,14 @@ const RenovatorPortfolio = () => {
                       e.target.src = 'https://via.placeholder.com/300?text=Image+Not+Found';
                     }}
                   />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/30 hover:bg-black/50 transition-opacity flex items-center justify-center">
                     <button
                       type="button"
                       onClick={() => handleDelete(imageUrl, index)}
                       disabled={deletingId === imageUrl}
-                      className="bg-error text-white rounded-full p-2 hover:bg-error/80 disabled:opacity-50 flex items-center gap-2"
+                      className="bg-error text-white rounded-full p-2 hover:bg-error/80 disabled:opacity-50 flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                      aria-label="Delete portfolio image"
+                      title="Delete image"
                     >
                       {deletingId === imageUrl ? (
                         <Loader className="w-4 h-4 animate-spin" />

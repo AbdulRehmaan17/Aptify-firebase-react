@@ -622,7 +622,9 @@ const AddRental = () => {
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition-opacity shadow-md hover:shadow-lg z-10"
+                          aria-label="Remove image"
+                          title="Remove image"
                         >
                           <X className="w-4 h-4" />
                         </button>

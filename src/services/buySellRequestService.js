@@ -83,21 +83,19 @@ class BuySellRequestService {
    */
   async getByUser(userId) {
     try {
-      if (!db) {
-        throw new Error('Firestore database is not initialized');
-      }
-
-      const q = query(
-        collection(db, BUY_SELL_REQUESTS_COLLECTION),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+      const { queryCollection } = await import('../utils/firestoreQueryWrapper');
+      
+      const result = await queryCollection(
+        BUY_SELL_REQUESTS_COLLECTION,
+        { userId },
+        { orderByField: 'createdAt', orderDirection: 'desc' }
       );
-
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      
+      return result.data;
     } catch (error) {
       console.error('Error fetching user buy/sell requests:', error);
-      throw new Error(error.message || 'Failed to fetch buy/sell requests');
+      // Return empty array instead of throwing - never block navigation
+      return [];
     }
   }
 
@@ -108,21 +106,19 @@ class BuySellRequestService {
    */
   async getByProperty(propertyId) {
     try {
-      if (!db) {
-        throw new Error('Firestore database is not initialized');
-      }
-
-      const q = query(
-        collection(db, BUY_SELL_REQUESTS_COLLECTION),
-        where('propertyId', '==', propertyId),
-        orderBy('createdAt', 'desc')
+      const { queryCollection } = await import('../utils/firestoreQueryWrapper');
+      
+      const result = await queryCollection(
+        BUY_SELL_REQUESTS_COLLECTION,
+        { propertyId },
+        { orderByField: 'createdAt', orderDirection: 'desc' }
       );
-
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      
+      return result.data;
     } catch (error) {
       console.error('Error fetching property buy/sell requests:', error);
-      throw new Error(error.message || 'Failed to fetch buy/sell requests');
+      // Return empty array instead of throwing - never block navigation
+      return [];
     }
   }
 
@@ -239,20 +235,19 @@ class BuySellRequestService {
    */
   async getAll() {
     try {
-      if (!db) {
-        throw new Error('Firestore database is not initialized');
-      }
-
-      const q = query(
-        collection(db, BUY_SELL_REQUESTS_COLLECTION),
-        orderBy('createdAt', 'desc')
+      const { queryCollection } = await import('../utils/firestoreQueryWrapper');
+      
+      const result = await queryCollection(
+        BUY_SELL_REQUESTS_COLLECTION,
+        {},
+        { orderByField: 'createdAt', orderDirection: 'desc' }
       );
-
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      
+      return result.data;
     } catch (error) {
       console.error('Error fetching all buy/sell requests:', error);
-      throw new Error(error.message || 'Failed to fetch buy/sell requests');
+      // Return empty array instead of throwing - never block navigation
+      return [];
     }
   }
 }

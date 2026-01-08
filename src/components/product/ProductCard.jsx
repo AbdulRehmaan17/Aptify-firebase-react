@@ -95,7 +95,9 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
         {/* Wishlist Button */}
         <button
           onClick={handleWishlistToggle}
-          className="absolute top-3 right-3 p-2 bg-surface/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-surface transition-all duration-200 opacity-0 group-hover:opacity-100"
+          className="absolute top-3 right-3 p-2 bg-surface/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-surface transition-all duration-200 z-10"
+          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          title={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
         >
           <Heart
             className={`w-4 h-4 ${isWishlisted ? 'fill-error text-error' : 'text-textSecondary'}`}
@@ -147,7 +149,8 @@ const ProductCard = ({ product, isWishlisted = false, onWishlistToggle }) => {
           disabled={product.stock === 0}
           fullWidth
           size="sm"
-          className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          className="opacity-90 hover:opacity-100 transition-opacity duration-200"
+          aria-label={product.stock === 0 ? 'Out of stock' : 'Add to cart'}
         >
           <ShoppingCart className="w-4 h-4 mr-2" />
           {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}

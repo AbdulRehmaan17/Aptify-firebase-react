@@ -111,47 +111,44 @@ export const deleteDocById = async (collectionName, docId) => {
 
 /**
  * Fetch documents from a collection with optional filters and sorting
+ * Uses the standard query wrapper for graceful error handling
  * @param {string} collectionName - Name of the collection
  * @param {object} options - Query options
  * @param {array} options.filters - Array of filter objects: { field, operator, value }
  * @param {string} options.orderByField - Field to order by
  * @param {string} options.orderDirection - 'asc' or 'desc'
  * @param {number} options.limitCount - Maximum number of documents to return
- * @returns {Promise<array>} - Array of documents with ids
+ * @returns {Promise<array>} - Array of documents with ids (never throws, returns empty array on error)
  */
 export const fetchCollection = async (collectionName, options = {}) => {
   try {
-    if (!db) {
-      throw new Error('Database is not initialized');
-    }
-
-    let q = query(collection(db, collectionName));
-
-    // Apply filters
+    const { executeQuery, createWhere } = await import('../utils/firestoreQueryWrapper');
+    
+    // Convert filters array to where clauses
+    const whereClauses = [];
     if (options.filters && Array.isArray(options.filters)) {
       options.filters.forEach((filter) => {
         if (filter.field && filter.operator && filter.value !== undefined) {
-          q = query(q, where(filter.field, filter.operator, filter.value));
+          whereClauses.push(createWhere(filter.field, filter.operator, filter.value));
         }
       });
     }
-
-    // Apply sorting
-    if (options.orderByField) {
-      const direction = options.orderDirection || 'desc';
-      q = query(q, orderBy(options.orderByField, direction));
-    }
-
-    // Apply limit
-    if (options.limitCount) {
-      q = query(q, limit(options.limitCount));
-    }
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    
+    const result = await executeQuery(
+      collectionName,
+      whereClauses,
+      {
+        orderByField: options.orderByField,
+        orderDirection: options.orderDirection || 'desc',
+        limitCount: options.limitCount,
+      }
+    );
+    
+    return result.data; // Always returns array, never throws
   } catch (error) {
-    console.error(`Error fetching collection ${collectionName}:`, error);
-    throw error;
+    console.warn(`Error fetching collection ${collectionName}:`, error);
+    // Return empty array instead of throwing - never block navigation
+    return [];
   }
 };
 

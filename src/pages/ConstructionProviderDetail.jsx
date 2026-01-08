@@ -182,14 +182,14 @@ const ConstructionProviderDetail = () => {
           className="bg-surface rounded-base shadow-lg overflow-hidden"
         >
           {/* Provider Header */}
-          <div className="bg-gradient-to-r from-primary to-primaryDark p-8 text-white">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="flex items-start gap-4">
-                <div className="bg-surface/20 rounded-full p-4 backdrop-blur-sm">
-                  <Building2 className="w-8 h-8" />
+          <div className="bg-gradient-to-r from-primary to-primaryDark p-6 sm:p-8 text-white relative">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6">
+              <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                <div className="bg-surface/20 rounded-full p-3 sm:p-4 backdrop-blur-sm flex-shrink-0">
+                  <Building2 className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-2 break-words">
                     {provider.name || 'Unnamed Provider'}
                   </h1>
                   {provider.rating !== undefined && provider.rating !== null && (
@@ -197,26 +197,30 @@ const ConstructionProviderDetail = () => {
                   )}
                 </div>
               </div>
-              <Button
-                onClick={handleRequestService}
-                className="bg-surface text-primary hover:bg-primary/10 border-card"
-                size="lg"
-              >
-                Request Service
-              </Button>
+              <div className="relative z-10 w-full md:w-auto flex-shrink-0">
+                <Button
+                  onClick={handleRequestService}
+                  variant="outline"
+                  className="!bg-white !text-primary hover:!bg-primary hover:!text-white border-2 !border-white/30 hover:!border-white !shadow-lg hover:!shadow-xl transition-all duration-200 font-semibold opacity-100 visible w-full md:w-auto"
+                  size="lg"
+                  aria-label="Request construction service"
+                >
+                  Request Service
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Provider Details */}
-          <div className="p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
               {/* Left Column */}
               <div className="space-y-6">
                 {/* Expertise */}
                 {provider.expertise && (
                   <div>
                     <h3 className="text-lg font-semibold text-textMain mb-3">Expertise</h3>
-                    <p className="text-textSecondary leading-relaxed">
+                    <p className="text-textSecondary leading-relaxed break-words">
                       {formatExpertise(provider.expertise)}
                     </p>
                   </div>
@@ -226,7 +230,7 @@ const ConstructionProviderDetail = () => {
                 {provider.bio && (
                   <div>
                     <h3 className="text-lg font-semibold text-textMain mb-3">About</h3>
-                    <p className="text-textSecondary leading-relaxed">{provider.bio}</p>
+                    <p className="text-textSecondary leading-relaxed break-words">{provider.bio}</p>
                   </div>
                 )}
 
@@ -234,7 +238,7 @@ const ConstructionProviderDetail = () => {
                 {provider.experienceYears && (
                   <div>
                     <h3 className="text-lg font-semibold text-textMain mb-3">Experience</h3>
-                    <p className="text-textSecondary">{provider.experienceYears} years of experience</p>
+                    <p className="text-textSecondary break-words">{provider.experienceYears} years of experience</p>
                   </div>
                 )}
               </div>
@@ -246,12 +250,13 @@ const ConstructionProviderDetail = () => {
                   <div className="space-y-4">
                     {provider.phone && (
                       <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <Phone className="w-5 h-5 text-primary" />
-                        <div>
+                        <Phone className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm text-textSecondary">Phone</p>
                           <a
                             href={`tel:${provider.phone}`}
-                            className="text-textMain hover:text-primary font-medium"
+                            className="text-textMain hover:text-primary font-medium break-all"
+                            aria-label={`Call ${provider.phone}`}
                           >
                             {provider.phone}
                           </a>
@@ -261,12 +266,13 @@ const ConstructionProviderDetail = () => {
 
                     {provider.email && (
                       <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <Mail className="w-5 h-5 text-primary" />
-                        <div>
+                        <Mail className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm text-textSecondary">Email</p>
                           <a
                             href={`mailto:${provider.email}`}
-                            className="text-textMain hover:text-primary font-medium"
+                            className="text-textMain hover:text-primary font-medium break-all"
+                            aria-label={`Email ${provider.email}`}
                           >
                             {provider.email}
                           </a>
@@ -276,10 +282,10 @@ const ConstructionProviderDetail = () => {
 
                     {provider.address && (
                       <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        <div>
+                        <MapPin className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm text-textSecondary">Address</p>
-                          <p className="text-textMain font-medium">
+                          <p className="text-textMain font-medium break-words">
                             {formatAddress(provider.address)}
                           </p>
                         </div>
@@ -303,8 +309,9 @@ const ConstructionProviderDetail = () => {
                           toast.error('Failed to start chat. Please try again.');
                         }
                       }}
+                      aria-label="Contact provider via chat"
                     >
-                      <MessageSquare className="w-4 h-4 mr-2" />
+                      <MessageSquare className="w-4 h-4 mr-2" aria-hidden="true" />
                       Contact Provider
                     </Button>
                   </div>

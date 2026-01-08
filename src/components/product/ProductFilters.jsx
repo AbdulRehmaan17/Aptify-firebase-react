@@ -214,7 +214,19 @@ const ProductFilters = ({ filters, onFiltersChange, categories, brands, isOpen, 
 
       {/* Overlay for mobile */}
       {isOpen && (
-        <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onToggle} />
+        <div 
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40" 
+          onClick={onToggle}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onToggle();
+            }
+          }}
+          aria-label="Close filters"
+        />
       )}
     </>
   );

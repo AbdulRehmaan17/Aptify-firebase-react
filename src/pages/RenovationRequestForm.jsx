@@ -677,8 +677,9 @@ const RenovationRequestForm = () => {
                     <button
                       type="button"
                       onClick={() => handleRemovePhoto(index)}
-                      className="absolute top-2 right-2 bg-error text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 bg-error text-white rounded-full p-1 opacity-80 hover:opacity-100 transition-opacity shadow-md hover:shadow-lg z-10"
                       aria-label="Remove photo"
+                      title="Remove photo"
                     >
                       <svg
                         className="w-4 h-4"

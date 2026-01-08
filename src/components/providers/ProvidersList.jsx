@@ -721,7 +721,7 @@ const ProvidersList = ({ type, title, description }) => {
                     <Button
                       variant="primary"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 !bg-primary !text-white hover:!bg-primaryDark border-2 border-primary hover:border-primaryDark shadow-md hover:shadow-lg transition-all duration-200 font-semibold"
                       onClick={() => handleRequestService(provider.userId || provider.id)}
                     >
                       Request Service

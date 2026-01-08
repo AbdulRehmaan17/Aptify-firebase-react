@@ -8,7 +8,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ReviewsAndRatings from './ReviewsAndRatings';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
-import { formatAddress } from '../utils/safeRender';
+import { formatAddress, safeText } from '../utils/formatHelpers';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -33,38 +33,108 @@ const RenovationProviderDetail = () => {
         return;
       }
 
+      if (!db) {
+        setError('Database not initialized');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
 
-        const providerRef = doc(db, 'serviceProviders', id);
-        const providerSnap = await getDoc(providerRef);
+        // The ID in URL might be either:
+        // 1. Document ID in 'renovators' collection
+        // 2. Document ID in 'serviceProviders' collection  
+        // 3. userId (need to query by userId field)
 
-        if (!providerSnap.exists()) {
-          setError('Provider not found');
-          setLoading(false);
-          return;
+        let providerData = null;
+
+        // Strategy 1: Try as document ID in 'renovators' collection (most common)
+        try {
+          const renovatorRef = doc(db, 'renovators', id);
+          const renovatorSnap = await getDoc(renovatorRef);
+          if (renovatorSnap.exists()) {
+            providerData = {
+              id: renovatorSnap.id,
+              ...renovatorSnap.data(),
+            };
+          }
+        } catch (err) {
+          console.warn('Error checking renovators collection:', err);
         }
 
-        const providerData = {
-          id: providerSnap.id,
-          ...providerSnap.data(),
-        };
+        // Strategy 2: If not found, try as document ID in 'serviceProviders' collection
+        if (!providerData) {
+          try {
+            const serviceProviderRef = doc(db, 'serviceProviders', id);
+            const serviceProviderSnap = await getDoc(serviceProviderRef);
+            if (serviceProviderSnap.exists()) {
+              const data = serviceProviderSnap.data();
+              // Only use if it's a Renovation provider
+              if (!data.serviceType || data.serviceType === 'Renovation') {
+                providerData = {
+                  id: serviceProviderSnap.id,
+                  ...data,
+                };
+              }
+            }
+          } catch (err) {
+            console.warn('Error checking serviceProviders collection:', err);
+          }
+        }
 
-        // Verify service type matches
-        if (providerData.serviceType !== 'Renovation') {
-          setError('This provider is not a Renovation service provider');
+        // Strategy 3: If still not found, try finding by userId field
+        if (!providerData) {
+          try {
+            const { queryCollection } = await import('../utils/firestoreQueryWrapper');
+            
+            // Try renovators collection first
+            const renovatorsResult = await queryCollection(
+              'renovators',
+              { userId: id },
+              { limitCount: 1 }
+            );
+            
+            if (renovatorsResult.data.length > 0) {
+              providerData = renovatorsResult.data[0];
+            } else {
+              // Try serviceProviders with userId and serviceType filter
+              const serviceProvidersResult = await queryCollection(
+                'serviceProviders',
+                { userId: id },
+                { limitCount: 10 } // Get more to filter client-side
+              );
+              
+              // Filter for Renovation type client-side
+              const renovationProviders = serviceProvidersResult.data.filter(
+                p => !p.serviceType || p.serviceType === 'Renovation'
+              );
+              
+              if (renovationProviders.length > 0) {
+                providerData = renovationProviders[0];
+              }
+            }
+          } catch (err) {
+            console.warn('Error querying by userId:', err);
+          }
+        }
+
+        // If still not found, show error
+        if (!providerData) {
+          setError('Provider not found');
           setLoading(false);
           return;
         }
 
         setProvider(providerData);
       } catch (err) {
-        if (import.meta.env.DEV) {
-          console.error('Error fetching provider:', err);
-        }
+        console.error('Error fetching provider:', err);
+        // Don't block navigation - show error but allow page to render
         setError(err.message || 'Failed to load provider details.');
         toast.error('Failed to load provider.');
+        // Set provider to null so error state shows
+        setProvider(null);
       } finally {
         setLoading(false);
       }
@@ -182,41 +252,45 @@ const RenovationProviderDetail = () => {
           className="bg-surface rounded-base shadow-lg overflow-hidden"
         >
           {/* Provider Header */}
-          <div className="bg-gradient-to-r from-primary to-primaryDark p-8 text-white">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="flex items-start gap-4">
-                <div className="bg-surface/20 rounded-full p-4 backdrop-blur-sm">
-                  <Wrench className="w-8 h-8" />
+          <div className="bg-gradient-to-r from-primary to-primaryDark p-6 sm:p-8 text-white relative">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6">
+              <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                <div className="bg-surface/20 rounded-full p-3 sm:p-4 backdrop-blur-sm flex-shrink-0">
+                  <Wrench className="w-6 h-6 sm:w-8 sm:h-8" />
                 </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">
-                    {provider.name || 'Unnamed Provider'}
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold mb-2 break-words">
+                    {safeText(provider.name, 'Unnamed Provider')}
                   </h1>
                   {provider.rating !== undefined && provider.rating !== null && (
                     <div className="flex items-center gap-2">{renderRating(provider.rating)}</div>
                   )}
                 </div>
               </div>
-              <Button
-                onClick={handleRequestService}
-                className="bg-surface text-primary hover:bg-primary/10 border-card"
-                size="lg"
-              >
-                Request Service
-              </Button>
+              <div className="relative z-10 w-full md:w-auto flex-shrink-0">
+                <Button
+                  onClick={handleRequestService}
+                  variant="outline"
+                  className="!bg-white !text-primary hover:!bg-primary hover:!text-white border-2 !border-white/30 hover:!border-white !shadow-lg hover:!shadow-xl transition-all duration-200 font-semibold opacity-100 visible w-full md:w-auto"
+                  size="lg"
+                  aria-label="Request renovation service"
+                >
+                  Request Service
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Provider Details */}
-          <div className="p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
               {/* Left Column */}
               <div className="space-y-6">
                 {/* Expertise */}
                 {provider.expertise && (
                   <div>
                     <h3 className="text-lg font-semibold text-textMain mb-3">Expertise</h3>
-                    <p className="text-textSecondary leading-relaxed">
+                    <p className="text-textSecondary leading-relaxed break-words">
                       {formatExpertise(provider.expertise)}
                     </p>
                   </div>
@@ -226,7 +300,7 @@ const RenovationProviderDetail = () => {
                 {provider.bio && (
                   <div>
                     <h3 className="text-lg font-semibold text-textMain mb-3">About</h3>
-                    <p className="text-textSecondary leading-relaxed">{provider.bio}</p>
+                    <p className="text-textSecondary leading-relaxed break-words">{provider.bio}</p>
                   </div>
                 )}
 
@@ -234,7 +308,7 @@ const RenovationProviderDetail = () => {
                 {provider.experienceYears && (
                   <div>
                     <h3 className="text-lg font-semibold text-textMain mb-3">Experience</h3>
-                    <p className="text-textSecondary">{provider.experienceYears} years of experience</p>
+                    <p className="text-textSecondary break-words">{provider.experienceYears} years of experience</p>
                   </div>
                 )}
               </div>
@@ -244,31 +318,33 @@ const RenovationProviderDetail = () => {
                 <div>
                   <h3 className="text-lg font-semibold text-textMain mb-4">Contact Information</h3>
                   <div className="space-y-4">
-                    {provider.phone && (
+                    {provider.phone && typeof provider.phone === 'string' && provider.phone.trim() && (
                       <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <Phone className="w-5 h-5 text-primary" />
-                        <div>
+                        <Phone className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm text-textSecondary">Phone</p>
                           <a
                             href={`tel:${provider.phone}`}
-                            className="text-textMain hover:text-primary font-medium"
+                            className="text-textMain hover:text-primary font-medium break-all"
+                            aria-label={`Call ${safeText(provider.phone)}`}
                           >
-                            {provider.phone}
+                            {safeText(provider.phone)}
                           </a>
                         </div>
                       </div>
                     )}
 
-                    {provider.email && (
+                    {provider.email && typeof provider.email === 'string' && provider.email.trim() && (
                       <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <Mail className="w-5 h-5 text-primary" />
-                        <div>
+                        <Mail className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm text-textSecondary">Email</p>
                           <a
                             href={`mailto:${provider.email}`}
-                            className="text-textMain hover:text-primary font-medium"
+                            className="text-textMain hover:text-primary font-medium break-all"
+                            aria-label={`Email ${safeText(provider.email)}`}
                           >
-                            {provider.email}
+                            {safeText(provider.email)}
                           </a>
                         </div>
                       </div>
@@ -276,10 +352,10 @@ const RenovationProviderDetail = () => {
 
                     {provider.address && (
                       <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <MapPin className="w-5 h-5 text-primary" />
-                        <div>
+                        <MapPin className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm text-textSecondary">Address</p>
-                          <p className="text-textMain font-medium">
+                          <p className="text-textMain font-medium break-words">
                             {formatAddress(provider.address)}
                           </p>
                         </div>

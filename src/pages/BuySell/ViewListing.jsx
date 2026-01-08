@@ -217,13 +217,15 @@ const ViewListing = () => {
                   <button
                     onClick={handleToggleFavorite}
                     disabled={favoriteLoading}
-                    className={`p-2 rounded-full transition-colors ${
+                    className={`p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
                       isFavorite
                         ? 'bg-red-100 text-red-600'
                         : 'bg-muted text-textSecondary hover:bg-red-100 hover:text-red-600'
                     }`}
+                    aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+                    <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} aria-hidden="true" />
                   </button>
                 )}
               </div>

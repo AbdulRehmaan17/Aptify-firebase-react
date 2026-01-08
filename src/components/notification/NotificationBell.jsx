@@ -304,6 +304,8 @@ const NotificationBell = () => {
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-textSecondary hover:text-textMain"
+                aria-label="Close notifications"
+                title="Close notifications"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -324,9 +326,18 @@ const NotificationBell = () => {
                     <div
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
-                      className={`p-4 hover:bg-muted/30 cursor-pointer transition-colors ${
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleNotificationClick(notification);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className={`p-4 hover:bg-muted/30 cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
                         !notification.read ? 'bg-primary/10' : ''
                       }`}
+                      aria-label={`${notification.title || 'Notification'}: ${notification.message}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
@@ -355,8 +366,9 @@ const NotificationBell = () => {
                         {!notification.read && (
                           <button
                             onClick={(e) => handleMarkAsRead(notification.id, e)}
-                            className="text-primary hover:text-primaryDark text-xs flex-shrink-0"
+                            className="text-primary hover:text-primaryDark text-xs flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-primary rounded px-1"
                             title="Mark as read"
+                            aria-label="Mark notification as read"
                           >
                             Mark read
                           </button>

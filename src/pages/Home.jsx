@@ -225,7 +225,7 @@ const Home = () => {
             <Button size="lg" asChild>
               <Link to="/properties">
                 Browse Properties
-                <ArrowRight className="ml-2 w-5 h-5" />
+                <ArrowRight className="ml-2 w-5 h-5" aria-hidden="true" />
               </Link>
             </Button>
             <Button variant="outline" size="lg" asChild>
@@ -241,7 +241,7 @@ const Home = () => {
           <h2 className="text-3xl md:text-4xl font-display font-bold text-textMain mb-4">
             Featured Properties
           </h2>
-          <p className="text-lg text-textSecondary max-w-2xl mx-auto">
+          <p className="text-lg text-textSecondary max-w-2xl mx-auto break-words">
             Hand-selected properties that represent the best in real estate, available for rent or
             purchase
           </p>
@@ -266,7 +266,7 @@ const Home = () => {
           <Button variant="outline" size="lg" asChild>
             <Link to="/properties">
               View All Properties
-              <ArrowRight className="ml-2 w-5 h-5" />
+              <ArrowRight className="ml-2 w-5 h-5" aria-hidden="true" />
             </Link>
           </Button>
         </div>
@@ -275,7 +275,7 @@ const Home = () => {
       {/* Brand Story */}
       <section className="bg-background py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-display font-bold text-textMain mb-6">
                 Your Trusted Real Estate Partner

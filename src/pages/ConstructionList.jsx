@@ -312,10 +312,10 @@ const ConstructionList = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-display font-bold text-textMain mb-2">
+          <h1 className="text-3xl sm:text-4xl font-display font-bold text-textMain mb-2 break-words">
             Construction Service Providers
           </h1>
-          <p className="text-lg text-textSecondary">
+          <p className="text-base sm:text-lg text-textSecondary break-words">
             Browse our trusted construction service providers and request a quote for your project.
           </p>
         </div>
@@ -331,19 +331,19 @@ const ConstructionList = () => {
               <div className="p-6">
                 {/* Provider Name - Clickable to view details */}
                 <Link to={`/construction-provider/${provider.userId || provider.id}`} className="block mb-3 group">
-                  <h3 className="text-xl font-semibold text-textMain group-hover:text-primary transition-colors">
+                  <h3 className="text-xl font-semibold text-textMain group-hover:text-primary transition-colors break-words">
                     {provider.name || provider.companyName || 'Unnamed Provider'}
                   </h3>
                   {provider.companyName && provider.name && (
-                    <p className="text-sm text-textSecondary mt-1">{provider.companyName}</p>
+                    <p className="text-sm text-textSecondary mt-1 break-words">{provider.companyName}</p>
                   )}
                 </Link>
 
                 {/* Location */}
                 {(provider.location || provider.city) && (
                   <div className="flex items-center text-sm text-textSecondary mb-3">
-                    <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                    <span className="truncate">{provider.location || provider.city}</span>
+                    <MapPin className="w-4 h-4 mr-1 flex-shrink-0" aria-hidden="true" />
+                    <span className="break-words">{provider.location || provider.city}</span>
                   </div>
                 )}
 
@@ -360,7 +360,7 @@ const ConstructionList = () => {
                 {(provider.servicesOffered || provider.specialization || provider.expertise) && (
                   <div className="mb-4">
                     <h4 className="text-sm font-medium text-textSecondary mb-2">Services:</h4>
-                    <p className="text-sm text-textSecondary">
+                    <p className="text-sm text-textSecondary break-words">
                       {formatServices(provider.servicesOffered || provider.specialization || provider.expertise)}
                     </p>
                   </div>
@@ -375,15 +375,19 @@ const ConstructionList = () => {
                 <div className="space-y-2 mb-6">
                   {provider.phone && (
                     <div className="flex items-center text-sm text-textSecondary">
-                      <Phone className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span className="truncate">{provider.phone}</span>
+                      <Phone className="w-4 h-4 mr-2 flex-shrink-0" aria-hidden="true" />
+                      <a href={`tel:${provider.phone}`} className="break-all hover:text-primary">
+                        {provider.phone}
+                      </a>
                     </div>
                   )}
 
                   {provider.email && (
                     <div className="flex items-center text-sm text-textSecondary">
-                      <Mail className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span className="truncate">{provider.email}</span>
+                      <Mail className="w-4 h-4 mr-2 flex-shrink-0" aria-hidden="true" />
+                      <a href={`mailto:${provider.email}`} className="break-all hover:text-primary">
+                        {provider.email}
+                      </a>
                     </div>
                   )}
                 </div>
@@ -394,6 +398,7 @@ const ConstructionList = () => {
                     variant="primary"
                     fullWidth
                     onClick={() => handleRequestService(provider.userId || provider.id)}
+                    className="!bg-primary !text-white hover:!bg-primaryDark border-2 border-primary hover:border-primaryDark shadow-md hover:shadow-lg transition-all duration-200 font-semibold"
                   >
                     Request Service
                   </Button>
@@ -402,8 +407,9 @@ const ConstructionList = () => {
                       variant="outline"
                       fullWidth
                       className="border-muted text-textSecondary hover:bg-muted"
+                      aria-label={`View details for ${provider.name || provider.companyName || 'provider'}`}
                     >
-                      <Eye className="w-4 h-4 mr-2" />
+                      <Eye className="w-4 h-4 mr-2" aria-hidden="true" />
                       View Details
                     </Button>
                   </Link>

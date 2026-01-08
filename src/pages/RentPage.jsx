@@ -169,9 +169,11 @@ const RentPage = () => {
                 <h3 className="text-lg font-semibold text-textMain">Filter Properties</h3>
                 <button
                   onClick={() => setShowFilters(false)}
-                  className="text-textSecondary hover:text-textMain"
+                  className="text-textSecondary hover:text-textMain focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                  aria-label="Close filters"
+                  title="Close filters"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
 

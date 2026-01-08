@@ -70,7 +70,7 @@ const About = () => {
           <h2 className="text-3xl sm:text-4xl font-display font-bold text-textMain mb-6">
             Our Story
           </h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center mb-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-center mb-12">
             <div className="text-left">
               <p className="text-lg text-textSecondary font-inter mb-4 leading-relaxed">
                 Aptify was founded with a vision to revolutionize the real estate experience in
