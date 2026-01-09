@@ -648,7 +648,9 @@ const AdminPanel = () => {
 
       collections.forEach(({ name, type }) => {
         try {
-          const requestsQuery = query(collection(db, name), orderBy('createdAt', 'desc'));
+          // STABILIZED: Remove orderBy from Firestore query to avoid index requirement
+          // Sorting is done client-side after fetching
+          const requestsQuery = query(collection(db, name));
 
           const unsubscribe = onSnapshot(
             requestsQuery,
@@ -673,10 +675,10 @@ const AdminPanel = () => {
               setAllRequests((prev) => {
                 const filtered = prev.filter((r) => r.collection !== name);
                 const combined = [...filtered, ...requests];
-                // Sort by createdAt
+                // STABILIZED: Sort by createdAt client-side (newest first)
                 combined.sort((a, b) => {
-                  const aTime = a.createdAt?.toDate?.() || new Date(0);
-                  const bTime = b.createdAt?.toDate?.() || new Date(0);
+                  const aTime = a.createdAt?.toDate?.() || a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
+                  const bTime = b.createdAt?.toDate?.() || b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
                   return bTime - aTime;
                 });
                 return combined;
@@ -1668,7 +1670,7 @@ const AdminPanel = () => {
           link = `/properties/${request.propertyId}`;
         } else if (request.requestType === 'Construction') {
           title = 'Construction Project Updated';
-          link = '/constructor-dashboard';
+          link = '/constructor/dashboard';
         } else if (request.requestType === 'Renovation') {
           title = 'Renovation Project Updated';
           link = '/renovator-dashboard';
@@ -1690,7 +1692,7 @@ const AdminPanel = () => {
           `${request.requestType} Project Status Updated`,
           `A ${request.requestType.toLowerCase()} project assigned to you ${message}.`,
           'status-update',
-          request.requestType === 'Construction' ? '/constructor-dashboard' : '/renovator-dashboard'
+          request.requestType === 'Construction' ? '/constructor/dashboard' : '/renovator/dashboard'
         );
       }
 

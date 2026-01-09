@@ -43,6 +43,19 @@ export const AuthProvider = ({ children }) => {
       setError(null);
 
       if (user) {
+        // PHASE 1: Runtime verification - Log user data on auth state change
+        if (import.meta.env.DEV) {
+          console.log('🔍 [Auth State] User data:', {
+            uid: user.uid,
+            photoURL: user.photoURL,
+            displayName: user.displayName,
+            email: user.email,
+            providerData: user.providerData?.map(p => ({
+              providerId: p.providerId,
+              photoURL: p.photoURL
+            })) || []
+          });
+        }
         try {
           // FIXED: Get ID token to check for admin custom claim - force refresh to get latest claims
           let adminClaim = false;
@@ -99,10 +112,13 @@ export const AuthProvider = ({ children }) => {
       });
 
     try {
-      // Set up real-time listener for users/{uid}
+      // CRITICAL: Listen to userProfiles first (per Firestore rules), then fallback to users
+      const userProfileRef = doc(db, 'userProfiles', currentUser.uid);
       const userDocRef = doc(db, 'users', currentUser.uid);
+      
+      // Try userProfiles first
       unsubscribeUser = onSnapshot(
-        userDocRef,
+        userProfileRef,
         (snap) => {
           if (snap.exists()) {
             const profileData = snap.data();
@@ -112,19 +128,40 @@ export const AuthProvider = ({ children }) => {
             setCurrentUserRole(role);
             setIsApprovedProvider(profileData.isApprovedProvider === true);
           } else {
-            // User doc doesn't exist - use defaults
-            setUserProfile(null);
-            setCurrentUserRole(adminClaim ? 'admin' : 'user');
-            setIsApprovedProvider(false);
-            // Note: User doc creation should happen in authFunctions
+            // userProfiles doesn't exist, try users collection as fallback
+            getDoc(userDocRef)
+              .then((userSnap) => {
+                if (userSnap.exists()) {
+                  const profileData = userSnap.data();
+                  setUserProfile({ id: userSnap.id, ...profileData });
+                  const role = adminClaim ? 'admin' : (profileData.role || 'user');
+                  setCurrentUserRole(role);
+                  setIsApprovedProvider(profileData.isApprovedProvider === true);
+                } else {
+                  // Neither exists - use defaults but keep currentUser.photoURL available
+                  setUserProfile(null);
+                  setCurrentUserRole(adminClaim ? 'admin' : 'user');
+                  setIsApprovedProvider(false);
+                }
+              })
+              .catch((e) => {
+                console.warn('Failed to fetch users collection fallback:', e);
+                setUserProfile(null);
+                setCurrentUserRole(adminClaim ? 'admin' : 'user');
+                setIsApprovedProvider(false);
+              });
           }
         },
         (snapshotError) => {
-          console.error('Error listening to user document:', snapshotError);
-          // Fallback: try one-time fetch
-          getDoc(userDocRef)
-            .then((snap) => {
-              if (snap.exists()) {
+          console.error('Error listening to userProfiles document:', snapshotError);
+          // Fallback: try one-time fetch from both collections
+          Promise.all([
+            getDoc(userProfileRef).catch(() => null),
+            getDoc(userDocRef).catch(() => null)
+          ])
+            .then(([profileSnap, userSnap]) => {
+              const snap = profileSnap || userSnap;
+              if (snap?.exists()) {
                 const profileData = snap.data();
                 setUserProfile({ id: snap.id, ...profileData });
                 const role = adminClaim ? 'admin' : (profileData.role || 'user');
@@ -137,7 +174,7 @@ export const AuthProvider = ({ children }) => {
               }
             })
             .catch((e) => {
-              console.error('Failed to fetch user document:', e);
+              console.error('Failed to fetch user document (fallback):', e);
               setUserProfile(null);
               setCurrentUserRole(adminClaim ? 'admin' : 'user');
               setIsApprovedProvider(false);
@@ -295,6 +332,34 @@ export const AuthProvider = ({ children }) => {
 
       // createOrUpdateUserProfile is already called in loginWithGoogle
       // Auth state change will update currentUser automatically
+      // CRITICAL: Force refresh user profile from Firestore to get updated photoURL
+      if (result.user && db) {
+        try {
+          // Check both userProfiles and users collections
+          const userProfileRef = doc(db, 'userProfiles', result.user.uid);
+          const userDocRef = doc(db, 'users', result.user.uid);
+          
+          const [userProfileDoc, userDoc] = await Promise.all([
+            getDoc(userProfileRef).catch(() => null),
+            getDoc(userDocRef).catch(() => null)
+          ]);
+          
+          // Prefer userProfiles, fallback to users
+          const profileDoc = userProfileDoc?.exists() ? userProfileDoc : userDoc;
+          if (profileDoc?.exists()) {
+            setUserProfile({ id: profileDoc.id, ...profileDoc.data() });
+          } else {
+            // If no profile exists yet, set userProfile to null but keep currentUser.photoURL available
+            setUserProfile(null);
+          }
+        } catch (profileError) {
+          // Log but don't fail login if profile fetch fails
+          console.warn('Failed to refresh user profile after Google login:', profileError);
+          // Keep userProfile as null, but currentUser.photoURL will still be available
+          setUserProfile(null);
+        }
+      }
+      
       setLoading(false);
       return { success: true, user: result.user };
     } catch (err) {
@@ -321,6 +386,34 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Auth state change will update currentUser automatically
+      // CRITICAL: Force refresh user profile from Firestore to get updated photoURL
+      if (result.user && db) {
+        try {
+          // Check both userProfiles and users collections
+          const userProfileRef = doc(db, 'userProfiles', result.user.uid);
+          const userDocRef = doc(db, 'users', result.user.uid);
+          
+          const [userProfileDoc, userDoc] = await Promise.all([
+            getDoc(userProfileRef).catch(() => null),
+            getDoc(userDocRef).catch(() => null)
+          ]);
+          
+          // Prefer userProfiles, fallback to users
+          const profileDoc = userProfileDoc?.exists() ? userProfileDoc : userDoc;
+          if (profileDoc?.exists()) {
+            setUserProfile({ id: profileDoc.id, ...profileDoc.data() });
+          } else {
+            // If no profile exists yet, set userProfile to null but keep currentUser.photoURL available
+            setUserProfile(null);
+          }
+        } catch (profileError) {
+          // Log but don't fail login if profile fetch fails
+          console.warn('Failed to refresh user profile after Google redirect:', profileError);
+          // Keep userProfile as null, but currentUser.photoURL will still be available
+          setUserProfile(null);
+        }
+      }
+      
       setLoading(false);
       return result;
     } catch (err) {

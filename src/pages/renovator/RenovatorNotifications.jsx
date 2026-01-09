@@ -186,16 +186,16 @@ const RenovatorNotifications = () => {
     }
   };
 
+  /**
+   * Handle notification click - marks as read only, no navigation
+   * NOTE: Navigation disabled due to routing issues. Notifications are read-only informational items.
+   */
   const handleNotificationClick = (notification) => {
-    // Mark as read if unread
+    // Mark as read if unread (preserve existing behavior)
     if (!notification.read) {
       notificationService.markAsRead(notification.id).catch(console.error);
     }
-
-    // Navigate if link exists
-    if (notification.link) {
-      navigate(notification.link);
-    }
+    // No navigation - notifications are read-only
   };
 
   const formatDate = (timestamp) => {
@@ -401,11 +401,6 @@ const RenovatorNotifications = () => {
                         <p className="text-sm text-textSecondary mt-2">
                           {formatDate(notification.createdAt)}
                         </p>
-                        {notification.link && (
-                          <p className="text-sm text-primary mt-1 hover:underline">
-                            Click to view →
-                          </p>
-                        )}
                       </div>
                     </div>
                   </div>

@@ -158,7 +158,7 @@ const ConstructorProfile = () => {
           } else {
             // User is not approved constructor - show error
             toast.error('Constructor profile not found. Please register as a constructor first.');
-            navigate('/constructor-dashboard');
+            navigate('/constructor/dashboard');
             return;
           }
         }

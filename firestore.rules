@@ -306,6 +306,30 @@ service cloud.firestore {
       }
     }
 
+    // PHASE 5: Email Subscriptions Collection
+    // Public create (for subscription forms), no public read (privacy)
+    match /email_subscriptions/{subscriptionId} {
+      // PHASE 5: Allow public to create subscriptions (for footer/home forms)
+      allow create: if request.resource.data.email is string &&
+                       request.resource.data.email.matches('.*@.*\\..*') &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.source is string;
+      
+      // PHASE 5: No public read (privacy protection)
+      allow read: if isAdmin() || isAdminByRole(request.auth.uid);
+      
+      // PHASE 5: Only admins can update/delete (for status management)
+      allow update, delete: if isAdmin() || isAdminByRole(request.auth.uid);
+    }
+
+    // Legacy newsletterSubscriptions collection (backward compatibility)
+    match /newsletterSubscriptions/{subscriptionId} {
+      allow create: if request.resource.data.email is string &&
+                       request.resource.data.email.matches('.*@.*\\..*');
+      allow read: if isAdmin() || isAdminByRole(request.auth.uid);
+      allow update, delete: if isAdmin() || isAdminByRole(request.auth.uid);
+    }
+
     // Generic collections - fallback for other collections
     match /{collection}/{document} {
       allow read: if true;

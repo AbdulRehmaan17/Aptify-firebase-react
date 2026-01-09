@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/layout/Navbar';
@@ -9,6 +9,7 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import PublicRoute from './routes/PublicRoute';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import ScrollToTop from './components/common/ScrollToTop';
+import { ROUTES } from './routes/routes';
 import Home from './pages/Home';
 import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
@@ -21,6 +22,7 @@ import MyProjects from './pages/MyProjects';
 import ConstructionProjectDetail from './pages/Construction/ConstructionProjectDetail';
 import RenovationProjectDetail from './pages/Renovation/RenovationProjectDetail';
 import ViewBooking from './pages/Rental/ViewBooking';
+import NotificationDetailPage from './pages/NotificationDetailPage';
 import Construction from './pages/Construction';
 import ConstructionServicesPage from './pages/ConstructionServicesPage';
 import ConstructionRequestForm from './pages/ConstructionRequestForm';
@@ -28,7 +30,6 @@ import RequestConstruction from './pages/RequestConstruction';
 import ConstructionList from './pages/ConstructionList';
 import ConstructionProviders from './pages/ConstructionProviders';
 import ProvidersList from './pages/ProvidersList';
-import ConstructionDashboard from './pages/ConstructionDashboard';
 import ConstructorProjects from './pages/constructor/ConstructorProjects';
 import ConstructorProjectDetails from './pages/constructor/ConstructorProjectDetails';
 import ConstructorProfile from './pages/constructor/ConstructorProfile';
@@ -52,7 +53,6 @@ import RenovationProviderDetail from './pages/RenovationProviderDetail';
 import ConstructionProviderDetail from './pages/ConstructionProviderDetail';
 import RentalServicesPage from './pages/RentalServicesPage';
 import RentalRequestForm from './pages/RentalRequestForm';
-import BrowseRentals from './pages/BrowseRentals';
 import Dashboard from './pages/Dashboard';
 import NotificationsPage from './pages/NotificationsPage';
 import UserChatsPage from './pages/UserChatsPage';
@@ -86,97 +86,97 @@ function App() {
             <Routes>
               {/* Public Routes */}
               <Route element={<PublicRoute />}>
-                <Route path="/auth" element={<Auth />} />
+                <Route path={ROUTES.AUTH} element={<Auth />} />
               </Route>
-              <Route path="/" element={<Home />} />
-              <Route path="/properties" element={<PropertiesPage />} />
-              <Route path="/properties/:id" element={<PropertyDetailPage />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/renovation" element={<Renovation />} />
-              <Route path="/services" element={<RenovationServicesPage />} />
-              <Route path="/renovation-providers" element={<RenovationProviders />} />
-              <Route path="/construction-services" element={<ConstructionServicesPage />} />
-              <Route path="/construction-providers" element={<ConstructionProviders />} />
-              <Route path="/providers-list" element={<ProvidersList />} />
-              <Route path="/rental-services" element={<RentalServicesPage />} />
-              <Route path="/browse-rentals" element={<BrowseRentals />} />
-              <Route path="/buy-sell" element={<BuySellLanding />} />
-              <Route path="/rent" element={<RentPage />} />
-              <Route path="/buy" element={<BuyPage />} />
-              <Route path="/sell" element={<SellPage />} />
+              <Route path={ROUTES.HOME} element={<Home />} />
+              <Route path={ROUTES.PROPERTIES} element={<PropertiesPage />} />
+              <Route path={ROUTES.PROPERTY_DETAIL} element={<PropertyDetailPage />} />
+              <Route path={ROUTES.ABOUT} element={<About />} />
+              <Route path={ROUTES.CONTACT} element={<Contact />} />
+              <Route path={ROUTES.RENOVATION} element={<Renovation />} />
+              <Route path={ROUTES.RENOVATION_SERVICES} element={<RenovationServicesPage />} />
+              <Route path={ROUTES.RENOVATION_PROVIDERS} element={<RenovationProviders />} />
+              <Route path={ROUTES.CONSTRUCTION_SERVICES} element={<ConstructionServicesPage />} />
+              <Route path={ROUTES.CONSTRUCTION_PROVIDERS} element={<ConstructionProviders />} />
+              <Route path={ROUTES.PROVIDERS_LIST} element={<ProvidersList />} />
+              <Route path={ROUTES.RENTAL_SERVICES} element={<RentalServicesPage />} />
+              <Route path={ROUTES.BROWSE_RENTALS} element={<RentPage />} />
+              <Route path={ROUTES.BUY_SELL} element={<BuySellLanding />} />
+              <Route path={ROUTES.RENT_LEGACY} element={<Navigate to={ROUTES.BROWSE_RENTALS} replace />} />
+              <Route path={ROUTES.BUY} element={<BuyPage />} />
+              <Route path={ROUTES.SELL} element={<SellPage />} />
 
               {/* Authenticated user routes */}
               <Route element={<ProtectedRoute />}>
-                <Route path="/my-projects" element={<MyProjects />} />
+                <Route path={ROUTES.MY_PROJECTS} element={<MyProjects />} />
                 {/* Project Detail Routes */}
                 <Route
-                  path="/construction/project/:id"
+                  path={ROUTES.CONSTRUCTION_PROJECT_DETAIL}
                   element={<ConstructionProjectDetail />}
                 />
                 <Route
-                  path="/renovation/my-renovations/:id"
+                  path={ROUTES.RENOVATION_PROJECT_DETAIL}
                   element={<RenovationProjectDetail />}
                 />
-                <Route path="/rental/booking/:id" element={<ViewBooking />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/chats" element={<UserChatsPage />} />
+                <Route path={ROUTES.RENTAL_BOOKING} element={<ViewBooking />} />
+                <Route path={ROUTES.DASHBOARD} element={<Dashboard />} />
+                <Route path={ROUTES.NOTIFICATIONS} element={<NotificationsPage />} />
+                <Route path={ROUTES.NOTIFICATION_DETAIL} element={<NotificationDetailPage />} />
+                <Route path={ROUTES.CHATS} element={<UserChatsPage />} />
                 <Route
-                  path="/chat"
+                  path={ROUTES.CHAT}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <Chat />
                     </Suspense>
                   }
                 />
-                <Route path="/chatbot" element={<Chatbot />} />
-                <Route path="/construction" element={<Construction />} />
-                <Route path="/post-property" element={<PostPropertyPage />} />
+                <Route path={ROUTES.CHATBOT} element={<Chatbot />} />
+                <Route path={ROUTES.CONSTRUCTION} element={<Construction />} />
+                <Route path={ROUTES.POST_PROPERTY} element={<PostPropertyPage />} />
                 {/* Account/Profile page - accessible via avatar click or "My Account" menu */}
-                <Route path="/account" element={<MyAccount />} />
-                <Route path="/owner-dashboard" element={<OwnerDashboard />} />
-                <Route path="/payment-mock" element={<PaymentMock />} />
+                <Route path={ROUTES.ACCOUNT} element={<MyAccount />} />
+                <Route path={ROUTES.OWNER_DASHBOARD} element={<OwnerDashboard />} />
+                <Route path={ROUTES.PAYMENT_MOCK} element={<PaymentMock />} />
 
                 {/* Construction Module Routes */}
-                <Route path="/construction-request" element={<ConstructionRequestForm />} />
-                <Route path="/request-construction" element={<RequestConstruction />} />
-                <Route path="/construction-list" element={<ConstructionList />} />
+                <Route path={ROUTES.CONSTRUCTION_REQUEST} element={<ConstructionRequestForm />} />
+                <Route path={ROUTES.REQUEST_CONSTRUCTION} element={<RequestConstruction />} />
+                <Route path={ROUTES.CONSTRUCTION_LIST} element={<ConstructionList />} />
                 <Route
-                  path="/construction-provider/:id"
+                  path={ROUTES.CONSTRUCTION_PROVIDER_DETAIL}
                   element={<ConstructionProviderDetail />}
                 />
-                <Route path="/construction-dashboard" element={<ConstructionDashboard />} />
                 <Route
-                  path="/provider-construction"
+                  path={ROUTES.PROVIDER_CONSTRUCTION}
                   element={<ProviderConstructionPanel />}
                 />
-                <Route path="/providers" element={<ProviderOptions />} />
-                <Route path="/register-constructor" element={<RegisterConstructor />} />
+                <Route path={ROUTES.PROVIDERS} element={<ProviderOptions />} />
+                <Route path={ROUTES.REGISTER_CONSTRUCTOR} element={<RegisterConstructor />} />
 
                 {/* Renovation Module Routes */}
-                <Route path="/renovation-list" element={<RenovationList />} />
+                <Route path={ROUTES.RENOVATION_LIST} element={<RenovationList />} />
                 <Route
-                  path="/renovation-provider/:id"
+                  path={ROUTES.RENOVATION_PROVIDER_DETAIL}
                   element={<RenovationProviderDetail />}
                 />
-                <Route path="/renovation-request" element={<RenovationRequestForm />} />
-                <Route path="/request-renovation" element={<RequestRenovation />} />
-                <Route path="/renovation-dashboard" element={<RenovationDashboard />} />
+                <Route path={ROUTES.RENOVATION_REQUEST} element={<RenovationRequestForm />} />
+                <Route path={ROUTES.REQUEST_RENOVATION} element={<RequestRenovation />} />
+                <Route path={ROUTES.RENOVATION_DASHBOARD} element={<RenovationDashboard />} />
                 <Route
-                  path="/provider-renovation"
+                  path={ROUTES.PROVIDER_RENOVATION}
                   element={<ProviderRenovationPanel />}
                 />
-                <Route path="/register-renovator" element={<RegisterRenovator />} />
+                <Route path={ROUTES.REGISTER_RENOVATOR} element={<RegisterRenovator />} />
 
                 {/* Rental Module Routes */}
-                <Route path="/rental-request" element={<RentalRequestForm />} />
+                <Route path={ROUTES.RENTAL_REQUEST} element={<RentalRequestForm />} />
               </Route>
 
               {/* Admin-only routes */}
               <Route element={<ProtectedRoute adminOnly />}>
                 <Route
-                  path="/admin"
+                  path={ROUTES.ADMIN}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <AdminPanel />
@@ -188,7 +188,7 @@ function App() {
               {/* Constructor-only routes */}
               <Route element={<ProtectedRoute constructorOnly />}>
                 <Route
-                  path="/constructor/dashboard"
+                  path={ROUTES.CONSTRUCTOR_DASHBOARD}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <ConstructorDashboard />
@@ -196,20 +196,20 @@ function App() {
                   }
                 />
                 <Route
-                  path="/constructor/projects"
+                  path={ROUTES.CONSTRUCTOR_PROJECTS}
                   element={<ConstructorProjects />}
                 />
                 <Route
-                  path="/constructor/projects/:id"
+                  path={ROUTES.CONSTRUCTOR_PROJECT_DETAIL}
                   element={<ConstructorProjectDetails />}
                 />
-                <Route path="/constructor/profile" element={<ConstructorProfile />} />
+                <Route path={ROUTES.CONSTRUCTOR_PROFILE} element={<ConstructorProfile />} />
               </Route>
 
               {/* Renovator-only routes */}
               <Route element={<ProtectedRoute renovatorOnly />}>
                 <Route
-                  path="/renovator/dashboard"
+                  path={ROUTES.RENOVATOR_DASHBOARD}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorDashboard />
@@ -217,7 +217,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/renovator/projects"
+                  path={ROUTES.RENOVATOR_PROJECTS}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorProjects />
@@ -225,7 +225,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/renovator/project/:id"
+                  path={ROUTES.RENOVATOR_PROJECT_DETAIL}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorProjectDetails />
@@ -233,7 +233,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/renovator/profile"
+                  path={ROUTES.RENOVATOR_PROFILE}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorProfile />
@@ -241,7 +241,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/renovator/chat"
+                  path={ROUTES.RENOVATOR_CHAT}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <Chat />
@@ -249,7 +249,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/renovator/notifications"
+                  path={ROUTES.RENOVATOR_NOTIFICATIONS}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <NotificationsPage />
@@ -257,7 +257,7 @@ function App() {
                   }
                 />
                 <Route
-                  path="/renovator/portfolio"
+                  path={ROUTES.RENOVATOR_PORTFOLIO}
                   element={
                     <Suspense fallback={<LoadingSpinner size="lg" />}>
                       <RenovatorPortfolio />
@@ -268,13 +268,13 @@ function App() {
 
               {/* 404 Route */}
               <Route
-                path="*"
+                path={ROUTES.NOT_FOUND}
                 element={
                   <div className="min-h-screen flex items-center justify-center">
                     <div className="text-center">
                       <h1 className="text-4xl font-bold text-textMain mb-4">404</h1>
                       <p className="text-textSecondary mb-8">Page not found</p>
-                      <a href="/" className="text-primary hover:underline">
+                      <a href={ROUTES.HOME} className="text-primary hover:underline">
                         Go back home
                       </a>
                     </div>

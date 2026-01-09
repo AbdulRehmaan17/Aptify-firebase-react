@@ -10,6 +10,7 @@ import {
 } from './auth';
 import { db } from './firestore';
 import { getStorage } from 'firebase/storage';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Export all Firebase services
 export { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectResult };
@@ -29,6 +30,20 @@ try {
   }
 
 export { storage };
+
+// Functions initialization - only if app exists
+let functions = null;
+try {
+  if (app) {
+    functions = getFunctions(app);
+  }
+} catch (error) {
+  if (import.meta.env.DEV) {
+    console.error('Failed to initialize Firebase Functions:', error);
+  }
+}
+
+export { functions, httpsCallable };
 
 // Helper functions
 export const isFirebaseInitialized = () => {

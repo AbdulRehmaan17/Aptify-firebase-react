@@ -411,12 +411,17 @@ class NotificationService {
    */
   async notifyClientStatusUpdate(clientId, projectId, newStatus, projectType) {
     try {
+      // Map to valid routes based on project type
+      const link = projectType === 'Construction' 
+        ? `/construction/project/${projectId}`
+        : `/renovation/my-renovations/${projectId}`;
+      
       await this.create(
         clientId,
         'Project Status Updated',
         `Your ${projectType} project status has been updated to: ${newStatus}`,
         'status-update',
-        `/construction-dashboard`
+        link
       );
     } catch (error) {
       console.error('Error notifying client about status update:', error);
@@ -434,12 +439,17 @@ class NotificationService {
    */
   async notifyClientNewUpdate(clientId, projectId, projectType) {
     try {
+      // Map to valid routes based on project type
+      const link = projectType === 'Construction' 
+        ? `/construction/project/${projectId}`
+        : `/renovation/my-renovations/${projectId}`;
+      
       await this.create(
         clientId,
         'New Project Update',
         `Your ${projectType} project has a new update from the provider`,
         'info',
-        `/construction-dashboard`
+        link
       );
     } catch (error) {
       console.error('Error notifying client about new update:', error);

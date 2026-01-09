@@ -1,5 +1,7 @@
 // Re-export all Firebase services for backward compatibility
-// FIXED: Removed duplicate storage initialization - storage is exported from index.js
+import { getStorage } from 'firebase/storage';
+import app from './config';
+
 export {
   auth,
   googleProvider,
@@ -9,9 +11,20 @@ export {
 } from './auth';
 export { db } from './firestore';
 export { firebaseConfig } from './config';
-export { default as app } from './config';
-// FIXED: Import storage from index.js instead of creating duplicate
-export { storage } from './index';
+export { default as app };
+
+// Storage initialization - only if app exists
+let storage = null;
+try {
+  if (app) {
+    storage = getStorage(app);
+  }
+} catch (error) {
+  if (import.meta.env.DEV) {
+    console.error('Failed to initialize Firebase Storage:', error);
+  }
+}
+export { storage };
 
 // Helper functions
 export const isFirebaseInitialized = () => {

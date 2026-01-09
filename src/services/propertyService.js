@@ -366,6 +366,14 @@ class PropertyService {
    * @param {Object} options - Query options (sortBy, limit, startAfter)
    * @returns {Promise<Array>} - Array of properties
    */
+  /**
+   * Fetch all properties with simple Firestore query, then apply filters/sorting client-side
+   * This approach eliminates all Firestore index requirements
+   * 
+   * @param {Object} filters - Filter criteria (applied client-side)
+   * @param {Object} options - Sort and limit options (applied client-side)
+   * @returns {Promise<Array>} - Array of filtered and sorted properties
+   */
   async getAll(filters = {}, options = {}) {
     try {
       if (!db) {
@@ -373,217 +381,43 @@ class PropertyService {
         return [];
       }
 
-      // AUTO-FIXED: Properties collection allows public read per Firestore rules
-      console.log('Fetching properties with filters:', filters);
-
-      // Build dynamic Firestore query with where(), orderBy(), limit()
-      const constraints = [];
+      // SIMPLE QUERY: Fetch all properties without any filters or orderBy
+      // This eliminates all Firestore index requirements
+      const q = query(collection(db, PROPERTIES_COLLECTION));
       
-      // Build where() clauses dynamically
-      // Priority: status, type, then other filters
+      const snapshot = await getDocs(q);
       
-      // Status filter (if provided)
-      if (filters.status) {
-        constraints.push(where('status', '==', filters.status));
-      }
-      
-      // Type filter (if provided) - use listingType or type field
-      if (filters.type) {
-        // Try listingType first, fallback to type
-        constraints.push(where('listingType', '==', filters.type.toLowerCase()));
-      }
-      
-      // City filter (exact match - for partial match, use client-side)
-      if (filters.city && filters.city.trim()) {
-        constraints.push(where('address.city', '==', filters.city.trim()));
-      }
-      
-      // Boolean filters (can be added to where() clauses)
-      if (filters.furnished !== undefined && filters.furnished !== null) {
-        constraints.push(where('furnished', '==', Boolean(filters.furnished)));
-      }
-      
-      if (filters.parking !== undefined && filters.parking !== null) {
-        constraints.push(where('parking', '==', Boolean(filters.parking)));
-      }
-      
-      // Featured filter
-      if (filters.featured !== undefined) {
-        constraints.push(where('featured', '==', Boolean(filters.featured)));
-      }
-      
-      // Price range - Firestore allows one range filter
-      // Use minPrice as >= filter (can combine with maxPrice client-side or use range)
-      if (typeof filters.minPrice === 'number' && filters.minPrice > 0) {
-        constraints.push(where('price', '>=', filters.minPrice));
-      }
-      
-      // Note: maxPrice will be filtered client-side to avoid multiple range filters
-      // If both min and max are needed, we can use a single range query if indexes allow
-      
-      // Bedrooms filter (>=)
-      if (typeof filters.minBedrooms === 'number' && filters.minBedrooms > 0) {
-        constraints.push(where('bedrooms', '>=', filters.minBedrooms));
-      }
-      
-      // Bathrooms filter (>=)
-      if (typeof filters.minBathrooms === 'number' && filters.minBathrooms > 0) {
-        constraints.push(where('bathrooms', '>=', filters.minBathrooms));
-      }
-      
-      // Build query with constraints
-      let q;
-      if (constraints.length > 0) {
-        q = query(collection(db, PROPERTIES_COLLECTION), ...constraints);
-      } else {
-        // No filters - fetch all properties
-        q = query(collection(db, PROPERTIES_COLLECTION));
-      }
-      
-      // Add orderBy if sort options provided
-      if (options.sortBy) {
-        const sortOrder = options.sortOrder || 'desc';
-        try {
-          q = query(q, orderBy(options.sortBy, sortOrder));
-        } catch (orderError) {
-          // If orderBy fails (missing index), continue without it
-          console.warn('OrderBy failed, will sort client-side:', orderError);
-        }
-      } else {
-        // Default sort by createdAt desc
-        try {
-          q = query(q, orderBy('createdAt', 'desc'));
-        } catch (orderError) {
-          console.warn('Default orderBy failed, will sort client-side:', orderError);
-        }
-      }
-      
-      // Add limit if provided
-      if (options.limit) {
-        q = query(q, limit(options.limit));
-      } else {
-        // Default limit to prevent fetching too many documents
-        q = query(q, limit(100));
-      }
-      
-      console.log(`🔍 Built Firestore query with ${constraints.length} where() clauses`);
-
-      try {
-        console.log('🔍 Executing Firestore query on collection:', PROPERTIES_COLLECTION);
-        console.log('🔍 Query details:', {
-          collection: PROPERTIES_COLLECTION,
-          filters: filters,
-          hasWhere: q._queryConstraints?.some(c => c.type === 'where'),
-          hasLimit: q._queryConstraints?.some(c => c.type === 'limit'),
-        });
-        const snapshot = await getDocs(q);
-        console.log(`✅ Fetched ${snapshot.docs.length} properties from Firestore`);
-        
-        if (snapshot.docs.length === 0) {
-          console.warn('⚠️ No properties found. Possible reasons:');
-          console.warn('  1. Collection is empty');
-          console.warn('  2. Status filter is too restrictive (only "published" properties are shown)');
-          console.warn('  3. Firestore rules are blocking access');
-          console.warn('  4. Collection name mismatch');
-          console.warn('  5. User not authenticated (check Firestore rules)');
-          
-          // FIXED: Try a simple query to test if collection exists and rules allow access
-          try {
-            console.log('🔄 Testing simple query without filters...');
-            const testQuery = query(collection(db, PROPERTIES_COLLECTION), limit(1));
-            const testSnapshot = await getDocs(testQuery);
-            console.log(`   ✅ Test query successful: ${testSnapshot.docs.length} documents`);
-            if (testSnapshot.docs.length > 0) {
-              console.log('   ✅ Collection exists and is accessible');
-              console.log('   Sample document ID:', testSnapshot.docs[0].id);
-            } else {
-              console.warn('   ⚠️ Collection exists but is empty');
-            }
-          } catch (testError) {
-            console.error('   ❌ Test query failed:', testError.code, testError.message);
-            console.error('   Full error:', testError);
-            if (testError.code === 'permission-denied') {
-              console.error('   🔒 PERMISSION DENIED - Rules need to be deployed!');
-              console.error('   📋 Required rules:');
-              console.error('      match /properties/{propertyId} {');
-              console.error('        allow get: if true;');
-              console.error('        allow list: if true;');
-              console.error('      }');
-              throw new Error(
-                'Permission denied. Please deploy Firestore security rules. ' +
-                'The rules should allow public read access: allow get: if true; allow list: if true; ' +
-                'See FIREBASE_RULES_DEPLOYMENT.md for deployment instructions.'
-              );
-            }
-            // Re-throw the original error if it's a permission error
-            throw testError;
-          }
-        }
-
-        // Convert to array and normalize images
-        let results = await Promise.all(
-          snapshot.docs.map(async (doc) => {
-            const data = doc.data();
-            const property = {
-              id: doc.id,
-              ...data,
-              // Ensure status exists (default to 'published' if not set)
-              status: data.status || 'published',
-            };
-            // NORMALIZE: Normalize images at read time (handles legacy formats)
-            return await normalizePropertyImages(property);
-          })
-        );
-
-      console.log(`Processing ${results.length} properties with filters:`, filters);
-      console.log(
-        'Sample property statuses:',
-        results.slice(0, 5).map((p) => ({ id: p.id, status: p.status }))
-      );
-      console.log(
-        'Sample property images:',
-        results.slice(0, 3).map((p) => ({
-          id: p.id,
-          title: p.title,
-          // NORMALIZED: Ensure photos is always an array of strings, filter invalid values
-          photos: Array.isArray(p.photos) 
-            ? p.photos.filter((photo) => typeof photo === 'string' && photo.trim().length > 0)
-            : [],
-          coverImage: (typeof p.coverImage === 'string' && p.coverImage.trim().length > 0) 
-            ? p.coverImage.trim() 
-            : null,
-          imageUrl: p.imageUrl, // Legacy field
-          hasPhotos: Array.isArray(p.photos) && p.photos.length > 0,
-        }))
+      // Normalize all properties
+      let results = await Promise.all(
+        snapshot.docs.map(async (doc) => {
+          const data = doc.data();
+          const property = {
+            id: doc.id,
+            ...data,
+            status: data.status || 'published',
+          };
+          return await normalizePropertyImages(property);
+        })
       );
 
-      // Apply all filters client-side
-      // Make status filter optional - if no status filter, show all properties
+      // APPLY ALL FILTERS CLIENT-SIDE
       if (filters.status) {
-        const beforeCount = results.length;
         results = results.filter((p) => p.status === filters.status);
-        console.log(
-          `After status filter (${filters.status}): ${beforeCount} -> ${results.length} properties`
-        );
-      } else {
-        // If no status filter, show all properties (including published, pending, etc.)
-        console.log(`No status filter - showing all ${results.length} properties`);
       }
 
       if (filters.type) {
-        results = results.filter((p) => p.type === filters.type.toLowerCase());
-        console.log(`After type filter (${filters.type}): ${results.length} properties`);
+        results = results.filter((p) => {
+          const propertyType = p.listingType || p.type || '';
+          return propertyType.toLowerCase() === filters.type.toLowerCase();
+        });
       }
 
-      // City filter (already applied server-side if exact match, but check for partial matches)
       if (filters.city && filters.city.trim()) {
-        // If server-side filter didn't catch it (partial match), filter client-side
         const cityLower = filters.city.toLowerCase();
         results = results.filter((p) => {
           const propertyCity = p.address?.city?.toLowerCase() || p.city?.toLowerCase() || '';
           return propertyCity.includes(cityLower);
         });
-        console.log(`After city filter (${filters.city}): ${results.length} properties`);
       }
 
       if (filters.ownerId) {
@@ -610,11 +444,11 @@ class PropertyService {
         results = results.filter((p) => (p.areaSqFt || 0) >= filters.minArea);
       }
 
-      if (filters.furnished !== undefined) {
+      if (filters.furnished !== undefined && filters.furnished !== null) {
         results = results.filter((p) => Boolean(p.furnished) === Boolean(filters.furnished));
       }
 
-      if (filters.parking !== undefined) {
+      if (filters.parking !== undefined && filters.parking !== null) {
         results = results.filter((p) => Boolean(p.parking) === Boolean(filters.parking));
       }
 
@@ -622,304 +456,37 @@ class PropertyService {
         results = results.filter((p) => Boolean(p.featured) === Boolean(filters.featured));
       }
 
-      // Apply sorting client-side
+      // APPLY SORTING CLIENT-SIDE
       const sortBy = options.sortBy || 'createdAt';
       const sortOrder = options.sortOrder || 'desc';
 
-      if (sortBy === 'createdAt' && sortOrder === 'desc') {
+      if (sortBy === 'createdAt') {
         results.sort((a, b) => {
           const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
           const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
-          return bTime - aTime;
+          return sortOrder === 'desc' ? bTime - aTime : aTime - bTime;
         });
-      } else if (sortBy === 'createdAt' && sortOrder === 'asc') {
+      } else if (sortBy === 'price') {
         results.sort((a, b) => {
-          const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
-          const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
-          return aTime - bTime;
+          const aPrice = a.price || 0;
+          const bPrice = b.price || 0;
+          return sortOrder === 'desc' ? bPrice - aPrice : aPrice - bPrice;
         });
-      } else if (sortBy === 'price' && sortOrder === 'desc') {
-        results.sort((a, b) => (b.price || 0) - (a.price || 0));
-      } else if (sortBy === 'price' && sortOrder === 'asc') {
-        results.sort((a, b) => (a.price || 0) - (b.price || 0));
       }
 
-      // Apply limit after filtering
+      // APPLY LIMIT CLIENT-SIDE
       if (options.limit) {
         results = results.slice(0, options.limit);
       }
 
-        console.log(`Returning ${results.length} properties after filtering and sorting`);
-        return results;
-      } catch (queryError) {
-        console.error('❌ ERROR: Firestore query failed!');
-        console.error('   Error Code:', queryError.code);
-        console.error('   Error Message:', queryError.message);
-        console.error('   Full Error:', queryError);
-        console.error('   Collection:', PROPERTIES_COLLECTION);
-        console.error('   Filters:', filters);
-        console.error('   DB Initialized:', !!db);
-        
-        // Check if db is null
-        if (!db) {
-          const error = new Error('Firestore database is not initialized. Please check Firebase configuration.');
-          console.error('❌ CRITICAL: Firestore db is null!');
-          throw error;
-        }
-        
-        // Handle failed-precondition (missing composite index) with graceful fallback
-        if (queryError.code === 'failed-precondition' || queryError.message?.includes('index')) {
-          // Extract index creation URL from error if available
-          const indexUrlMatch = queryError.message?.match(/https?:\/\/[^\s]+/);
-          if (indexUrlMatch) {
-            console.warn('📊 INDEX REQUIRED - Firestore composite index needed');
-            console.warn('   🔗 Index creation URL:', indexUrlMatch[0]);
-            console.warn('   → Click the link above to create the required index in Firebase Console');
-          } else {
-            console.warn('📊 INDEX REQUIRED - Create a Firestore composite index');
-            console.warn('   → Check Firebase Console for index creation prompts');
-          }
-          console.warn('   ⚠️  App will continue with fallback query (no orderBy, then no filters)');
-          
-          // FALLBACK STRATEGY 1: Try query without orderBy (keep filters)
-          try {
-            console.log('🔄 Fallback 1: Attempting query without orderBy...');
-            let fallbackQ1 = query(collection(db, PROPERTIES_COLLECTION));
-            
-            // Rebuild where() clauses (without orderBy)
-            const constraints = [];
-            if (filters.status) {
-              constraints.push(where('status', '==', filters.status));
-            }
-            if (filters.type) {
-              constraints.push(where('listingType', '==', filters.type.toLowerCase()));
-            }
-            if (filters.city && filters.city.trim()) {
-              constraints.push(where('address.city', '==', filters.city.trim()));
-            }
-            if (filters.furnished !== undefined && filters.furnished !== null) {
-              constraints.push(where('furnished', '==', Boolean(filters.furnished)));
-            }
-            if (filters.parking !== undefined && filters.parking !== null) {
-              constraints.push(where('parking', '==', Boolean(filters.parking)));
-            }
-            if (filters.featured !== undefined) {
-              constraints.push(where('featured', '==', Boolean(filters.featured)));
-            }
-            if (typeof filters.minPrice === 'number' && filters.minPrice > 0) {
-              constraints.push(where('price', '>=', filters.minPrice));
-            }
-            if (typeof filters.minBedrooms === 'number' && filters.minBedrooms > 0) {
-              constraints.push(where('bedrooms', '>=', filters.minBedrooms));
-            }
-            if (typeof filters.minBathrooms === 'number' && filters.minBathrooms > 0) {
-              constraints.push(where('bathrooms', '>=', filters.minBathrooms));
-            }
-            
-            if (constraints.length > 0) {
-              fallbackQ1 = query(collection(db, PROPERTIES_COLLECTION), ...constraints);
-            }
-            
-            // Add limit only (no orderBy)
-            fallbackQ1 = query(fallbackQ1, limit(options.limit || 100));
-            
-            const fallbackSnapshot1 = await getDocs(fallbackQ1);
-            console.log(`✅ Fallback 1 successful: ${fallbackSnapshot1.docs.length} documents`);
-            
-            // Normalize and process results
-            let results = await Promise.all(
-              fallbackSnapshot1.docs.map(async (doc) => {
-                const data = doc.data();
-                const property = {
-                  id: doc.id,
-                  ...data,
-                  status: data.status || 'published',
-                };
-                return await normalizePropertyImages(property);
-              })
-            );
-            
-            // Apply remaining filters client-side (maxPrice, etc.)
-            if (typeof filters.maxPrice === 'number') {
-              results = results.filter((p) => (p.price || 0) <= filters.maxPrice);
-            }
-            if (typeof filters.minArea === 'number') {
-              results = results.filter((p) => (p.areaSqFt || 0) >= filters.minArea);
-            }
-            if (filters.ownerId) {
-              results = results.filter((p) => p.ownerId === filters.ownerId);
-            }
-            
-            // Apply sorting client-side
-            const sortBy = options.sortBy || 'createdAt';
-            const sortOrder = options.sortOrder || 'desc';
-            if (sortBy === 'createdAt' && sortOrder === 'desc') {
-              results.sort((a, b) => {
-                const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
-                const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
-                return bTime - aTime;
-              });
-            } else if (sortBy === 'createdAt' && sortOrder === 'asc') {
-              results.sort((a, b) => {
-                const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
-                const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
-                return aTime - bTime;
-              });
-            } else if (sortBy === 'price' && sortOrder === 'desc') {
-              results.sort((a, b) => (b.price || 0) - (a.price || 0));
-            } else if (sortBy === 'price' && sortOrder === 'asc') {
-              results.sort((a, b) => (a.price || 0) - (b.price || 0));
-            }
-            
-            // Apply limit after filtering
-            if (options.limit) {
-              results = results.slice(0, options.limit);
-            }
-            
-            console.log(`✅ Returning ${results.length} properties (fallback 1: no orderBy)`);
-            return results;
-          } catch (fallbackError1) {
-            // FALLBACK STRATEGY 2: Try query without any filters (only limit)
-            if (fallbackError1.code === 'failed-precondition' || fallbackError1.message?.includes('index')) {
-              console.warn('⚠️  Fallback 1 also requires index. Trying fallback 2: no filters...');
-              try {
-                console.log('🔄 Fallback 2: Attempting query without filters...');
-                let fallbackQ2 = query(
-                  collection(db, PROPERTIES_COLLECTION),
-                  limit(options.limit || 100)
-                );
-                
-                const fallbackSnapshot2 = await getDocs(fallbackQ2);
-                console.log(`✅ Fallback 2 successful: ${fallbackSnapshot2.docs.length} documents`);
-                
-                // Normalize and process results
-                let results = await Promise.all(
-                  fallbackSnapshot2.docs.map(async (doc) => {
-                    const data = doc.data();
-                    const property = {
-                      id: doc.id,
-                      ...data,
-                      status: data.status || 'published',
-                    };
-                    return await normalizePropertyImages(property);
-                  })
-                );
-                
-                // Apply ALL filters client-side
-                if (filters.status) {
-                  results = results.filter((p) => p.status === filters.status);
-                }
-                if (filters.type) {
-                  results = results.filter((p) => p.type === filters.type.toLowerCase());
-                }
-                if (filters.city && filters.city.trim()) {
-                  const cityLower = filters.city.toLowerCase();
-                  results = results.filter((p) => {
-                    const propertyCity = p.address?.city?.toLowerCase() || p.city?.toLowerCase() || '';
-                    return propertyCity.includes(cityLower);
-                  });
-                }
-                if (filters.ownerId) {
-                  results = results.filter((p) => p.ownerId === filters.ownerId);
-                }
-                if (typeof filters.minPrice === 'number') {
-                  results = results.filter((p) => (p.price || 0) >= filters.minPrice);
-                }
-                if (typeof filters.maxPrice === 'number') {
-                  results = results.filter((p) => (p.price || 0) <= filters.maxPrice);
-                }
-                if (typeof filters.minBedrooms === 'number') {
-                  results = results.filter((p) => (p.bedrooms || 0) >= filters.minBedrooms);
-                }
-                if (typeof filters.minBathrooms === 'number') {
-                  results = results.filter((p) => (p.bathrooms || 0) >= filters.minBathrooms);
-                }
-                if (typeof filters.minArea === 'number') {
-                  results = results.filter((p) => (p.areaSqFt || 0) >= filters.minArea);
-                }
-                if (filters.furnished !== undefined) {
-                  results = results.filter((p) => Boolean(p.furnished) === Boolean(filters.furnished));
-                }
-                if (filters.parking !== undefined) {
-                  results = results.filter((p) => Boolean(p.parking) === Boolean(filters.parking));
-                }
-                if (filters.featured !== undefined) {
-                  results = results.filter((p) => Boolean(p.featured) === Boolean(filters.featured));
-                }
-                
-                // Apply sorting client-side
-                const sortBy = options.sortBy || 'createdAt';
-                const sortOrder = options.sortOrder || 'desc';
-                if (sortBy === 'createdAt' && sortOrder === 'desc') {
-                  results.sort((a, b) => {
-                    const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
-                    const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
-                    return bTime - aTime;
-                  });
-                } else if (sortBy === 'createdAt' && sortOrder === 'asc') {
-                  results.sort((a, b) => {
-                    const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
-                    const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
-                    return aTime - bTime;
-                  });
-                } else if (sortBy === 'price' && sortOrder === 'desc') {
-                  results.sort((a, b) => (b.price || 0) - (a.price || 0));
-                } else if (sortBy === 'price' && sortOrder === 'asc') {
-                  results.sort((a, b) => (a.price || 0) - (b.price || 0));
-                }
-                
-                // Apply limit after filtering
-                if (options.limit) {
-                  results = results.slice(0, options.limit);
-                }
-                
-                console.log(`✅ Returning ${results.length} properties (fallback 2: no filters)`);
-                return results;
-              } catch (fallbackError2) {
-                console.error('❌ CRITICAL: Both fallback queries failed!');
-                console.error('   Error Code:', fallbackError2.code);
-                console.error('   Error Message:', fallbackError2.message);
-                console.error('   This indicates a serious Firestore configuration issue');
-                
-                if (fallbackError2.code === 'permission-denied') {
-                  throw new Error(
-                    'Permission denied. Please check Firestore security rules for the properties collection. ' +
-                    'The rules should allow public read access: allow read: if true;'
-                  );
-                } else {
-                  // Return empty array instead of throwing - app can still function
-                  console.warn('⚠️  Returning empty array to prevent app crash');
-                  return [];
-                }
-              }
-            } else {
-              // Re-throw non-index errors
-              throw fallbackError1;
-            }
-          }
-        } else if (queryError.code === 'permission-denied') {
-          console.error('🔒 PERMISSION DENIED - Check Firestore security rules!');
-          console.error('   Properties collection should allow public read access');
-          console.error('   Current user:', 'Check auth state in browser console');
-          throw new Error(
-            'Permission denied. Please check Firestore security rules for the properties collection. ' +
-            'The rules should allow public read access: allow read: if true;'
-          );
-        } else {
-          // For other errors, throw with detailed message
-          throw new Error(
-            `Failed to fetch properties: ${queryError.message || 'Unknown error'} (Code: ${queryError.code || 'N/A'})`
-          );
-        }
-      }
+      return results;
     } catch (error) {
       console.error('❌ ERROR in getAll:', error);
-      console.error('   Stack:', error.stack);
-      // Re-throw with more context
-      if (error.message.includes('not initialized')) {
-        throw error;
+      // Return empty array instead of throwing to prevent app crash
+      if (error.code === 'permission-denied') {
+        console.error('🔒 PERMISSION DENIED - Check Firestore security rules!');
       }
-      throw new Error(`Failed to fetch properties: ${error.message || 'Unknown error'}`);
+      return [];
     }
   }
 

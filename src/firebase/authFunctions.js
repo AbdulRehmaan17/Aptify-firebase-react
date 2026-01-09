@@ -9,6 +9,7 @@ import {
   updateProfile as updateFirebaseProfile,
   getIdToken,
   getIdTokenResult,
+  reload,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 // AUTO-FIXED: Removed duplicate auth import - only import once
@@ -175,6 +176,44 @@ export const loginWithGoogle = async (useRedirect = false) => {
       const result = await signInWithPopup(auth, googleProvider);
       user = result.user;
 
+      // PHASE 1: Runtime verification - Log user data for debugging
+      if (import.meta.env.DEV) {
+        console.log('🔍 [Google Login] User data after sign-in:', {
+          uid: user.uid,
+          photoURL: user.photoURL,
+          displayName: user.displayName,
+          email: user.email,
+          providerData: user.providerData?.map(p => ({
+            providerId: p.providerId,
+            photoURL: p.photoURL,
+            displayName: p.displayName
+          })) || []
+        });
+      }
+
+      // CRITICAL: Reload Firebase Auth user to get latest profile data (including photoURL)
+      // This ensures Google profile image changes are reflected immediately
+      try {
+        await reload(user);
+        // Re-read user after reload to get updated photoURL
+        user = auth.currentUser || user;
+        
+        // PHASE 1: Verify photoURL after reload
+        if (import.meta.env.DEV) {
+          console.log('🔍 [Google Login] User data after reload:', {
+            uid: user.uid,
+            photoURL: user.photoURL,
+            providerData: user.providerData?.map(p => ({
+              providerId: p.providerId,
+              photoURL: p.photoURL
+            })) || []
+          });
+        }
+      } catch (reloadError) {
+        // Log but don't fail login if reload fails
+        console.warn('⚠️ [Google Login] Failed to reload user (continuing):', reloadError);
+      }
+
       // Force getIdToken(true) on admin login to ensure latest claims are available
       try {
         let isAdmin = false;
@@ -204,7 +243,7 @@ export const loginWithGoogle = async (useRedirect = false) => {
         console.warn('⚠️ [Admin Login] Token refresh warning (continuing):', tokenRefreshError);
       }
 
-      // Create or update user profile
+      // Create or update user profile (will sync Google photoURL if missing)
       const profileResult = await createOrUpdateUserProfile(user);
       if (!profileResult.success) {
         console.error('Failed to create/update user profile:', profileResult.error);
@@ -251,7 +290,45 @@ export const handleGoogleRedirect = async () => {
       return { success: false, error: 'No redirect result found' };
     }
 
-    const user = result.user;
+    let user = result.user;
+
+    // PHASE 1: Runtime verification - Log user data for debugging
+    if (import.meta.env.DEV) {
+      console.log('🔍 [Google Redirect] User data after redirect:', {
+        uid: user.uid,
+        photoURL: user.photoURL,
+        displayName: user.displayName,
+        email: user.email,
+        providerData: user.providerData?.map(p => ({
+          providerId: p.providerId,
+          photoURL: p.photoURL,
+          displayName: p.displayName
+        })) || []
+      });
+    }
+
+    // CRITICAL: Reload Firebase Auth user to get latest profile data (including photoURL)
+    // This ensures Google profile image changes are reflected immediately
+    try {
+      await reload(user);
+      // Re-read user after reload to get updated photoURL
+      user = auth.currentUser || user;
+      
+      // PHASE 1: Verify photoURL after reload
+      if (import.meta.env.DEV) {
+        console.log('🔍 [Google Redirect] User data after reload:', {
+          uid: user.uid,
+          photoURL: user.photoURL,
+          providerData: user.providerData?.map(p => ({
+            providerId: p.providerId,
+            photoURL: p.photoURL
+          })) || []
+        });
+      }
+    } catch (reloadError) {
+      // Log but don't fail login if reload fails
+      console.warn('⚠️ [Google Redirect] Failed to reload user (continuing):', reloadError);
+    }
 
     // Force getIdToken(true) on admin login to ensure latest claims are available
     try {
@@ -282,7 +359,7 @@ export const handleGoogleRedirect = async () => {
       console.warn('⚠️ [Admin Login] Token refresh warning (continuing):', tokenRefreshError);
     }
 
-    // Create or update user profile
+    // Create or update user profile (will sync Google photoURL if missing)
     const profileResult = await createOrUpdateUserProfile(user);
     if (!profileResult.success) {
       console.error('Failed to create/update user profile:', profileResult.error);
@@ -391,8 +468,22 @@ export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
       // FINAL PROFILE MERGE (Google/profile sync point)
       // IMPORTANT:
       // - We PREFILL missing fields from Firebase Auth
-      // - We DO NOT overwrite existing Firestore values (including photoURL)
-      //   so manual profile updates and custom avatars are preserved.
+      // - We sync Google photoURL if Firestore photoURL is missing
+      // - We preserve existing Firestore photoURL if user has manually set one
+      //   (unless it's a Google URL that matches the current Google photoURL)
+      const googlePhotoURL = user.photoURL || profileData.photoURL;
+      const existingPhotoURL = existingData.photoURL;
+      
+      // Determine final photoURL:
+      // 1. If Firestore has no photoURL, use Google photoURL
+      // 2. If Firestore photoURL is a Google URL and Google photoURL exists, update it
+      // 3. Otherwise, preserve existing Firestore photoURL (user's custom avatar)
+      let finalPhotoURL = existingPhotoURL || googlePhotoURL;
+      if (googlePhotoURL && (!existingPhotoURL || existingPhotoURL.includes('googleusercontent.com'))) {
+        // Update if missing or if existing is a Google URL (sync Google profile changes)
+        finalPhotoURL = googlePhotoURL;
+      }
+      
       const finalProfileData = {
         // Preserve any existing fields by default
         ...existingData,
@@ -401,10 +492,8 @@ export const createOrUpdateUserProfile = async (user, additionalData = {}) => {
         email: existingData.email || profileData.email,
         displayName: existingData.displayName || profileData.displayName,
         name: existingData.name || profileData.name,
-        // Google photo sync:
-        // - Use existing Firestore photoURL if present
-        // - Otherwise fill from Firebase Auth / additionalData
-        photoURL: existingData.photoURL || profileData.photoURL,
+        // Google photo sync: use determined finalPhotoURL
+        photoURL: finalPhotoURL,
         // Metadata & role
         createdAt: existingData.createdAt || serverTimestamp(),
         role: existingData.role || additionalData.role || 'customer',

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { ROUTES, buildRoute } from '../routes/routes';
 import {
   Calendar,
   Heart,
@@ -244,7 +245,7 @@ const Dashboard = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <p className="text-textSecondary mb-4">Please log in to view your dashboard</p>
-          <Button onClick={() => navigate('/login')}>Login</Button>
+          <Button onClick={() => navigate(ROUTES.AUTH)}>Login</Button>
         </div>
       </div>
     );
@@ -280,7 +281,7 @@ const Dashboard = () => {
               variant="ghost"
               size="sm"
               className="mt-4"
-              onClick={() => navigate('/notifications')}
+              onClick={() => navigate(ROUTES.NOTIFICATIONS)}
             >
               View All
             </Button>
@@ -303,7 +304,7 @@ const Dashboard = () => {
               variant="ghost"
               size="sm"
               className="mt-4"
-              onClick={() => navigate('/wishlist')}
+              onClick={() => navigate('/wishlist')} // TODO: Add WISHLIST to ROUTES if this route exists
             >
               View All
             </Button>
@@ -315,7 +316,7 @@ const Dashboard = () => {
           <h2 className="text-xl font-semibold text-textMain mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
             <button
-              onClick={() => navigate('/rent')}
+              onClick={() => navigate(ROUTES.BROWSE_RENTALS)}
               className="bg-surface hover:bg-background border border-muted rounded-base p-4 text-center transition-colors group"
             >
               <Home className="w-6 h-6 text-primary mx-auto mb-2 group-hover:scale-110 transition-transform" />
@@ -323,7 +324,7 @@ const Dashboard = () => {
             </button>
 
             <button
-              onClick={() => navigate('/construction')}
+              onClick={() => navigate(ROUTES.CONSTRUCTION)}
               className="bg-surface hover:bg-background border border-muted rounded-base p-4 text-center transition-colors group"
             >
               <Hammer className="w-6 h-6 text-primary mx-auto mb-2 group-hover:scale-110 transition-transform" />
@@ -331,7 +332,7 @@ const Dashboard = () => {
             </button>
 
             <button
-              onClick={() => navigate('/renovation')}
+              onClick={() => navigate(ROUTES.RENOVATION)}
               className="bg-surface hover:bg-background border border-muted rounded-base p-4 text-center transition-colors group"
             >
               <Wrench className="w-6 h-6 text-primary mx-auto mb-2 group-hover:scale-110 transition-transform" />
@@ -339,7 +340,7 @@ const Dashboard = () => {
             </button>
 
             <button
-              onClick={() => navigate('/buy-sell')}
+              onClick={() => navigate(ROUTES.BUY_SELL)}
               className="bg-surface hover:bg-background border border-muted rounded-base p-4 text-center transition-colors group"
             >
               <ShoppingCart className="w-6 h-6 text-primary mx-auto mb-2 group-hover:scale-110 transition-transform" />
@@ -347,7 +348,7 @@ const Dashboard = () => {
             </button>
 
             <button
-              onClick={() => navigate('/contact')}
+              onClick={() => navigate(ROUTES.CONTACT)}
               className="bg-surface hover:bg-background border border-muted rounded-base p-4 text-center transition-colors group"
             >
               <MessageCircle className="w-6 h-6 text-primary mx-auto mb-2 group-hover:scale-110 transition-transform" />
@@ -365,7 +366,7 @@ const Dashboard = () => {
                 Recent Bookings
               </h2>
               <Link
-                to="/account"
+                to={ROUTES.ACCOUNT}
                 className="text-sm text-primary hover:text-primaryDark flex items-center"
               >
                 View All <ArrowRight className="w-4 h-4 ml-1" />
@@ -425,7 +426,7 @@ const Dashboard = () => {
                 Notifications
               </h2>
               <Link
-                to="/notifications"
+                to={ROUTES.NOTIFICATIONS}
                 className="text-sm text-primary hover:text-primaryDark flex items-center"
               >
                 View All <ArrowRight className="w-4 h-4 ml-1" />
@@ -474,7 +475,7 @@ const Dashboard = () => {
                 Favorite Properties
               </h2>
               <Link
-                to="/wishlist"
+                to="/wishlist" // TODO: Add WISHLIST to ROUTES if this route exists
                 className="text-sm text-primary hover:text-primaryDark flex items-center"
               >
                 View All <ArrowRight className="w-4 h-4 ml-1" />
@@ -488,7 +489,7 @@ const Dashboard = () => {
                 {favoriteProperties.slice(0, 4).map((property) => (
                   <Link
                     key={property.id}
-                    to={`/properties/${property.id}`}
+                    to={buildRoute(ROUTES.PROPERTY_DETAIL, { id: property.id })}
                     className="border border-muted rounded-base overflow-hidden hover:shadow-md transition-shadow"
                   >
                     {property.images && property.images[0] ? (
@@ -531,7 +532,7 @@ const Dashboard = () => {
                 Recently Viewed
               </h2>
               <Link
-                to="/properties"
+                to={ROUTES.PROPERTIES}
                 className="text-sm text-primary hover:text-primaryDark flex items-center"
               >
                 Browse More <ArrowRight className="w-4 h-4 ml-1" />
@@ -542,7 +543,7 @@ const Dashboard = () => {
               <div className="text-center py-8">
                 <Eye className="w-12 h-12 text-textSecondary mx-auto mb-3" />
                 <p className="text-textSecondary mb-4">No recently viewed properties</p>
-                <Button variant="ghost" size="sm" onClick={() => navigate('/properties')}>
+                <Button variant="ghost" size="sm" onClick={() => navigate(ROUTES.PROPERTIES)}>
                   Browse Properties
                 </Button>
               </div>
@@ -551,7 +552,7 @@ const Dashboard = () => {
                 {recentlyViewed.slice(0, 4).map((property) => (
                   <Link
                     key={property.id}
-                    to={`/properties/${property.id}`}
+                    to={buildRoute(ROUTES.PROPERTY_DETAIL, { id: property.id })}
                     className="border border-muted rounded-base overflow-hidden hover:shadow-md transition-shadow"
                   >
                     {property.images && property.images[0] ? (

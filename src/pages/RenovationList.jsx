@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Star, Phone, Mail, Wrench, Eye, MapPin } from 'lucide-react';
 import Button from '../components/common/Button';
@@ -52,12 +52,10 @@ const RenovationList = () => {
       console.log('🔍 DEBUG: Filters: approved === true AND isActive === true');
     }
 
-    // Query renovators with filters: approved === true AND isActive === true
+    // SIMPLE QUERY: Fetch all renovators, then filter/sort client-side
+    // This eliminates Firestore index requirements
     const providersQuery = query(
-      collection(db, 'renovators'),
-      where('approved', '==', true),
-      where('isActive', '==', true),
-      orderBy('createdAt', 'desc')
+      collection(db, 'renovators')
     );
 
     if (import.meta.env.DEV) {
@@ -73,7 +71,7 @@ const RenovationList = () => {
           console.log('✅ SUCCESS: Raw snapshot docs count:', snapshot.docs.length);
         }
 
-        const providersList = snapshot.docs.map((doc) => {
+        let providersList = snapshot.docs.map((doc) => {
           const data = doc.data();
           
           // Normalize location to string if it's an object
@@ -89,22 +87,20 @@ const RenovationList = () => {
           };
         });
 
+        // APPLY FILTERS CLIENT-SIDE
+        providersList = providersList.filter((p) => {
+          return p.approved === true && p.isActive === true;
+        });
+
+        // APPLY SORTING CLIENT-SIDE (newest first)
+        providersList.sort((a, b) => {
+          const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
+          const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
+          return bTime - aTime; // Descending (newest first)
+        });
+
         if (import.meta.env.DEV) {
           console.log('✅ SUCCESS: Renovation providers fetched:', providersList.length, 'providers');
-          if (providersList.length > 0) {
-            console.log('✅ SUCCESS: First provider sample:', {
-            id: providersList[0].id,
-            name: providersList[0].name,
-            companyName: providersList[0].companyName,
-            location: providersList[0].location || providersList[0].city,
-            approved: providersList[0].approved,
-            isActive: providersList[0].isActive,
-              experience: providersList[0].experience,
-            });
-          } else {
-            console.warn('⚠️ WARNING: No approved and active renovators found');
-            console.warn('⚠️ DEBUG: Check Firestore collection "renovators" for documents with approved=true and isActive=true');
-          }
         }
 
         setProviders(providersList);
@@ -114,75 +110,9 @@ const RenovationList = () => {
         if (import.meta.env.DEV) {
           console.error('❌ ERROR: Error fetching renovators:', error);
         }
-        
-        // Handle index error - try query without orderBy
-        if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-          if (import.meta.env.DEV) {
-            console.warn('⚠️ WARNING: Index required for query. Falling back to query without orderBy.');
-          }
-          
-          // Fallback: Query without orderBy
-          const fallbackQuery = query(
-            collection(db, 'renovators'),
-            where('approved', '==', true),
-            where('isActive', '==', true)
-          );
-          
-          const fallbackUnsubscribe = onSnapshot(
-            fallbackQuery,
-            (snapshot) => {
-              if (import.meta.env.DEV) {
-                console.log('✅ SUCCESS (Fallback): Snapshot size:', snapshot.size);
-              }
-              
-              const providersList = snapshot.docs.map((doc) => {
-                const data = doc.data();
-                
-                // Normalize location
-                if (data.location && typeof data.location === 'object') {
-                  data.location = data.location.city
-                    ? `${data.location.city}${data.location.state ? ', ' + data.location.state : ''}`
-                    : (data.location.city || data.location.state || JSON.stringify(data.location));
-                }
-
-                return {
-                  id: doc.id,
-                  ...data,
-                };
-              });
-
-              // Sort client-side by createdAt
-              providersList.sort((a, b) => {
-                const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
-                const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
-                return bTime - aTime;
-              });
-
-              if (import.meta.env.DEV) {
-                console.log('✅ SUCCESS (Fallback): Providers fetched:', providersList.length);
-              }
-              setProviders(providersList);
-              setLoading(false);
-            },
-            (fallbackError) => {
-              if (import.meta.env.DEV) {
-                console.error('❌ ERROR: Fallback query also failed:', fallbackError);
-              }
-              setError(fallbackError.message || 'Failed to load renovation providers');
-              toast.error('Failed to load renovation providers. Please try again.');
-              setProviders([]);
-              setLoading(false);
-            }
-          );
-
-          // Return cleanup for fallback
-          return () => fallbackUnsubscribe();
-        } else {
-          setError(error.message || 'Failed to load renovation providers');
-          toast.error('Failed to load renovation providers. Please try again.');
-          setProviders([]);
-          setLoading(false);
-        }
+        setError('Failed to load renovation providers');
+        setProviders([]);
+        setLoading(false);
       }
     );
 

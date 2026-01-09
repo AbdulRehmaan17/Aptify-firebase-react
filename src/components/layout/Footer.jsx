@@ -1,8 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Home, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import subscriptionService from '../../services/subscriptionService';
+import toast from 'react-hot-toast';
 
 const Footer = () => {
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    
+    // PHASE 4: Validate input before submission
+    if (!email.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
+    // PHASE 4: Set loading state
+    setIsSubmitting(true);
+    try {
+      // PHASE 2: Pass source parameter to track subscription origin
+      const result = await subscriptionService.subscribe(email, 'footer');
+      
+      if (result.success) {
+        // PHASE 4: Show real success only after backend confirms
+        toast.success(result.message || 'Successfully subscribed! Please check your email for confirmation.');
+        setEmail('');
+      } else {
+        // PHASE 4: Handle specific error cases
+        toast.error(result.message || 'Failed to subscribe');
+      }
+    } catch (error) {
+      console.error('Subscription error:', error);
+      // PHASE 4: Handle network failures
+      toast.error('Failed to subscribe. Please check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <footer className="bg-primaryDark text-white border-t border-muted p-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -158,17 +195,22 @@ const Footer = () => {
               Get the latest updates on new property listings, renovation service offers, and real
               estate insights.
             </p>
-            <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0">
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto lg:mx-0">
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
-                className="flex-1 px-4 py-2 rounded-lg bg-surface/10 border border-white/20 text-white placeholder-white/60 focus:ring-2 focus:ring-white focus:border-transparent"
+                required
+                disabled={isSubmitting}
+                className="flex-1 px-4 py-2 rounded-lg bg-surface/10 border border-white/20 text-white placeholder-white/60 focus:ring-2 focus:ring-white focus:border-transparent disabled:opacity-50"
               />
               <button
                 type="submit"
-                className="px-6 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primaryDark transition-colors"
+                disabled={isSubmitting}
+                className="px-6 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primaryDark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Subscribe
+                {isSubmitting ? 'Subscribing...' : 'Subscribe'}
               </button>
             </form>
           </div>

@@ -132,7 +132,7 @@ const ProjectDetailCard = ({ project, type = 'construction', onCancel }) => {
             'Project Cancelled',
             `A ${type} project has been cancelled by the client.`,
             'status-update',
-            type === 'construction' ? '/constructor-dashboard' : '/renovator-dashboard'
+            type === 'construction' ? '/constructor/dashboard' : '/renovator/dashboard'
           );
         } catch (notifError) {
           console.error('Error notifying provider:', notifError);

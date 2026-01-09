@@ -8,6 +8,7 @@ import Input from '../components/common/Input';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { User, Phone, MapPin, Camera, Lock, Calendar, Shield, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getSafeAvatarUrl, isValidImageUrl } from '../utils/avatarHelpers';
 
 const Profile = () => {
   const { currentUser, userProfile, loading: authLoading, createOrUpdateUserProfile } = useAuth();
@@ -333,15 +334,46 @@ const Profile = () => {
               <div className="flex items-center space-x-6">
                 <div className="relative">
                   <div className="w-24 h-24 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                    {profileImagePreview ? (
-                      <img
-                        src={profileImagePreview}
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-12 h-12 text-textSecondary" />
-                    )}
+                    {(() => {
+                      // PHASE 4: Guaranteed render strategy with resolvedAvatarUrl
+                      const avatarUrl = getSafeAvatarUrl({
+                        photoURL: profileImagePreview,
+                        user: currentUser,
+                        userProfile: userProfile,
+                        displayName: profileData.name || currentUser?.displayName,
+                        email: profileData.email || currentUser?.email
+                      });
+                      
+                      // PHASE 3: Verify URL is valid before rendering
+                      if (!isValidImageUrl(avatarUrl)) {
+                        return <User className="w-12 h-12 text-textSecondary" />;
+                      }
+                      
+                      return (
+                        <>
+                          <img
+                            key={avatarUrl} // Key ensures re-render when avatarUrl changes
+                            src={avatarUrl}
+                            alt="Profile"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // PHASE 3: Handle blocked images - hide and show fallback
+                              e.target.style.display = 'none';
+                              const icon = e.target.nextElementSibling;
+                              if (icon) {
+                                icon.classList.remove('hidden');
+                              }
+                            }}
+                            onLoad={() => {
+                              // Hide fallback icon if image loads successfully
+                              const icon = e.target.nextElementSibling;
+                              if (icon) icon.classList.add('hidden');
+                            }}
+                          />
+                          <User className="w-12 h-12 text-textSecondary hidden" />
+                        </>
+                      );
+                    })()}
                   </div>
                   <label
                     htmlFor="profile-image"

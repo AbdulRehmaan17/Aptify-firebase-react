@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
@@ -47,13 +47,14 @@ const NotificationsPage = () => {
     setLoading(true);
     const userId = currentUser.uid;
     let unsubscribe = null;
-    let fallbackUnsubscribe = null;
 
     try {
+      // CRITICAL: No orderBy in Firestore query to avoid index requirement
+      // Equality filter (where userId ==) works without index
+      // Sorting is done client-side after fetching
       const notificationsQuery = query(
         collection(db, 'notifications'),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc')
+        where('userId', '==', userId)
       );
 
       unsubscribe = onSnapshot(
@@ -64,62 +65,33 @@ const NotificationsPage = () => {
             ...doc.data(),
           }));
 
-          // Sort client-side if orderBy fails
+          // Sort client-side (newest first)
+          // Handle Firestore Timestamp objects safely
           notifs.sort((a, b) => {
-            const aTime = a.createdAt?.toDate?.() || new Date(0);
-            const bTime = b.createdAt?.toDate?.() || new Date(0);
-            return bTime - aTime;
+            const aTime = a.createdAt?.toMillis?.() || a.createdAt?.seconds || 0;
+            const bTime = b.createdAt?.toMillis?.() || b.createdAt?.seconds || 0;
+            return bTime - aTime; // Descending (newest first)
           });
 
-          setNotifications(notifs);
+          // Optional: Limit to 50 most recent for performance (if many notifications exist)
+          const limitedNotifs = notifs.slice(0, 50);
+
+          setNotifications(limitedNotifs);
           setLoading(false);
         },
         (error) => {
           console.error('Error fetching notifications:', error);
-          // FIXED: Handle permission denied gracefully
+          // Handle permission denied gracefully
           if (error.code === 'permission-denied') {
             console.warn('Permission denied when fetching notifications. User may not be authenticated.');
             setNotifications([]);
             setLoading(false);
             return;
           }
-          // Fallback without orderBy
-          if (error.code === 'failed-precondition' || error.message?.includes('index')) {
-            const fallbackQuery = query(
-              collection(db, 'notifications'),
-              where('userId', '==', userId)
-            );
-
-            fallbackUnsubscribe = onSnapshot(
-              fallbackQuery,
-              (snapshot) => {
-                const notifs = snapshot.docs.map((doc) => ({
-                  id: doc.id,
-                  ...doc.data(),
-                }));
-
-                notifs.sort((a, b) => {
-                  const aTime = a.createdAt?.toDate?.() || new Date(0);
-                  const bTime = b.createdAt?.toDate?.() || new Date(0);
-                  return bTime - aTime;
-                });
-
-                setNotifications(notifs);
-                setLoading(false);
-              },
-              (fallbackError) => {
-                console.error('Error fetching notifications (fallback):', fallbackError);
-                if (fallbackError.code === 'permission-denied') {
-                  console.warn('Permission denied in fallback query.');
-                }
-                setNotifications([]);
-                setLoading(false);
-              }
-            );
-          } else {
-            setNotifications([]);
-            setLoading(false);
-          }
+          // For any other error, render empty state (don't crash)
+          console.warn('Failed to fetch notifications. Rendering empty state.');
+          setNotifications([]);
+          setLoading(false);
         }
       );
     } catch (error) {
@@ -130,7 +102,6 @@ const NotificationsPage = () => {
 
     return () => {
       if (unsubscribe) unsubscribe();
-      if (fallbackUnsubscribe) fallbackUnsubscribe();
     };
   }, [currentUser?.uid, db, auth]);
 
@@ -187,16 +158,16 @@ const NotificationsPage = () => {
     }
   };
 
+  /**
+   * Handle notification click - marks as read only, no navigation
+   * NOTE: Navigation disabled due to routing issues. Notifications are read-only informational items.
+   */
   const handleNotificationClick = (notification) => {
-    // Mark as read if unread
+    // Mark as read if unread (preserve existing behavior)
     if (!notification.read) {
       notificationService.markAsRead(notification.id).catch(console.error);
     }
-
-    // Navigate if link exists
-    if (notification.link) {
-      navigate(notification.link);
-    }
+    // No navigation - notifications are read-only
   };
 
   const formatDate = (timestamp) => {
@@ -352,11 +323,6 @@ const NotificationsPage = () => {
                         <p className="text-sm text-textSecondary mt-2">
                           {formatDate(notification.createdAt)}
                         </p>
-                        {notification.link && (
-                          <p className="text-sm text-primary mt-1 hover:underline">
-                            Click to view →
-                          </p>
-                        )}
                       </div>
                     </div>
                   </div>

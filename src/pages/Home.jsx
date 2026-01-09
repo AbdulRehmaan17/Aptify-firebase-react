@@ -7,11 +7,14 @@ import Button from '../components/common/Button';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import toast from 'react-hot-toast';
 import { runDiagnostics, printDiagnostics } from '../utils/firebaseDiagnostics';
+import subscriptionService from '../services/subscriptionService';
 
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [isSubscribing, setIsSubscribing] = useState(false);
 
   // Demo properties to display when no real properties are available
   const getDemoProperties = () => [
@@ -400,14 +403,56 @@ const Home = () => {
             real estate insights
           </p>
 
-          <form className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
+          <form 
+            onSubmit={async (e) => {
+              e.preventDefault();
+              
+              // PHASE 4: Validate input
+              if (!newsletterEmail.trim()) {
+                toast.error('Please enter your email address');
+                return;
+              }
+
+              // PHASE 4: Set loading state
+              setIsSubscribing(true);
+              try {
+                // PHASE 2: Pass source parameter to track subscription origin
+                const result = await subscriptionService.subscribe(newsletterEmail, 'home');
+                
+                if (result.success) {
+                  // PHASE 4: Show real success only after backend confirms
+                  toast.success(result.message || 'Successfully subscribed! Please check your email for confirmation.');
+                  setNewsletterEmail('');
+                } else {
+                  // PHASE 4: Handle specific error cases
+                  toast.error(result.message || 'Failed to subscribe');
+                }
+              } catch (error) {
+                console.error('Subscription error:', error);
+                // PHASE 4: Handle network failures
+                toast.error('Failed to subscribe. Please check your connection and try again.');
+              } finally {
+                setIsSubscribing(false);
+              }
+            }}
+            className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto"
+          >
             <input
               type="email"
+              value={newsletterEmail}
+              onChange={(e) => setNewsletterEmail(e.target.value)}
               placeholder="Enter your email"
-              className="flex-1 px-4 py-3 rounded-base border border-white/20 bg-surface/10 text-white placeholder-white/60 focus:ring-2 focus:ring-white focus:border-white"
+              required
+              disabled={isSubscribing}
+              className="flex-1 px-4 py-3 rounded-base border border-white/20 bg-surface/10 text-white placeholder-white/60 focus:ring-2 focus:ring-white focus:border-white disabled:opacity-50"
             />
-            <Button type="submit" size="lg" variant="secondary">
-              Subscribe
+            <Button 
+              type="submit" 
+              size="lg" 
+              variant="secondary"
+              disabled={isSubscribing}
+            >
+              {isSubscribing ? 'Subscribing...' : 'Subscribe'}
             </Button>
           </form>
         </div>

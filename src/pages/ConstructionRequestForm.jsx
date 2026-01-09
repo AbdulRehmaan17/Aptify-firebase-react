@@ -312,7 +312,7 @@ const ConstructionRequestForm = () => {
                 'New Construction Request Available',
                 `A new ${formData.projectType} request is available. Check available projects.`,
                 'service-request',
-                '/constructor-dashboard'
+                '/constructor/dashboard'
               );
             }
             return Promise.resolve();
@@ -328,7 +328,7 @@ const ConstructionRequestForm = () => {
       toast.success('Construction request submitted successfully!');
 
       // Navigate to construction dashboard
-      navigate('/construction-dashboard');
+      navigate('/my-projects');
     } catch (error) {
       console.error('Error submitting construction request:', error);
 

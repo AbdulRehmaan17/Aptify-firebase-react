@@ -7,6 +7,8 @@ import { isConstructor, isRenovator } from '../../utils/authHelpers';
 import toast from 'react-hot-toast';
 import Button from '../common/Button';
 import NotificationBell from '../notification/NotificationBell';
+import { ROUTES } from '../../routes/routes';
+import { getSafeAvatarUrl, isValidImageUrl } from '../../utils/avatarHelpers';
 
 /**
  * Navbar Component
@@ -148,7 +150,7 @@ const Navbar = () => {
       await logout();
       toast.success('Logged out successfully');
       setIsUserMenuOpen(false);
-      navigate('/auth');
+      navigate(ROUTES.AUTH);
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Failed to logout');
@@ -158,7 +160,7 @@ const Navbar = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/properties?search=${encodeURIComponent(searchQuery.trim())}`);
+      navigate(`${ROUTES.PROPERTIES}?search=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
       setIsMenuOpen(false);
     }
@@ -190,7 +192,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-16 lg:h-18">
           {/* Logo - Left Aligned */}
           <Link
-            to="/"
+            to={ROUTES.HOME}
             className="flex items-center space-x-2.5 flex-shrink-0 group"
             aria-label="Aptify Home"
           >
@@ -229,7 +231,7 @@ const Navbar = () => {
           <div className="flex items-center space-x-2 lg:space-x-3 flex-shrink-0">
             {/* Desktop Search Button */}
             <Link
-              to="/properties"
+              to={ROUTES.PROPERTIES}
               className="hidden lg:flex items-center justify-center w-10 h-10 rounded-lg text-textSecondary hover:text-primary hover:bg-muted transition-colors"
               aria-label="Search properties"
             >
@@ -271,15 +273,46 @@ const Navbar = () => {
                        1) Firestore profile photoURL
                        2) Firebase Auth currentUser.photoURL (e.g. Google avatar)
                        3) Default icon */}
-                    {userProfile?.photoURL || currentUser?.photoURL ? (
-                      <img
-                        src={userProfile?.photoURL || currentUser?.photoURL}
-                        alt={userProfile?.displayName || currentUser?.displayName || 'User'}
-                        className="w-8 h-8 rounded-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-4 h-4 text-primary" />
-                    )}
+                    {(() => {
+                      // PHASE 4: Guaranteed render strategy with resolvedAvatarUrl
+                      const avatarUrl = getSafeAvatarUrl({
+                        photoURL: userProfile?.photoURL || currentUser?.photoURL,
+                        user: currentUser,
+                        userProfile: userProfile,
+                        displayName: userProfile?.displayName || currentUser?.displayName,
+                        email: userProfile?.email || currentUser?.email
+                      });
+                      
+                      // PHASE 3: Verify URL is valid before rendering
+                      if (!isValidImageUrl(avatarUrl)) {
+                        return <User className="w-4 h-4 text-primary" />;
+                      }
+                      
+                      return (
+                        <>
+                          <img
+                            key={avatarUrl} // Key ensures re-render when avatarUrl changes
+                            src={avatarUrl}
+                            alt={userProfile?.displayName || currentUser?.displayName || 'User'}
+                            className="w-8 h-8 rounded-full object-cover"
+                            onError={(e) => {
+                              // PHASE 3: Handle blocked images - hide and show fallback
+                              e.target.style.display = 'none';
+                              const icon = e.target.nextElementSibling;
+                              if (icon) {
+                                icon.classList.remove('hidden');
+                              }
+                            }}
+                            onLoad={() => {
+                              // Hide fallback icon if image loads successfully
+                              const icon = document.querySelector('.avatar-fallback-icon');
+                              if (icon) icon.classList.add('hidden');
+                            }}
+                          />
+                          <User className="w-4 h-4 text-primary hidden avatar-fallback-icon" />
+                        </>
+                      );
+                    })()}
                   </Link>
                   <span className="hidden xl:block text-sm font-medium max-w-[120px] truncate">
                     {userProfile?.displayName || currentUser.email?.split('@')[0] || 'User'}
@@ -322,7 +355,7 @@ const Navbar = () => {
                         <>
                           {/* Constructor Menu Items */}
                           <Link
-                            to="/constructor/dashboard"
+                            to={ROUTES.CONSTRUCTOR_DASHBOARD}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -331,7 +364,7 @@ const Navbar = () => {
                             Dashboard
                           </Link>
                           <Link
-                            to="/constructor/projects"
+                            to={ROUTES.CONSTRUCTOR_PROJECTS}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -340,7 +373,7 @@ const Navbar = () => {
                             Projects
                           </Link>
                           <Link
-                            to="/chats"
+                            to={ROUTES.CHATS}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -349,7 +382,7 @@ const Navbar = () => {
                             Messages
                           </Link>
                           <Link
-                            to="/notifications"
+                            to={ROUTES.NOTIFICATIONS}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -358,7 +391,7 @@ const Navbar = () => {
                             Notifications
                           </Link>
                           <Link
-                            to="/constructor/profile"
+                            to={ROUTES.CONSTRUCTOR_PROFILE}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -371,7 +404,7 @@ const Navbar = () => {
                         <>
                           {/* Renovator Menu Items */}
                           <Link
-                            to="/renovator/dashboard"
+                            to={ROUTES.RENOVATOR_DASHBOARD}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -380,7 +413,7 @@ const Navbar = () => {
                             Dashboard
                           </Link>
                           <Link
-                            to="/renovator/projects"
+                            to={ROUTES.RENOVATOR_PROJECTS}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -389,7 +422,7 @@ const Navbar = () => {
                             Projects
                           </Link>
                           <Link
-                            to="/renovator/chat"
+                            to={ROUTES.RENOVATOR_CHAT}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -398,7 +431,7 @@ const Navbar = () => {
                             Messages
                           </Link>
                           <Link
-                            to="/renovator/notifications"
+                            to={ROUTES.RENOVATOR_NOTIFICATIONS}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -407,7 +440,7 @@ const Navbar = () => {
                             Notifications
                           </Link>
                           <Link
-                            to="/renovator/profile"
+                            to={ROUTES.RENOVATOR_PROFILE}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -420,7 +453,7 @@ const Navbar = () => {
                         <>
                           {/* Normal User Menu Items */}
                           <Link
-                            to="/account"
+                            to={ROUTES.ACCOUNT}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -429,7 +462,7 @@ const Navbar = () => {
                             My Account
                           </Link>
                           <Link
-                            to="/notifications"
+                            to={ROUTES.NOTIFICATIONS}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -438,7 +471,7 @@ const Navbar = () => {
                             Notifications
                           </Link>
                           <Link
-                            to="/chats"
+                            to={ROUTES.CHATS}
                             className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                             onClick={() => setIsUserMenuOpen(false)}
                             role="menuitem"
@@ -448,7 +481,7 @@ const Navbar = () => {
                           </Link>
                           {currentUserRole === 'admin' && (
                             <Link
-                              to="/admin"
+                              to={ROUTES.ADMIN}
                               className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                               onClick={() => setIsUserMenuOpen(false)}
                               role="menuitem"
@@ -459,7 +492,7 @@ const Navbar = () => {
                           )}
                           {currentUserRole === 'renovator' && isApprovedProvider && (
                             <Link
-                              to="/renovator-dashboard"
+                              to={ROUTES.RENOVATOR_DASHBOARD_LEGACY}
                               className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                               onClick={() => setIsUserMenuOpen(false)}
                               role="menuitem"
@@ -470,7 +503,7 @@ const Navbar = () => {
                           )}
                           {currentUserRole === 'constructor' && isApprovedProvider && (
                             <Link
-                              to="/constructor-dashboard"
+                              to={ROUTES.CONSTRUCTOR_DASHBOARD}
                               className="flex items-center px-4 py-2.5 text-sm text-textSecondary hover:bg-muted transition-colors"
                               onClick={() => setIsUserMenuOpen(false)}
                               role="menuitem"
@@ -505,7 +538,7 @@ const Navbar = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/auth')}
+                  onClick={() => navigate(ROUTES.AUTH)}
                   className="hidden sm:inline-flex"
                 >
                   Sign In
@@ -577,7 +610,7 @@ const Navbar = () => {
                     <>
                       {/* Constructor Mobile Menu Items */}
                       <Link
-                        to="/constructor/dashboard"
+                        to={ROUTES.CONSTRUCTOR_DASHBOARD}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -585,7 +618,7 @@ const Navbar = () => {
                         Dashboard
                       </Link>
                       <Link
-                        to="/constructor/projects"
+                        to={ROUTES.CONSTRUCTOR_PROJECTS}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -593,7 +626,7 @@ const Navbar = () => {
                         Projects
                       </Link>
                       <Link
-                        to="/chats"
+                        to={ROUTES.CHATS}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -601,7 +634,7 @@ const Navbar = () => {
                         Messages
                       </Link>
                       <Link
-                        to="/notifications"
+                        to={ROUTES.NOTIFICATIONS}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -609,7 +642,7 @@ const Navbar = () => {
                         Notifications
                       </Link>
                       <Link
-                        to="/constructor/profile"
+                        to={ROUTES.CONSTRUCTOR_PROFILE}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -621,7 +654,7 @@ const Navbar = () => {
                     <>
                       {/* Renovator Mobile Menu Items */}
                       <Link
-                        to="/renovator/dashboard"
+                        to={ROUTES.RENOVATOR_DASHBOARD}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -629,7 +662,7 @@ const Navbar = () => {
                         Dashboard
                       </Link>
                       <Link
-                        to="/renovator/projects"
+                        to={ROUTES.RENOVATOR_PROJECTS}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -637,7 +670,7 @@ const Navbar = () => {
                         Projects
                       </Link>
                       <Link
-                        to="/renovator/chat"
+                        to={ROUTES.RENOVATOR_CHAT}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -645,7 +678,7 @@ const Navbar = () => {
                         Messages
                       </Link>
                       <Link
-                        to="/renovator/notifications"
+                        to={ROUTES.RENOVATOR_NOTIFICATIONS}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -653,7 +686,7 @@ const Navbar = () => {
                         Notifications
                       </Link>
                       <Link
-                        to="/renovator/profile"
+                        to={ROUTES.RENOVATOR_PROFILE}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -665,7 +698,7 @@ const Navbar = () => {
                     <>
                       {/* Normal User Mobile Menu Items */}
                       <Link
-                        to="/account"
+                        to={ROUTES.ACCOUNT}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -673,7 +706,7 @@ const Navbar = () => {
                         My Account
                       </Link>
                       <Link
-                        to="/notifications"
+                        to={ROUTES.NOTIFICATIONS}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -681,7 +714,7 @@ const Navbar = () => {
                         Notifications
                       </Link>
                       <Link
-                        to="/chats"
+                        to={ROUTES.CHATS}
                         onClick={() => setIsMenuOpen(false)}
                         className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                       >
@@ -690,7 +723,7 @@ const Navbar = () => {
                       </Link>
                       {currentUserRole === 'admin' && (
                         <Link
-                          to="/admin"
+                          to={ROUTES.ADMIN}
                           onClick={() => setIsMenuOpen(false)}
                           className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                         >
@@ -710,7 +743,7 @@ const Navbar = () => {
                       )}
                       {currentUserRole === 'constructor' && isApprovedProvider && (
                         <Link
-                          to="/constructor-dashboard"
+                          to={ROUTES.CONSTRUCTOR_DASHBOARD}
                           onClick={() => setIsMenuOpen(false)}
                           className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-textSecondary hover:text-primary hover:bg-muted transition-colors"
                         >

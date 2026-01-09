@@ -209,17 +209,16 @@ const NotificationBell = () => {
     }
   };
 
+  /**
+   * Handle notification click - marks as read only, no navigation
+   * NOTE: Navigation disabled due to routing issues. Notifications are read-only informational items.
+   */
   const handleNotificationClick = (notification) => {
-    // Mark as read if unread
+    // Mark as read if unread (preserve existing behavior)
     if (!notification.read) {
       notificationService.markAsRead(notification.id).catch(console.error);
     }
-
-    // Navigate if link exists
-    if (notification.link) {
-      navigate(notification.link);
-      setIsOpen(false);
-    }
+    // No navigation - notifications are read-only
   };
 
   const formatDate = (timestamp) => {

@@ -283,110 +283,226 @@ const RenovationProviderDetail = () => {
 
           {/* Provider Details */}
           <div className="p-4 sm:p-6 lg:p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
-              {/* Left Column */}
-              <div className="space-y-6">
-                {/* Expertise */}
-                {provider.expertise && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-textMain mb-3">Expertise</h3>
-                    <p className="text-textSecondary leading-relaxed break-words">
-                      {formatExpertise(provider.expertise)}
-                    </p>
-                  </div>
-                )}
-
-                {/* Bio */}
-                {provider.bio && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-textMain mb-3">About</h3>
-                    <p className="text-textSecondary leading-relaxed break-words">{provider.bio}</p>
-                  </div>
-                )}
-
-                {/* Experience */}
-                {provider.experienceYears && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-textMain mb-3">Experience</h3>
-                    <p className="text-textSecondary break-words">{provider.experienceYears} years of experience</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Right Column - Contact Information */}
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-textMain mb-4">Contact Information</h3>
-                  <div className="space-y-4">
-                    {provider.phone && typeof provider.phone === 'string' && provider.phone.trim() && (
-                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <Phone className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-textSecondary">Phone</p>
-                          <a
-                            href={`tel:${provider.phone}`}
-                            className="text-textMain hover:text-primary font-medium break-all"
-                            aria-label={`Call ${safeText(provider.phone)}`}
-                          >
-                            {safeText(provider.phone)}
-                          </a>
+            {/* Check if left column has content */}
+            {(() => {
+              const hasLeftContent = provider.expertise || provider.bio || provider.experienceYears;
+              const hasRightContent = provider.phone || provider.email || provider.address || (user && provider.userId && user.uid !== provider.userId);
+              
+              // If only one column has content, use single column layout
+              if (!hasLeftContent || !hasRightContent) {
+                return (
+                  <div className="max-w-3xl mx-auto space-y-6 mb-8">
+                    {/* Left Column Content */}
+                    {hasLeftContent && (
+                      <div className="space-y-6">
+                        {provider.expertise && (
+                          <div>
+                            <h3 className="text-lg font-semibold text-textMain mb-3">Expertise</h3>
+                            <p className="text-textSecondary leading-relaxed break-words">
+                              {formatExpertise(provider.expertise)}
+                            </p>
+                          </div>
+                        )}
+                        {provider.bio && (
+                          <div>
+                            <h3 className="text-lg font-semibold text-textMain mb-3">About</h3>
+                            <p className="text-textSecondary leading-relaxed break-words">{provider.bio}</p>
+                          </div>
+                        )}
+                        {provider.experienceYears && (
+                          <div>
+                            <h3 className="text-lg font-semibold text-textMain mb-3">Experience</h3>
+                            <p className="text-textSecondary break-words">{provider.experienceYears} years of experience</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Right Column Content */}
+                    {hasRightContent && (
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-lg font-semibold text-textMain mb-4">Contact Information</h3>
+                          <div className="space-y-4">
+                            {provider.phone && typeof provider.phone === 'string' && provider.phone.trim() && (
+                              <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                                <Phone className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-textSecondary">Phone</p>
+                                  <a
+                                    href={`tel:${provider.phone}`}
+                                    className="text-textMain hover:text-primary font-medium break-all"
+                                    aria-label={`Call ${safeText(provider.phone)}`}
+                                  >
+                                    {safeText(provider.phone)}
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                            {provider.email && typeof provider.email === 'string' && provider.email.trim() && (
+                              <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                                <Mail className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-textSecondary">Email</p>
+                                  <a
+                                    href={`mailto:${provider.email}`}
+                                    className="text-textMain hover:text-primary font-medium break-all"
+                                    aria-label={`Email ${safeText(provider.email)}`}
+                                  >
+                                    {safeText(provider.email)}
+                                  </a>
+                                </div>
+                              </div>
+                            )}
+                            {provider.address && (
+                              <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                                <MapPin className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-textSecondary">Address</p>
+                                  <p className="text-textMain font-medium break-words">
+                                    {formatAddress(provider.address)}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
+                        {user && provider.userId && user.uid !== provider.userId && (
+                          <div className="mt-6">
+                            <Button
+                              className="w-full bg-primary hover:bg-primaryDark text-white"
+                              onClick={async () => {
+                                try {
+                                  const { findOrCreateConversation } = await import('../utils/chatHelpers');
+                                  const chatId = await findOrCreateConversation(user.uid, provider.userId);
+                                  navigate(`/chat?chatId=${chatId}`);
+                                } catch (error) {
+                                  console.error('Error creating chat:', error);
+                                  toast.error('Failed to start chat. Please try again.');
+                                }
+                              }}
+                              aria-label="Contact provider via chat"
+                            >
+                              <MessageSquare className="w-4 h-4 mr-2" aria-hidden="true" />
+                              Contact Provider
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              
+              // Both columns have content - use 2-column layout
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
+                  {/* Left Column */}
+                  <div className="space-y-6">
+                    {/* Expertise */}
+                    {provider.expertise && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-textMain mb-3">Expertise</h3>
+                        <p className="text-textSecondary leading-relaxed break-words">
+                          {formatExpertise(provider.expertise)}
+                        </p>
                       </div>
                     )}
 
-                    {provider.email && typeof provider.email === 'string' && provider.email.trim() && (
-                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <Mail className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-textSecondary">Email</p>
-                          <a
-                            href={`mailto:${provider.email}`}
-                            className="text-textMain hover:text-primary font-medium break-all"
-                            aria-label={`Email ${safeText(provider.email)}`}
-                          >
-                            {safeText(provider.email)}
-                          </a>
-                        </div>
+                    {/* Bio */}
+                    {provider.bio && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-textMain mb-3">About</h3>
+                        <p className="text-textSecondary leading-relaxed break-words">{provider.bio}</p>
                       </div>
                     )}
 
-                    {provider.address && (
-                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
-                        <MapPin className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-textSecondary">Address</p>
-                          <p className="text-textMain font-medium break-words">
-                            {formatAddress(provider.address)}
-                          </p>
-                        </div>
+                    {/* Experience */}
+                    {provider.experienceYears && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-textMain mb-3">Experience</h3>
+                        <p className="text-textSecondary break-words">{provider.experienceYears} years of experience</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column - Contact Information */}
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-textMain mb-4">Contact Information</h3>
+                      <div className="space-y-4">
+                        {provider.phone && typeof provider.phone === 'string' && provider.phone.trim() && (
+                          <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                            <Phone className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-textSecondary">Phone</p>
+                              <a
+                                href={`tel:${provider.phone}`}
+                                className="text-textMain hover:text-primary font-medium break-all"
+                                aria-label={`Call ${safeText(provider.phone)}`}
+                              >
+                                {safeText(provider.phone)}
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {provider.email && typeof provider.email === 'string' && provider.email.trim() && (
+                          <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                            <Mail className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-textSecondary">Email</p>
+                              <a
+                                href={`mailto:${provider.email}`}
+                                className="text-textMain hover:text-primary font-medium break-all"
+                                aria-label={`Email ${safeText(provider.email)}`}
+                              >
+                                {safeText(provider.email)}
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {provider.address && (
+                          <div className="flex items-center gap-3 p-3 bg-background rounded-lg">
+                            <MapPin className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-textSecondary">Address</p>
+                              <p className="text-textMain font-medium break-words">
+                                {formatAddress(provider.address)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Contact Provider Button */}
+                    {user && provider.userId && user.uid !== provider.userId && (
+                      <div className="mt-6">
+                        <Button
+                          className="w-full bg-primary hover:bg-primaryDark text-white"
+                          onClick={async () => {
+                            try {
+                              const { findOrCreateConversation } = await import('../utils/chatHelpers');
+                              const chatId = await findOrCreateConversation(user.uid, provider.userId);
+                              navigate(`/chat?chatId=${chatId}`);
+                            } catch (error) {
+                              console.error('Error creating chat:', error);
+                              toast.error('Failed to start chat. Please try again.');
+                            }
+                          }}
+                          aria-label="Contact provider via chat"
+                        >
+                          <MessageSquare className="w-4 h-4 mr-2" aria-hidden="true" />
+                          Contact Provider
+                        </Button>
                       </div>
                     )}
                   </div>
                 </div>
-
-                {/* Contact Provider Button */}
-                {user && provider.userId && user.uid !== provider.userId && (
-                  <div className="mt-6">
-                    <Button
-                      className="w-full bg-primary hover:bg-primaryDark text-white"
-                      onClick={async () => {
-                        try {
-                          const { findOrCreateConversation } = await import('../utils/chatHelpers');
-                          const chatId = await findOrCreateConversation(user.uid, provider.userId);
-                          navigate(`/chat?chatId=${chatId}`);
-                        } catch (error) {
-                          console.error('Error creating chat:', error);
-                          toast.error('Failed to start chat. Please try again.');
-                        }
-                      }}
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Contact Provider
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </motion.div>
 

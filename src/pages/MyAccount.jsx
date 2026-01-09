@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import userService from '../services/userService';
+import { getSafeAvatarUrl, isValidImageUrl } from '../utils/avatarHelpers';
 import propertyService from '../services/propertyService';
 import {
   collection,
@@ -50,7 +51,7 @@ import RegisterAsConstructor from './Dashboard/sections/RegisterAsConstructor';
  */
 const MyAccount = () => {
   const navigate = useNavigate();
-  const { currentUser, loading: authLoading, currentUserRole, isApprovedProvider } = useAuth();
+  const { currentUser, userProfile: authUserProfile, loading: authLoading, currentUserRole, isApprovedProvider } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -317,10 +318,11 @@ const MyAccount = () => {
 
         for (const colName of collections) {
           try {
+            // STABILIZED: Remove orderBy from Firestore query to avoid index requirement
+            // Sorting is done client-side after fetching
             const q = query(
               collection(db, colName),
-              where('userId', '==', currentUser.uid),
-              orderBy('createdAt', 'desc')
+              where('userId', '==', currentUser.uid)
             );
             const snapshot = await getDocs(q);
             snapshot.docs.forEach((doc) => {
@@ -331,32 +333,14 @@ const MyAccount = () => {
               });
             });
           } catch (err) {
-            // FIXED: Handle permission denied gracefully
+            // STABILIZED: Handle errors gracefully without fallback retries
             if (err.code === 'permission-denied') {
-              console.warn(`Collection "${colName}" is blocked by Firestore rules`);
-              continue; // Skip this collection
+              // Silently skip blocked collections
+              continue;
             }
-            // Try without orderBy for index errors
-            try {
-              const q = query(
-                collection(db, colName),
-                where('userId', '==', currentUser.uid)
-              );
-              const snapshot = await getDocs(q);
-              snapshot.docs.forEach((doc) => {
-                allRequests.push({
-                  id: doc.id,
-                  type: colName,
-                  ...doc.data(),
-                });
-              });
-            } catch (fallbackErr) {
-              // FIXED: Handle permission denied in fallback
-              if (fallbackErr.code === 'permission-denied') {
-                console.warn(`Collection "${colName}" is blocked by Firestore rules`);
-              } else {
-                console.error(`Error fetching ${colName}:`, fallbackErr);
-              }
+            // Log other errors but continue processing other collections
+            if (import.meta.env.DEV) {
+              console.warn(`Error fetching ${colName}:`, err.message);
             }
           }
         }
@@ -715,15 +699,46 @@ const MyAccount = () => {
                       <div className="space-y-6">
                         <div className="flex items-center space-x-6">
                           <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
-                            {profile.photoURL ? (
-                              <img
-                                src={profile.photoURL}
-                                alt={profile.displayName}
-                                className="w-24 h-24 rounded-full object-cover"
-                              />
-                            ) : (
-                              <User className="w-12 h-12 text-primary" />
-                            )}
+                            {(() => {
+                              // PHASE 4: Guaranteed render strategy with resolvedAvatarUrl
+                              const avatarUrl = getSafeAvatarUrl({
+                                photoURL: profile.photoURL,
+                                user: currentUser,
+                                userProfile: authUserProfile,
+                                displayName: profile.displayName,
+                                email: profile.email
+                              });
+                              
+                              // PHASE 3: Verify URL is valid before rendering
+                              if (!isValidImageUrl(avatarUrl)) {
+                                return <User className="w-12 h-12 text-primary" />;
+                              }
+                              
+                              return (
+                                <>
+                                  <img
+                                    key={avatarUrl} // Key ensures re-render when avatarUrl changes
+                                    src={avatarUrl}
+                                    alt={profile.displayName}
+                                    className="w-24 h-24 rounded-full object-cover"
+                                    onError={(e) => {
+                                      // PHASE 3: Handle blocked images - hide and show fallback
+                                      e.target.style.display = 'none';
+                                      const icon = e.target.nextElementSibling;
+                                      if (icon) {
+                                        icon.classList.remove('hidden');
+                                      }
+                                    }}
+                                    onLoad={() => {
+                                      // Hide fallback icon if image loads successfully
+                                      const icon = e.target.nextElementSibling;
+                                      if (icon) icon.classList.add('hidden');
+                                    }}
+                                  />
+                                  <User className="w-12 h-12 text-primary hidden" />
+                                </>
+                              );
+                            })()}
                           </div>
                           <div>
                             <h3 className="text-2xl font-bold text-textMain">
@@ -1009,7 +1024,7 @@ const MyAccount = () => {
                     <p className="text-textSecondary">
                       Access your constructor dashboard, manage projects, and view requests.
                     </p>
-                    <Button variant="primary" onClick={() => navigate('/constructor-dashboard')} icon={Hammer}>
+                    <Button variant="primary" onClick={() => navigate('/constructor/dashboard')} icon={Hammer}>
                       Open Constructor Dashboard
                     </Button>
                   </div>
