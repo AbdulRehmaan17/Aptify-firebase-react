@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, auth, storage } from '../firebase';
+import { db, auth } from '../firebase';
+import { uploadImage } from '../firebase/storageFunctions';
 import { useAuth } from '../context/AuthContext';
 import {
   Wrench,
@@ -200,12 +200,8 @@ const RegisterRenovator = () => {
 
     if (cnicFile) {
       try {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_cnic_${cnicFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `user_uploads/${currentUser.uid}/cnic/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, cnicFile);
-        uploads.cnicUrl = await getDownloadURL(storageRef);
+        const folder = `user_uploads/${currentUser.uid}/cnic`;
+        uploads.cnicUrl = await uploadImage(cnicFile, folder);
       } catch (error) {
         console.error('Error uploading CNIC:', error);
         throw new Error('Failed to upload CNIC document');
@@ -214,12 +210,8 @@ const RegisterRenovator = () => {
 
     if (profileImageFile) {
       try {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_profile_${profileImageFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `user_uploads/${currentUser.uid}/profile/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, profileImageFile);
-        uploads.profileImageUrl = await getDownloadURL(storageRef);
+        const folder = `user_uploads/${currentUser.uid}/profile`;
+        uploads.profileImageUrl = await uploadImage(profileImageFile, folder);
       } catch (error) {
         console.error('Error uploading profile image:', error);
         throw new Error('Failed to upload profile image');

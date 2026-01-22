@@ -18,6 +18,9 @@ const AddRental = () => {
   const navigate = useNavigate();
   const isEditMode = !!id;
 
+  // TEMP: Maps disabled due to billing issues
+  const mapsEnabled = false;
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -202,36 +205,33 @@ const AddRental = () => {
       newErrors.price = 'Valid price is required';
     }
 
-    // Validate location - allow manual address entry if Maps API is not available
-    // Use consistent validation logic
-    let hasApiKey = false;
-    try {
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      if (apiKey && typeof apiKey === 'string') {
-        const trimmed = apiKey.trim();
-        hasApiKey = trimmed !== '' && trimmed !== 'YOUR_GOOGLE_MAPS_API_KEY' && trimmed.length >= 10;
-      }
-    } catch (e) {
-      hasApiKey = false;
-    }
+    // TEMP: Maps disabled - check if mapsEnabled === false or location has address but no coordinates
+    const hasLocationAddress = locationData?.address && locationData.address.trim();
+    const hasLocationCoordinates = locationData?.lat && locationData?.lng;
+    const hasFormLocation = formData.location && formData.location.trim();
     
-    if (hasApiKey) {
-      // If API key is configured, require coordinates
-      if (!locationData.lat || !locationData.lng) {
+    if (mapsEnabled) {
+      // If maps are enabled, require coordinates
+      if (!hasLocationCoordinates) {
         newErrors.location = 'Please select a location on the map';
       }
-      if (!locationData.address || !locationData.address.trim()) {
+      if (!hasLocationAddress) {
         newErrors.location = 'Please search and select an address';
       }
     } else {
-      // If no API key, allow manual address entry
-      if (!formData.location || !formData.location.trim()) {
+      // TEMP: Maps disabled - accept plain text address (no lat/lng required)
+      if (!hasLocationAddress && !hasFormLocation) {
         newErrors.location = 'Please enter a property address';
       }
     }
 
     // FIXED: Images are now optional - removed required validation
     // Images can be empty, null, or undefined - form will still submit successfully
+
+    // TEMP: Log validation errors to console for debugging
+    if (Object.keys(newErrors).length > 0) {
+      console.error('Form validation errors:', newErrors);
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -495,16 +495,19 @@ const AddRental = () => {
               <LocationPicker
                 location={locationData.lat && locationData.lng ? locationData : null}
                 onLocationChange={(location) => {
-                  setLocationData(location);
-                  // Update form data for backward compatibility
-                  setFormData((prev) => ({
-                    ...prev,
-                    location: location.address || prev.location,
-                    city: location.city || prev.city,
-                  }));
-                  // Clear location error
-                  if (errors.location) {
-                    setErrors((prev) => ({ ...prev, location: '' }));
+                  // TEMP: Maps disabled - accept location with or without coordinates
+                  if (location) {
+                    setLocationData(location);
+                    // Update form data for backward compatibility
+                    setFormData((prev) => ({
+                      ...prev,
+                      location: location.address || prev.location,
+                      city: location.city || prev.city,
+                    }));
+                    // Clear location error
+                    if (errors.location) {
+                      setErrors((prev) => ({ ...prev, location: '' }));
+                    }
                   }
                 }}
                 required={true}

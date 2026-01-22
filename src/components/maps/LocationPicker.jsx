@@ -28,15 +28,22 @@ const LocationPicker = ({
   required = false,
   error = null,
 }) => {
+  // TEMP: Maps disabled due to billing issues
+  const mapsEnabled = false;
+
   const [currentLocation, setCurrentLocation] = useState(
     location || { lat: 24.8607, lng: 67.0011, address: '' } // Default: Karachi
   );
   const [address, setAddress] = useState(location?.address || '');
+
+  // TEMP: Maps disabled - skip map-related state and effects
   const [envValid, setEnvValid] = useState(true);
   const [envMessage, setEnvMessage] = useState(null);
 
-  // Validate API key on mount and when component updates
+  // TEMP: Maps disabled - guard map initialization
   useEffect(() => {
+    if (!mapsEnabled) return; // TEMP: Skip if maps disabled
+    
     // Re-validate API key (in case it was added after initial load)
     const validation = validateGoogleMapsConfig();
     setEnvValid(validation.valid);
@@ -56,7 +63,7 @@ const LocationPicker = ({
         console.log('💡 To debug, run: window.validateGoogleMapsKey() or window.debugGoogleMapsKey()');
       }
     }
-  }, []);
+  }, [mapsEnabled]);
 
   // Update when location prop changes
   useEffect(() => {
@@ -66,8 +73,10 @@ const LocationPicker = ({
     }
   }, [location]);
 
-  // Handle address selection from autocomplete
+  // TEMP: Maps disabled - handle address selection from autocomplete (guarded)
   const handleAddressSelect = (data) => {
+    if (!mapsEnabled) return; // TEMP: Skip if maps disabled
+    
     const newLocation = {
       lat: data.location.lat,
       lng: data.location.lng,
@@ -86,8 +95,10 @@ const LocationPicker = ({
     }
   };
 
-  // Handle location change from map
+  // TEMP: Maps disabled - handle location change from map (guarded)
   const handleMapLocationChange = (data) => {
+    if (!mapsEnabled) return; // TEMP: Skip if maps disabled
+    
     const newLocation = {
       ...currentLocation,
       lat: data.lat,
@@ -105,12 +116,13 @@ const LocationPicker = ({
     }
   };
 
-  // Handle manual address input when API key is missing
-  const handleManualAddressChange = (e) => {
+  // Handle plain text input change (used when maps are disabled)
+  const handlePlainTextChange = (e) => {
     const newAddress = e.target.value;
     setAddress(newAddress);
     
-    // Update location data with manual address
+    // Only update local state - no side effects, no API calls
+    // Update parent only with address string (no coordinates)
     if (onLocationChange) {
       onLocationChange({
         ...currentLocation,
@@ -119,7 +131,34 @@ const LocationPicker = ({
     }
   };
 
-  // Show warning if API key is not configured
+  // TEMP: Maps disabled - render plain text input only
+  if (!mapsEnabled) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-textSecondary mb-2">
+            <MapPin className="w-4 h-4 inline mr-1" />
+            Property Address <span className="text-error">{required ? '*' : ''}</span>
+          </label>
+          <input
+            type="text"
+            value={address}
+            onChange={handlePlainTextChange}
+            placeholder="Enter property address..."
+            className={`w-full px-3 py-2 border rounded-base focus:border-primary focus:ring-primary ${
+              error ? 'border-error' : 'border-muted'
+            }`}
+            required={required}
+          />
+          {error && (
+            <p className="text-error text-sm mt-1">{error}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // TEMP: Maps disabled - show warning if API key is not configured (guarded)
   if (!envValid) {
     return (
       <div className="space-y-4">
@@ -149,7 +188,7 @@ const LocationPicker = ({
           <input
             type="text"
             value={address}
-            onChange={handleManualAddressChange}
+            onChange={handlePlainTextChange}
             placeholder="Enter property address manually..."
             className={`w-full px-3 py-2 border rounded-base focus:border-primary focus:ring-primary ${
               error ? 'border-error' : 'border-muted'
@@ -169,6 +208,7 @@ const LocationPicker = ({
     );
   }
 
+  // TEMP: Maps disabled - map rendering code (guarded, not executed when mapsEnabled = false)
   return (
     <div className="space-y-4">
       {/* Address Search */}
@@ -191,27 +231,29 @@ const LocationPicker = ({
         )}
       </div>
 
-      {/* Map Display */}
-      <div>
-        <label className="block text-sm font-medium text-textSecondary mb-2">
-          Select Location on Map
-        </label>
-        <MapErrorBoundary height="400px">
-          <GoogleMap
-            center={{ lat: currentLocation.lat, lng: currentLocation.lng }}
-            onLocationChange={handleMapLocationChange}
-            height="400px"
-            draggable={true}
-            clickable={true}
-          />
-        </MapErrorBoundary>
-        <p className="text-xs text-textSecondary mt-2">
-          💡 Tip: Search for an address above or click/drag the marker on the map to set the location
-        </p>
-      </div>
+      {/* TEMP: Maps disabled - Map Display (guarded) */}
+      {mapsEnabled && (
+        <div>
+          <label className="block text-sm font-medium text-textSecondary mb-2">
+            Select Location on Map
+          </label>
+          <MapErrorBoundary height="400px">
+            <GoogleMap
+              center={{ lat: currentLocation.lat, lng: currentLocation.lng }}
+              onLocationChange={handleMapLocationChange}
+              height="400px"
+              draggable={true}
+              clickable={true}
+            />
+          </MapErrorBoundary>
+          <p className="text-xs text-textSecondary mt-2">
+            💡 Tip: Search for an address above or click/drag the marker on the map to set the location
+          </p>
+        </div>
+      )}
 
-      {/* Location Info */}
-      {currentLocation && 
+      {/* TEMP: Maps disabled - Location Info (guarded) */}
+      {mapsEnabled && currentLocation && 
        typeof currentLocation.lat === 'number' && 
        typeof currentLocation.lng === 'number' && (
         <div className="bg-muted/50 rounded-lg p-3 text-sm">

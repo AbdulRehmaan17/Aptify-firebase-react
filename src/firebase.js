@@ -1,10 +1,10 @@
 // src/firebase.js
 // Centralized Firebase configuration for Netlify deployment
-// All Firebase imports should use: import { auth, db, storage } from "./firebase";
+// All Firebase imports should use: import { auth, db } from "./firebase";
+// Note: storage is exported as null (Cloudinary is used for media storage)
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
 
 // Use environment variables (Vite syntax)
 // For Netlify: Set these in Netlify environment variables
@@ -23,6 +23,8 @@ const app = initializeApp(firebaseConfig);
 // Export Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
+// Storage is no longer used - using Cloudinary instead
+// Export null for backward compatibility with existing code
+export const storage = null;
 
 export default app;

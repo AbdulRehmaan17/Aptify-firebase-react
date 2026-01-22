@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, auth, storage } from '../firebase';
+import { db, auth } from '../firebase';
+import { uploadImage } from '../firebase/storageFunctions';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
 import {
@@ -24,7 +24,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
  * Allows property owners to submit renovation project requests.
  * Fetches user's properties from Firestore and creates a new renovation project.
  * Supports providerId from query params or route state (from RenovationList).
- * Handles optional photo uploads to Firebase Storage.
+ * Handles optional photo uploads to Cloudinary.
  * Automatically creates "renovationProjects" collection if it doesn't exist.
  */
 const RenovationRequestForm = () => {
@@ -211,9 +211,9 @@ const RenovationRequestForm = () => {
   };
 
   /**
-   * Upload photos to Firebase Storage
-   * Uploads to /renovation_photos/{userId}/{timestamp}_{filename}
-   * @returns {Promise<Array<string>>} - Array of download URLs
+   * Upload photos to Cloudinary
+   * Uploads to Cloudinary folder: renovation_photos/{userId}
+   * @returns {Promise<Array<string>>} - Array of Cloudinary secure URLs
    */
   const uploadPhotos = async () => {
     if (photos.length === 0) {
@@ -223,21 +223,11 @@ const RenovationRequestForm = () => {
     setUploadingPhotos(true);
     const uploadPromises = photos.map(async (file, index) => {
       try {
-        // Create unique filename: timestamp_filename
-        const timestamp = Date.now();
-        const filename = `${timestamp}_${index}_${file.name}`;
-        const storagePath = `renovation_photos/${currentUser.uid}/${filename}`;
+        // Upload to Cloudinary using storageFunctions
+        const folder = `renovation_photos/${currentUser.uid}`;
+        const downloadURL = await uploadImage(file, folder);
 
-        // Create storage reference
-        const storageRef = ref(storage, storagePath);
-
-        // Upload file
-        await uploadBytes(storageRef, file);
-
-        // Get download URL
-        const downloadURL = await getDownloadURL(storageRef);
-
-        console.log(`Photo uploaded: ${filename} -> ${downloadURL}`);
+        console.log(`Photo uploaded: ${file.name} -> ${downloadURL}`);
         return downloadURL;
       } catch (error) {
         console.error(`Error uploading photo ${file.name}:`, error);

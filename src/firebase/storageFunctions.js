@@ -1,39 +1,25 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from './index';
+import { uploadToCloudinary, uploadMultipleToCloudinary } from '../utils/cloudinaryUpload';
 
 /**
- * Upload an image file to Firebase Storage
+ * Upload an image file to Cloudinary
  * @param {File|Blob} file - The image file to upload
- * @param {string} path - Storage path (e.g., 'images/properties/')
- * @param {string} fileName - Optional custom file name (if not provided, uses file name)
- * @returns {Promise<string>} - Download URL of the uploaded image
+ * @param {string} path - Folder path in Cloudinary (e.g., 'properties', 'users/profile')
+ * @param {string} fileName - Optional custom file name (not used in Cloudinary, kept for compatibility)
+ * @returns {Promise<string>} - Secure URL of the uploaded image
  */
 export const uploadImage = async (file, path, fileName = null) => {
   try {
-    if (!storage) {
-      throw new Error('Storage is not initialized');
-    }
-
     if (!file) {
       throw new Error('No file provided');
     }
 
-    // Generate file name if not provided
-    const finalFileName = fileName || file.name || `image_${Date.now()}`;
+    // Use path as folder in Cloudinary (normalize it)
+    const folder = path ? path.replace(/\/+$/, '') : null;
 
-    // Ensure path ends with /
-    const normalizedPath = path.endsWith('/') ? path : `${path}/`;
+    // Upload to Cloudinary
+    const secureUrl = await uploadToCloudinary(file, folder);
 
-    // Create storage reference
-    const storageRef = ref(storage, `${normalizedPath}${finalFileName}`);
-
-    // Upload file
-    await uploadBytes(storageRef, file);
-
-    // Get download URL
-    const downloadURL = await getDownloadURL(storageRef);
-
-    return downloadURL;
+    return secureUrl;
   } catch (error) {
     console.error('Error uploading image:', error);
     throw error;
@@ -41,97 +27,67 @@ export const uploadImage = async (file, path, fileName = null) => {
 };
 
 /**
- * Upload multiple images
+ * Upload multiple images to Cloudinary
  * @param {Array<File|Blob>} files - Array of image files
- * @param {string} path - Storage path
- * @returns {Promise<Array<string>>} - Array of download URLs
+ * @param {string} path - Folder path in Cloudinary
+ * @returns {Promise<Array<string>>} - Array of secure URLs
  */
 export const uploadMultipleImages = async (files, path) => {
   try {
-    // FIXED: Images are optional - return empty array if no files
+    // Images are optional - return empty array if no files
     if (!Array.isArray(files) || files.length === 0) {
       return [];
     }
 
-    const uploadPromises = files
-      .filter((file) => file instanceof File) // Filter out invalid files
-      .map(async (file, index) => {
-        try {
-          const fileName = file.name || `image_${Date.now()}_${index}`;
-          return await uploadImage(file, path, fileName);
-        } catch (fileError) {
-          console.error(`Error uploading file ${index}:`, fileError);
-          // Continue with other files even if one fails
-          return null;
-        }
-      });
+    // Use path as folder in Cloudinary (normalize it)
+    const folder = path ? path.replace(/\/+$/, '') : null;
 
-    const downloadURLs = await Promise.all(uploadPromises);
-    // Filter out null results (failed uploads)
-    return downloadURLs.filter((url) => url !== null);
+    // Upload to Cloudinary
+    const secureUrls = await uploadMultipleToCloudinary(files, folder);
+
+    return secureUrls;
   } catch (error) {
     console.error('Error uploading multiple images:', error);
-    // FIXED: Don't throw - return empty array to allow form submission
+    // Don't throw - return empty array to allow form submission
     return [];
   }
 };
 
 /**
- * Delete an image from Firebase Storage
- * @param {string} imageUrl - Full URL or storage path of the image
+ * Delete an image from Cloudinary
+ * Note: Cloudinary deletion requires Admin API (backend only).
+ * This function is kept for compatibility but does not perform deletion.
+ * @param {string} imageUrl - Full URL of the image
  * @returns {Promise<void>}
  */
 export const deleteImage = async (imageUrl) => {
   try {
-    if (!storage) {
-      throw new Error('Storage is not initialized');
-    }
-
     if (!imageUrl) {
       throw new Error('No image URL provided');
     }
 
-    // Extract storage path from URL if full URL is provided
-    let storagePath = imageUrl;
-
-    // FIXED: Handle both firebasestorage.googleapis.com and appspot.com URLs
-    if (imageUrl.includes('firebasestorage.googleapis.com') || imageUrl.includes('appspot.com')) {
-      // Extract path from URL
-      // Format: https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{path}?alt=media
-      // Or: https://{bucket}.appspot.com/{path}
-      const urlParts = imageUrl.split('/o/');
-      if (urlParts.length > 1) {
-        const pathPart = urlParts[1].split('?')[0];
-        storagePath = decodeURIComponent(pathPart);
-      } else if (imageUrl.includes('appspot.com')) {
-        // Handle appspot.com format
-        const appspotParts = imageUrl.split('.appspot.com/');
-        if (appspotParts.length > 1) {
-          const pathPart = appspotParts[1].split('?')[0];
-          storagePath = decodeURIComponent(pathPart);
-        }
-      }
-    }
-
-    // Create storage reference
-    const imageRef = ref(storage, storagePath);
-
-    // Delete the file
-    await deleteObject(imageRef);
+    // Cloudinary deletion requires Admin API which needs API Secret (backend only)
+    // For unsigned upload preset, deletion is not supported from frontend
+    // This function is kept for compatibility but logs a warning
+    console.warn(
+      'Image deletion not supported with Cloudinary unsigned upload preset. ' +
+      'To delete images, use Cloudinary Admin API on the backend. Image URL:',
+      imageUrl
+    );
+    
+    // Return successfully to avoid breaking existing code
+    return;
   } catch (error) {
-    // If file doesn't exist, that's okay - just log it
-    if (error.code === 'storage/object-not-found') {
-      console.warn('Image not found in storage:', imageUrl);
-      return;
-    }
-    console.error('Error deleting image:', error);
-    throw error;
+    console.error('Error in deleteImage:', error);
+    // Don't throw to avoid breaking existing code
   }
 };
 
 /**
- * Delete multiple images
- * @param {Array<string>} imageUrls - Array of image URLs or paths
+ * Delete multiple images from Cloudinary
+ * Note: Cloudinary deletion requires Admin API (backend only).
+ * This function is kept for compatibility but does not perform deletion.
+ * @param {Array<string>} imageUrls - Array of image URLs
  * @returns {Promise<void>}
  */
 export const deleteMultipleImages = async (imageUrls) => {
@@ -140,28 +96,31 @@ export const deleteMultipleImages = async (imageUrls) => {
       throw new Error('No image URLs provided');
     }
 
+    // Cloudinary deletion requires Admin API (backend only)
+    // This function is kept for compatibility
     const deletePromises = imageUrls.map((url) => deleteImage(url));
     await Promise.allSettled(deletePromises);
   } catch (error) {
-    console.error('Error deleting multiple images:', error);
-    throw error;
+    console.error('Error in deleteMultipleImages:', error);
+    // Don't throw to avoid breaking existing code
   }
 };
 
 /**
- * Get download URL for an existing file
- * @param {string} storagePath - Storage path of the file
- * @returns {Promise<string>} - Download URL
+ * Get image URL (deprecated - Cloudinary URLs are returned directly)
+ * This function is kept for compatibility but returns the input URL as-is.
+ * @param {string} storagePath - Image URL (Cloudinary URLs are already complete)
+ * @returns {Promise<string>} - Image URL
  */
 export const getImageUrl = async (storagePath) => {
   try {
-    if (!storage) {
-      throw new Error('Storage is not initialized');
+    if (!storagePath) {
+      throw new Error('No image path/URL provided');
     }
 
-    const storageRef = ref(storage, storagePath);
-    const downloadURL = await getDownloadURL(storageRef);
-    return downloadURL;
+    // Cloudinary URLs are already complete, so return as-is
+    // This maintains compatibility with existing code
+    return storagePath;
   } catch (error) {
     console.error('Error getting image URL:', error);
     throw error;

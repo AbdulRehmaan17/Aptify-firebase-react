@@ -14,14 +14,8 @@ import {
   serverTimestamp,
   increment,
 } from 'firebase/firestore';
-import {
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-  listAll,
-} from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
+import { uploadMultipleImages, deleteImage } from '../firebase/storageFunctions';
 
 // Safety check for Firebase services
 const checkFirebaseServices = () => {
@@ -35,9 +29,7 @@ const checkFirebaseServices = () => {
     console.error('   → Ensure Firebase app is initialized');
     throw error;
   }
-  if (!storage) {
-    console.warn('⚠️ Firebase Storage is not initialized (non-critical for property fetching)');
-  }
+  // Storage check removed - using Cloudinary now
 };
 
 const PROPERTIES_COLLECTION = 'properties';
@@ -64,27 +56,23 @@ const isStoragePath = (value) => {
  * Convert a Firebase Storage path to a download URL
  * @param {string} storagePath - Storage path
  * @returns {Promise<string|null>} - Download URL or null if failed
+ * @deprecated Legacy Firebase Storage path conversion - no longer supported (using Cloudinary)
  */
 const convertStoragePathToUrl = async (storagePath) => {
-  if (!storage || !storagePath) return null;
+  // Legacy Firebase Storage path – no longer supported
+  // Firebase Storage has been replaced with Cloudinary
+  // Return null to indicate the path cannot be converted
+  if (!storagePath) return null;
   
-  // Check cache first
+  // Check cache first (may contain previously converted URLs)
   if (storagePathToUrlCache.has(storagePath)) {
     return storagePathToUrlCache.get(storagePath);
   }
   
-  try {
-    const imageRef = storageRef(storage, storagePath);
-    const downloadURL = await getDownloadURL(imageRef);
-    // Cache the result
-    storagePathToUrlCache.set(storagePath, downloadURL);
-    return downloadURL;
-  } catch (error) {
-    console.warn(`Failed to convert storage path to URL: ${storagePath}`, error);
-    // Cache null to avoid repeated failed attempts
-    storagePathToUrlCache.set(storagePath, null);
-    return null;
-  }
+  // Legacy paths cannot be converted - return null
+  console.warn('Legacy Firebase Storage path detected (no longer supported):', storagePath);
+  storagePathToUrlCache.set(storagePath, null);
+  return null;
 };
 
 /**
@@ -627,60 +615,45 @@ class PropertyService {
    * Upload images for a property
    * @param {string} propertyId - Property document ID
    * @param {Array} images - Array of image files
-   * @returns {Promise<Array>} - Array of download URLs
+   * @returns {Promise<Array>} - Array of Cloudinary secure URLs
    */
   async uploadImages(propertyId, images) {
     try {
-      // FIXED: Images are optional - return empty array if no images provided
+      // Images are optional - return empty array if no images provided
       if (!images || !Array.isArray(images) || images.length === 0) {
         return [];
       }
 
-      const uploadPromises = images
-        .filter((image) => image instanceof File) // Filter out invalid files
-        .map(async (image, index) => {
-          try {
-            const fileName = `${Date.now()}_${index}_${image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-            const imageRef = storageRef(storage, `properties/${propertyId}/${fileName}`);
+      // Upload to Cloudinary using storageFunctions (which uses Cloudinary)
+      const folder = `properties/${propertyId}`;
+      const secureUrls = await uploadMultipleImages(images, folder);
 
-            // Upload file to Firebase Storage
-            await uploadBytes(imageRef, image);
-            
-            // CRITICAL: Await getDownloadURL() AFTER upload completes to get the download URL string
-            const downloadURL = await getDownloadURL(imageRef);
-            return downloadURL;
-          } catch (uploadError) {
-            console.error(`Error uploading image ${index}:`, uploadError);
-            // Continue with other uploads even if one fails
-            return null;
-          }
-        });
-
-      const results = await Promise.all(uploadPromises);
-      // Filter out null results (failed uploads)
-      return results.filter((url) => url !== null);
+      return secureUrls;
     } catch (error) {
       console.error('Error uploading images:', error);
-      // FIXED: Don't throw error - return empty array to allow form submission
+      // Don't throw error - return empty array to allow form submission
       return [];
     }
   }
 
   /**
    * Delete all images for a property
+   * Note: Cloudinary deletion requires Admin API (backend only).
+   * This function is kept for compatibility but does not perform deletion.
    * @param {string} propertyId - Property document ID
    * @returns {Promise<void>}
    */
   async deleteImages(propertyId) {
     try {
-      const folderRef = storageRef(storage, `properties/${propertyId}`);
-      const listResult = await listAll(folderRef);
-
-      const deletePromises = listResult.items.map((item) => deleteObject(item));
-      await Promise.all(deletePromises);
+      // Cloudinary deletion requires Admin API (backend only)
+      // This function is kept for compatibility
+      console.warn(
+        'Image deletion not supported with Cloudinary unsigned upload preset. ' +
+        `Property ID: ${propertyId}`
+      );
     } catch (error) {
-      console.error('Error deleting images:', error);
-      // Don't throw error if folder doesn't exist
+      console.error('Error in deleteImages:', error);
+      // Don't throw error
     }
   }
 
@@ -697,17 +670,8 @@ class PropertyService {
         return;
       }
 
-      // Extract path from URL
-      const urlParts = imageUrl.split('/');
-      const pathIndex = urlParts.findIndex((part) => part === 'properties');
-      if (pathIndex === -1) {
-        console.warn('Invalid image URL format - skipping deletion');
-        return;
-      }
-
-      const path = urlParts.slice(pathIndex).join('/');
-      const imageRef = storageRef(storage, path);
-      await deleteObject(imageRef);
+      // Use the deleteImage function from storageFunctions (which handles Cloudinary)
+      await deleteImage(imageUrl);
     } catch (error) {
       // FIXED: Don't throw error if image doesn't exist - just log and continue
       if (error.code === 'storage/object-not-found') {

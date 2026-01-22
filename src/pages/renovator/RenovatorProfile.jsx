@@ -11,8 +11,8 @@ import {
   setDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../firebase';
+import { db } from '../../firebase';
+import { uploadImage, uploadMultipleImages } from '../../firebase/storageFunctions';
 import { useAuth } from '../../context/AuthContext';
 import {
   User,
@@ -334,12 +334,9 @@ const RenovatorProfile = () => {
 
     setUploadingProfileImage(true);
     try {
-      const timestamp = Date.now();
-      const fileName = `${timestamp}_profile_${newProfileImageFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const storagePath = `providers/renovators/${currentUser.uid}/profile/${fileName}`;
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, newProfileImageFile);
-      const url = await getDownloadURL(storageRef);
+      // Upload to Cloudinary using storageFunctions
+      const folder = `providers/renovators/${currentUser.uid}/profile`;
+      const url = await uploadImage(newProfileImageFile, folder);
       return url;
     } catch (error) {
       console.error('Error uploading profile image:', error);
@@ -354,18 +351,12 @@ const RenovatorProfile = () => {
     if (newPortfolioFiles.length === 0) return [];
 
     setUploadingImages(true);
-    const uploadedUrls = [];
+    let uploadedUrls = [];
 
     try {
-      for (const file of newPortfolioFiles) {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `providers/renovators/${currentUser.uid}/portfolio/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        uploadedUrls.push(url);
-      }
+      // Upload to Cloudinary using storageFunctions
+      const folder = `providers/renovators/${currentUser.uid}/portfolio`;
+      uploadedUrls = await uploadMultipleImages(newPortfolioFiles, folder);
     } catch (error) {
       console.error('Error uploading portfolio images:', error);
       throw new Error('Failed to upload portfolio images');

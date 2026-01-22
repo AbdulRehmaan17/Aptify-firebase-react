@@ -9,7 +9,6 @@ import {
   getRedirectResult,
 } from './auth';
 import { db } from './firestore';
-import { getStorage } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Export all Firebase services
@@ -17,19 +16,9 @@ export { auth, googleProvider, signInWithPopup, signInWithRedirect, getRedirectR
 export { db };
 export { firebaseConfig, app };
 
-// Storage initialization - only if app exists
-let storage = null;
-try {
-  if (app) {
-    storage = getStorage(app);
-  }
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error('Failed to initialize Firebase Storage:', error);
-    }
-  }
-
-export { storage };
+// Storage is no longer used - using Cloudinary instead
+// Export null for backward compatibility with existing code
+export const storage = null;
 
 // Functions initialization - only if app exists
 let functions = null;
@@ -47,7 +36,7 @@ export { functions, httpsCallable };
 
 // Helper functions
 export const isFirebaseInitialized = () => {
-  return !!app && !!auth && !!db && !!storage;
+  return !!app && !!auth && !!db;
 };
 
 export const getFirebaseInitError = () => {
@@ -60,8 +49,6 @@ export const getFirebaseInitError = () => {
   if (!db) {
     return new Error('Firebase Firestore not initialized');
   }
-  if (!storage) {
-    return new Error('Firebase Storage not initialized');
-  }
+  // Storage check removed - using Cloudinary now
   return null;
 };

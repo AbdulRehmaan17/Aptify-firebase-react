@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../../firebase';
+import { db } from '../../firebase';
+import { uploadMultipleImages, deleteImage } from '../../firebase/storageFunctions';
 import { useAuth } from '../../context/AuthContext';
 import {
   Upload,
@@ -127,31 +127,18 @@ const RenovatorPortfolio = () => {
     });
   };
 
-  // Upload images to Firebase Storage
+  // Upload images to Cloudinary
   const handleUpload = async () => {
-    if (!currentUser || !currentUser.uid || newImages.length === 0 || !db || !storage) {
+    if (!currentUser || !currentUser.uid || newImages.length === 0 || !db) {
       return;
     }
 
     try {
       setUploading(true);
-      const uploadedUrls = [];
 
-      for (const file of newImages) {
-        try {
-          const timestamp = Date.now();
-          const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-          const storagePath = `portfolios/renovators/${currentUser.uid}/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-
-          await uploadBytes(storageRef, file);
-          const url = await getDownloadURL(storageRef);
-          uploadedUrls.push(url);
-        } catch (error) {
-          console.error(`Error uploading ${file.name}:`, error);
-          toast.error(`Failed to upload ${file.name}`);
-        }
-      }
+      // Upload to Cloudinary using storageFunctions
+      const folder = `portfolios/renovators/${currentUser.uid}`;
+      const uploadedUrls = await uploadMultipleImages(newImages, folder);
 
       if (uploadedUrls.length === 0) {
         toast.error('No images were uploaded');
@@ -210,13 +197,8 @@ const RenovatorPortfolio = () => {
       // Try to delete from Storage (extract path from URL)
       try {
         // Extract storage path from URL
-        const urlParts = imageUrl.split('/');
-        const pathIndex = urlParts.findIndex((part) => part === 'portfolios');
-        if (pathIndex !== -1) {
-          const storagePath = urlParts.slice(pathIndex).join('/').split('?')[0];
-          const storageRef = ref(storage, decodeURIComponent(storagePath));
-          await deleteObject(storageRef);
-        }
+        // Use deleteImage from storageFunctions (handles Cloudinary)
+        await deleteImage(imageUrl);
       } catch (storageError) {
         console.warn('Error deleting from storage (continuing with Firestore update):', storageError);
         // Continue with Firestore update even if Storage delete fails

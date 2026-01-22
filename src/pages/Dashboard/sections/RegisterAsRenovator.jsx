@@ -11,8 +11,8 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../../../firebase';
+import { db } from '../../../firebase';
+import { uploadMultipleImages, deleteImage } from '../../../firebase/storageFunctions';
 import { useAuth } from '../../../context/AuthContext';
 import {
   User,
@@ -206,23 +206,12 @@ const RegisterAsRenovator = () => {
     if (!newPortfolioFiles || newPortfolioFiles.length === 0) return [];
 
     setUploading(true);
-    const uploadedUrls = [];
+    let uploadedUrls = [];
 
     try {
-      for (const file of newPortfolioFiles) {
-        try {
-          const timestamp = Date.now();
-          const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-          const storagePath = `renovators/${currentUser.uid}/portfolio/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-          await uploadBytes(storageRef, file);
-          const url = await getDownloadURL(storageRef);
-          uploadedUrls.push(url);
-        } catch (fileError) {
-          console.error('Error uploading individual portfolio image:', fileError);
-          // Continue with other files even if one fails
-        }
-      }
+      // Upload to Cloudinary using storageFunctions
+      const folder = `renovators/${currentUser.uid}/portfolio`;
+      uploadedUrls = await uploadMultipleImages(newPortfolioFiles, folder);
     } catch (error) {
       console.error('Error uploading portfolio images:', error);
       // FIXED: Don't throw - return what we have so form can still submit
@@ -463,12 +452,8 @@ const RegisterAsRenovator = () => {
       // Delete portfolio images from Storage
       for (const imageUrl of portfolioImages) {
         try {
-          // Extract path from URL or construct it
-          const urlParts = imageUrl.split('/');
-          const fileName = urlParts[urlParts.length - 1].split('?')[0];
-          const storagePath = `renovators/${currentUser.uid}/portfolio/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-          await deleteObject(storageRef);
+          // Delete image (Cloudinary deletion requires Admin API - no-op here)
+          await deleteImage(imageUrl);
         } catch (error) {
           console.error('Error deleting image:', error);
           // Continue even if image deletion fails

@@ -19,6 +19,9 @@ const PostPropertyPage = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadingProperty, setLoadingProperty] = useState(false);
   
+  // TEMP: Maps disabled due to billing issues
+  const mapsEnabled = false;
+  
   // State declarations (must be before useSubmitForm to be accessible in closure)
   const [locationData, setLocationData] = useState(null);
   const [images, setImages] = useState([]);
@@ -279,35 +282,27 @@ const PostPropertyPage = () => {
       newErrors.price = 'Valid price is required';
     }
 
-    // Validate location - allow manual address entry if Maps API is not available
-    // Use the same validation logic as other components
-    let hasApiKey = false;
-    try {
-      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      if (apiKey && typeof apiKey === 'string') {
-        const trimmed = apiKey.trim();
-        hasApiKey = trimmed !== '' && trimmed !== 'YOUR_GOOGLE_MAPS_API_KEY' && trimmed.length >= 10;
-      }
-    } catch (e) {
-      hasApiKey = false;
-    }
+    // TEMP: Maps disabled - check if mapsEnabled === false or location has address but no coordinates
+    const hasLocationAddress = locationData?.address && locationData.address.trim();
+    const hasLocationCoordinates = locationData?.lat && locationData?.lng;
     
-    if (hasApiKey) {
-      // If API key is configured, require coordinates
-      if (!locationData || !locationData.lat || !locationData.lng) {
+    if (mapsEnabled) {
+      // If maps are enabled, require coordinates
+      if (!hasLocationCoordinates) {
         newErrors['address.line1'] = 'Please select a location on the map';
       }
-      if (!locationData || !locationData.address || !locationData.address.trim()) {
+      if (!hasLocationAddress) {
         newErrors['address.line1'] = 'Please search and select an address';
       }
     } else {
-      // If no API key, allow manual address entry
-      if (!formData.address.line1 || !formData.address.line1.trim()) {
+      // TEMP: Maps disabled - accept plain text address (no lat/lng required)
+      if (!hasLocationAddress && (!formData.address.line1 || !formData.address.line1.trim())) {
         newErrors['address.line1'] = 'Please enter a property address';
       }
     }
 
-    if (!formData.address.city.trim()) {
+    // TEMP: City is optional when maps are disabled (location treated as plain text)
+    if (mapsEnabled && !formData.address.city.trim()) {
       newErrors['address.city'] = 'City is required';
     }
 
@@ -321,6 +316,11 @@ const PostPropertyPage = () => {
 
     if (!formData.areaSqFt || Number(formData.areaSqFt) <= 0) {
       newErrors.areaSqFt = 'Valid area is required';
+    }
+
+    // TEMP: Log validation errors to console for debugging
+    if (Object.keys(newErrors).length > 0) {
+      console.error('Form validation errors:', newErrors);
     }
 
     setErrors(newErrors);
@@ -337,6 +337,7 @@ const PostPropertyPage = () => {
     }
 
     if (!validateForm()) {
+      // TEMP: Errors are already logged in validateForm
       toast.error('Please fix the errors in the form.');
       return;
     }
@@ -543,10 +544,8 @@ const PostPropertyPage = () => {
                   ? locationData 
                   : null}
                 onLocationChange={(location) => {
-                  // Safely update location data
-                  if (location && 
-                      typeof location.lat === 'number' && 
-                      typeof location.lng === 'number') {
+                  // TEMP: Maps disabled - accept location with or without coordinates
+                  if (location) {
                     setLocationData(location);
                     // Update form data for backward compatibility
                     setFormData((prev) => ({
@@ -569,6 +568,41 @@ const PostPropertyPage = () => {
                 required={true}
                 error={errors['address.line1']}
               />
+              
+              {/* TEMP: City field when maps disabled */}
+              {!mapsEnabled && (
+                <div>
+                  <label className="block text-sm font-medium text-textSecondary mb-2">
+                    City <span className="text-error">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="address.city"
+                    value={formData.address.city}
+                    onChange={(e) => {
+                      const { name, value } = e.target;
+                      const fieldName = name.split('.');
+                      setFormData((prev) => ({
+                        ...prev,
+                        address: {
+                          ...prev.address,
+                          [fieldName[1]]: value,
+                        },
+                      }));
+                      if (errors['address.city']) {
+                        setErrors((prev) => ({ ...prev, 'address.city': '' }));
+                      }
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-accent transition-colors ${
+                      errors['address.city'] ? 'border-error' : 'border-muted'
+                    }`}
+                    placeholder="e.g., Lahore, Karachi, Islamabad"
+                  />
+                  {errors['address.city'] && (
+                    <p className="text-error text-sm mt-1">{errors['address.city']}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Property Details */}

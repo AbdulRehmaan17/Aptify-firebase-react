@@ -11,8 +11,8 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../../../firebase';
+import { db } from '../../../firebase';
+import { uploadMultipleImages, deleteImage } from '../../../firebase/storageFunctions';
 import { useAuth } from '../../../context/AuthContext';
 import {
   User,
@@ -248,23 +248,12 @@ const RegisterAsConstructor = () => {
     if (!newPortfolioFiles || newPortfolioFiles.length === 0) return [];
 
     setUploading(true);
-    const uploadedUrls = [];
+    let uploadedUrls = [];
 
     try {
-      for (const file of newPortfolioFiles) {
-        try {
-          const timestamp = Date.now();
-          const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-          const storagePath = `constructors/${currentUser.uid}/portfolio/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-          await uploadBytes(storageRef, file);
-          const url = await getDownloadURL(storageRef);
-          uploadedUrls.push(url);
-        } catch (fileError) {
-          console.error('Error uploading individual portfolio image:', fileError);
-          // Continue with other files even if one fails
-        }
-      }
+      // Upload to Cloudinary using storageFunctions
+      const folder = `constructors/${currentUser.uid}/portfolio`;
+      uploadedUrls = await uploadMultipleImages(newPortfolioFiles, folder);
     } catch (error) {
       console.error('Error uploading portfolio images:', error);
       // FIXED: Don't throw - return what we have so form can still submit
@@ -281,23 +270,12 @@ const RegisterAsConstructor = () => {
     if (!newLicenseFiles || newLicenseFiles.length === 0) return [];
 
     setUploading(true);
-    const uploadedUrls = [];
+    let uploadedUrls = [];
 
     try {
-      for (const file of newLicenseFiles) {
-        try {
-          const timestamp = Date.now();
-          const fileName = `${timestamp}_license_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-          const storagePath = `constructors/${currentUser.uid}/licenses/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-          await uploadBytes(storageRef, file);
-          const url = await getDownloadURL(storageRef);
-          uploadedUrls.push(url);
-        } catch (fileError) {
-          console.error('Error uploading individual license file:', fileError);
-          // Continue with other files even if one fails
-        }
-      }
+      // Upload to Cloudinary using storageFunctions
+      const folder = `constructors/${currentUser.uid}/licenses`;
+      uploadedUrls = await uploadMultipleImages(newLicenseFiles, folder);
     } catch (error) {
       console.error('Error uploading license files:', error);
       // FIXED: Don't throw - return what we have so form can still submit
@@ -550,27 +528,19 @@ const RegisterAsConstructor = () => {
     try {
       setSaving(true);
 
-      // Delete portfolio images from Storage
+      // Delete portfolio images (Cloudinary deletion requires Admin API - no-op here)
       for (const imageUrl of portfolioImages) {
         try {
-          const urlParts = imageUrl.split('/');
-          const fileName = urlParts[urlParts.length - 1].split('?')[0];
-          const storagePath = `constructors/${currentUser.uid}/portfolio/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-          await deleteObject(storageRef);
+          await deleteImage(imageUrl);
         } catch (error) {
           console.error('Error deleting portfolio image:', error);
         }
       }
 
-      // Delete license files from Storage
+      // Delete license files (Cloudinary deletion requires Admin API - no-op here)
       for (const licenseUrl of licenseFiles) {
         try {
-          const urlParts = licenseUrl.split('/');
-          const fileName = urlParts[urlParts.length - 1].split('?')[0];
-          const storagePath = `constructors/${currentUser.uid}/licenses/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-          await deleteObject(storageRef);
+          await deleteImage(licenseUrl);
         } catch (error) {
           console.error('Error deleting license file:', error);
         }

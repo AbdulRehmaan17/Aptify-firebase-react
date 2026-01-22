@@ -11,8 +11,8 @@ import {
   addDoc,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../firebase';
+import { db } from '../../firebase';
+import { uploadMultipleImages } from '../../firebase/storageFunctions';
 import { useAuth } from '../../context/AuthContext';
 import {
   Building2,
@@ -322,15 +322,9 @@ const ConstructorProjectDetails = () => {
       // Upload images
       let imageUrls = [];
       if (newUpdateImages.length > 0) {
-        for (const file of newUpdateImages) {
-          const timestamp = Date.now();
-          const fileName = `${timestamp}_update_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-          const storagePath = `constructionProjects/${projectId}/updates/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-          await uploadBytes(storageRef, file);
-          const url = await getDownloadURL(storageRef);
-          imageUrls.push(url);
-        }
+        // Upload to Cloudinary using storageFunctions
+        const folder = `constructionProjects/${projectId}/updates`;
+        imageUrls = await uploadMultipleImages(newUpdateImages, folder);
       }
 
       // Add update document

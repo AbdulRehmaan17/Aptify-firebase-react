@@ -12,8 +12,8 @@ import {
   onSnapshot,
   serverTimestamp,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage } from '../../firebase';
+import { db } from '../../firebase';
+import { uploadMultipleImages, deleteImage } from '../../firebase/storageFunctions';
 import { useAuth } from '../../context/AuthContext';
 import {
   User,
@@ -316,18 +316,12 @@ const ConstructorProfile = () => {
     if (newPortfolioFiles.length === 0) return [];
 
     setUploadingImages(true);
-    const uploadedUrls = [];
+    let uploadedUrls = [];
 
     try {
-      for (const file of newPortfolioFiles) {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_portfolio_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `providers/constructors/${currentUser.uid}/portfolio/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
-        uploadedUrls.push(url);
-      }
+      // Upload to Cloudinary using storageFunctions
+      const folder = `providers/constructors/${currentUser.uid}/portfolio`;
+      uploadedUrls = await uploadMultipleImages(newPortfolioFiles, folder);
     } catch (error) {
       console.error('Error uploading portfolio images:', error);
       throw new Error('Failed to upload portfolio images');

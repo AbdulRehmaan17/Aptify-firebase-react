@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, auth, storage } from '../firebase';
+import { db, auth } from '../firebase';
+import { uploadImage, uploadMultipleImages } from '../firebase/storageFunctions';
 import { useAuth } from '../context/AuthContext';
 import {
   Building2,
@@ -273,19 +273,15 @@ const RegisterConstructor = () => {
   };
 
   /**
-   * Upload files to Firebase Storage
+   * Upload files to Cloudinary
    */
   const uploadFiles = async () => {
     const uploads = {};
 
     if (cnicFile) {
       try {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_cnic_${cnicFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `providers/constructors/${currentUser.uid}/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, cnicFile);
-        uploads.cnicUrl = await getDownloadURL(storageRef);
+        const folder = `providers/constructors/${currentUser.uid}`;
+        uploads.cnicUrl = await uploadImage(cnicFile, folder);
       } catch (error) {
         console.error('Error uploading CNIC:', error);
         throw new Error('Failed to upload CNIC document');
@@ -294,12 +290,8 @@ const RegisterConstructor = () => {
 
     if (profileImageFile) {
       try {
-        const timestamp = Date.now();
-        const fileName = `${timestamp}_profile_${profileImageFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const storagePath = `providers/constructors/${currentUser.uid}/${fileName}`;
-        const storageRef = ref(storage, storagePath);
-        await uploadBytes(storageRef, profileImageFile);
-        uploads.profileImageUrl = await getDownloadURL(storageRef);
+        const folder = `providers/constructors/${currentUser.uid}`;
+        uploads.profileImageUrl = await uploadImage(profileImageFile, folder);
       } catch (error) {
         console.error('Error uploading profile image:', error);
         throw new Error('Failed to upload profile image');
@@ -308,22 +300,14 @@ const RegisterConstructor = () => {
 
     // Upload license files
     if (licenseFiles.length > 0) {
-      const licenseUrls = [];
-      for (const licenseFile of licenseFiles) {
-        try {
-          const timestamp = Date.now();
-          const fileName = `${timestamp}_license_${licenseFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-          const storagePath = `providers/constructors/${currentUser.uid}/${fileName}`;
-          const storageRef = ref(storage, storagePath);
-          await uploadBytes(storageRef, licenseFile);
-          const url = await getDownloadURL(storageRef);
-          licenseUrls.push(url);
-        } catch (error) {
-          console.error('Error uploading license file:', error);
-          throw new Error(`Failed to upload license file: ${licenseFile.name}`);
-        }
+      try {
+        const folder = `providers/constructors/${currentUser.uid}`;
+        const licenseUrls = await uploadMultipleImages(licenseFiles, folder);
+        uploads.licenseUrls = licenseUrls;
+      } catch (error) {
+        console.error('Error uploading license files:', error);
+        throw new Error('Failed to upload license files');
       }
-      uploads.licenseFiles = licenseUrls;
     }
 
     return uploads;

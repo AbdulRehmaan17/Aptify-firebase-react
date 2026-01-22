@@ -12,8 +12,8 @@ import {
   getDoc,
   getDocs,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
+import { uploadImage } from '../firebase/storageFunctions';
 import { useAuth } from '../context/AuthContext';
 import notificationService from '../services/notificationService';
 
@@ -134,12 +134,9 @@ export function useChatMessages(chatId) {
         if (attachments && attachments.length > 0) {
           for (const file of attachments) {
             try {
-              const storageRef = ref(
-                storage,
-                `user_uploads/${currentUser.uid}/chats/${chatId}/${Date.now()}_${file.name}`
-              );
-              await uploadBytes(storageRef, file);
-              const url = await getDownloadURL(storageRef);
+              // Upload to Cloudinary using storageFunctions
+              const folder = `user_uploads/${currentUser.uid}/chats/${chatId}`;
+              const url = await uploadImage(file, folder);
               attachmentUrls.push({
                 name: file.name,
                 url: url,

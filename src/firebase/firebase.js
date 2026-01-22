@@ -1,5 +1,4 @@
 // Re-export all Firebase services for backward compatibility
-import { getStorage } from 'firebase/storage';
 import app from './config';
 
 export {
@@ -13,18 +12,9 @@ export { db } from './firestore';
 export { firebaseConfig } from './config';
 export { default as app };
 
-// Storage initialization - only if app exists
-let storage = null;
-try {
-  if (app) {
-    storage = getStorage(app);
-  }
-} catch (error) {
-  if (import.meta.env.DEV) {
-    console.error('Failed to initialize Firebase Storage:', error);
-  }
-}
-export { storage };
+// Storage is no longer used - using Cloudinary instead
+// Export null for backward compatibility with existing code
+export const storage = null;
 
 // Helper functions
 export const isFirebaseInitialized = () => {

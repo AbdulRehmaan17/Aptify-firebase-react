@@ -1,6 +1,6 @@
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { db, storage, auth } from '../firebase';
+import { db, auth } from '../firebase';
+import { uploadImage, deleteImage as deleteImageFromStorage } from '../firebase/storageFunctions';
 
 // Use userProfiles collection per Firestore rules (owner-only access)
 const USER_PROFILES_COLLECTION = 'userProfiles';
@@ -161,16 +161,14 @@ class UserService {
         throw new Error('Invalid image file');
       }
 
-      const fileName = `${Date.now()}_${imageFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const imageRef = storageRef(storage, `users/${userId}/profile/${fileName}`);
-
-      await uploadBytes(imageRef, imageFile);
-      const downloadURL = await getDownloadURL(imageRef);
+      // Upload to Cloudinary using storageFunctions (which uses Cloudinary)
+      const folder = `users/${userId}/profile`;
+      const secureUrl = await uploadImage(imageFile, folder);
 
       // Update user profile with new photo URL
-      await this.updateProfile(userId, { photoURL: downloadURL });
+      await this.updateProfile(userId, { photoURL: secureUrl });
 
-      return downloadURL;
+      return secureUrl;
     } catch (error) {
       console.error('Error uploading profile image:', error);
       throw new Error(error.message || 'Failed to upload profile image');
@@ -179,6 +177,8 @@ class UserService {
 
   /**
    * Delete profile image
+   * Note: Cloudinary deletion requires Admin API (backend only).
+   * This function updates Firestore to remove photoURL but does not delete from Cloudinary.
    * @param {string} userId - User document ID
    * @param {string} imageUrl - URL of image to delete (optional, uses current photoURL if not provided)
    * @returns {Promise<void>}
@@ -199,17 +199,9 @@ class UserService {
         throw new Error('No image URL provided or found in profile');
       }
 
-      // Extract path from URL
-      const urlParts = urlToDelete.split('/');
-      const pathIndex = urlParts.findIndex((part) => part === 'users');
-      if (pathIndex === -1) {
-        throw new Error('Invalid image URL format');
-      }
-
-      const path = urlParts.slice(pathIndex).join('/');
-      const imageRef = storageRef(storage, path);
-
-      await deleteObject(imageRef);
+      // Cloudinary deletion requires Admin API (backend only)
+      // Use deleteImage function which handles this gracefully
+      await deleteImageFromStorage(urlToDelete);
 
       // Update user profile to remove photo URL
       await this.updateProfile(userId, { photoURL: null });
