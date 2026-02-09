@@ -631,8 +631,8 @@ class PropertyService {
       return secureUrls;
     } catch (error) {
       console.error('Error uploading images:', error);
-      // Don't throw error - return empty array to allow form submission
-      return [];
+      // Surface the error so callers can handle upload failures explicitly
+      throw error;
     }
   }
 

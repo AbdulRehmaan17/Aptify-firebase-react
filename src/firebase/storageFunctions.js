@@ -48,8 +48,8 @@ export const uploadMultipleImages = async (files, path) => {
     return secureUrls;
   } catch (error) {
     console.error('Error uploading multiple images:', error);
-    // Don't throw - return empty array to allow form submission
-    return [];
+    // Surface the error so callers can handle upload failures explicitly
+    throw error;
   }
 };
 

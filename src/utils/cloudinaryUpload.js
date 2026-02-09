@@ -37,6 +37,17 @@ export const uploadToCloudinary = async (file, folder = null) => {
       );
     }
 
+    if (import.meta.env.DEV) {
+      console.log('[Cloudinary] Starting upload', {
+        hasFile: !!file,
+        fileType: typeof file,
+        fileName: file?.name,
+        cloudName,
+        uploadPreset: uploadPreset ? '[set]' : '[missing]',
+        folder,
+      });
+    }
+
     // Create FormData for upload
     const formData = new FormData();
     formData.append('file', file);
@@ -60,8 +71,19 @@ export const uploadToCloudinary = async (file, folder = null) => {
       }
     );
 
+    if (import.meta.env.DEV) {
+      console.log('[Cloudinary] Upload response status', {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      if (import.meta.env.DEV) {
+        console.log('[Cloudinary] Error response body', errorData);
+      }
       throw new Error(
         errorData.error?.message || `Upload failed with status ${response.status}`
       );
@@ -72,6 +94,12 @@ export const uploadToCloudinary = async (file, folder = null) => {
     // Return secure_url from Cloudinary response
     if (!data.secure_url) {
       throw new Error('Cloudinary response missing secure_url');
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('[Cloudinary] Upload success', {
+        secureUrlPresent: !!data.secure_url,
+      });
     }
 
     return data.secure_url;
@@ -88,30 +116,32 @@ export const uploadToCloudinary = async (file, folder = null) => {
  * @returns {Promise<Array<string>>} - Array of secure URLs
  */
 export const uploadMultipleToCloudinary = async (files, folder = null) => {
-  try {
-    if (!Array.isArray(files) || files.length === 0) {
-      return [];
-    }
-
-    const uploadPromises = files
-      .filter((file) => file instanceof File || file instanceof Blob)
-      .map(async (file, index) => {
-        try {
-          return await uploadToCloudinary(file, folder);
-        } catch (fileError) {
-          console.error(`Error uploading file ${index}:`, fileError);
-          // Continue with other files even if one fails
-          return null;
-        }
-      });
-
-    const secureUrls = await Promise.all(uploadPromises);
-    // Filter out null results (failed uploads)
-    return secureUrls.filter((url) => url !== null && typeof url === 'string');
-  } catch (error) {
-    console.error('Error uploading multiple images to Cloudinary:', error);
-    // Return empty array to allow form submission to continue
+  if (!Array.isArray(files) || files.length === 0) {
     return [];
   }
+
+  const uploadPromises = files
+    .filter((file) => file instanceof File || file instanceof Blob)
+    .map(async (file, index) => {
+      try {
+        return await uploadToCloudinary(file, folder);
+      } catch (fileError) {
+        console.error(`Error uploading file ${index}:`, fileError);
+        // Continue with other files even if one fails
+        return null;
+      }
+    });
+
+  const secureUrls = await Promise.all(uploadPromises);
+  const successfulUrls = secureUrls.filter(
+    (url) => url !== null && typeof url === 'string'
+  );
+
+  // If we attempted uploads but none succeeded, surface a hard error
+  if (files.length > 0 && successfulUrls.length === 0) {
+    throw new Error('All Cloudinary image uploads failed');
+  }
+
+  return successfulUrls;
 };
 
