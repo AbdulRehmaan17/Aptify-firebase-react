@@ -79,18 +79,34 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
   // Check if this is a demo property
   const isDemo = property.id?.startsWith('demo-');
 
-  const handleCardClick = (e) => {
+  // Centralized helper to keep all navigation targets in sync
+  const getDetailPath = () => (isDemo ? '/properties' : `/properties/${property.id}`);
+
+  /**
+   * Shared navigation handler for both card and "View Details" button.
+   * - For demo properties: override link behavior and navigate to /properties
+   * - For normal properties: let the Link's default navigation handle it
+   */
+  const goToPropertyDetails = (e, { fromButton = false } = {}) => {
     if (isDemo) {
-      e.preventDefault();
-      navigate('/properties');
+      if (e) {
+        e.preventDefault();
+        if (fromButton) {
+          // Prevent the click from bubbling to the Link after we manually navigate
+          e.stopPropagation();
+        }
+      }
+      navigate(getDetailPath());
     }
+    // For non-demo properties, do not prevent default:
+    // the wrapping Link (with to={getDetailPath()}) handles navigation.
   };
 
   return (
     <Link
-      to={isDemo ? '/properties' : `/properties/${property.id}`}
+      to={getDetailPath()}
       className="block"
-      onClick={handleCardClick}
+      onClick={goToPropertyDetails}
     >
       <div className="bg-card shadow-sm rounded-lg border border-muted p-4 hover:shadow-md hover:border-primary transition group">
         {/* Image */}
@@ -237,14 +253,15 @@ const PropertyCard = ({ property, isFavorite = false, onFavoriteToggle }) => {
             </div>
           )}
 
-          {/* Action Button */}
+          {/* Action Button
+             NOTE: This button calls the same navigation helper as the card.
+             For normal properties, it lets the Link handle navigation.
+             For demo properties, it uses goToPropertyDetails to override the target. */}
           <Button
             className="w-full mt-2"
             variant="primary"
-            onClick={(e) => {
-              e.preventDefault();
-              // Navigate is handled by the Link wrapper
-            }}
+            type="button"
+            onClick={(e) => goToPropertyDetails(e, { fromButton: true })}
           >
             View Details
           </Button>
